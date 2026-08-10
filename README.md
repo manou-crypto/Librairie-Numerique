@@ -267,3 +267,4 @@ npm run lint         # Exécuter le linter ESLint
 - **Conception & Architecture** : Équipe d'Architecture Logicielle
 - **Dictionnaires de données & Modélisation UML 2.5** : Analystes & Concepteurs
 - **Stack** : Next.js, NestJS, Prisma, MySQL, Tailwind CSS
+"# Librairie-Numerique" 
