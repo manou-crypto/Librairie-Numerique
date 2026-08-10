@@ -1,0 +1,71 @@
+// achats.service.ts — Client API pour la gestion de l'approvisionnement et des bons d'achat
+// Alignés sur les tables achat et ligne_achat de la BD
+
+import { API_BASE_URL, getAuthHeaders } from '@/lib';
+
+export interface LigneAchatPayload {
+  produitId: string;
+  quantiteCommandee: number;
+  prixAchatUnitaireHt: number;
+}
+
+export interface AchatPayload {
+  numeroFactureFournisseur: string;
+  fournisseurId: string;
+  lignes: LigneAchatPayload[];
+}
+
+export interface AchatItem {
+  id: string;
+  numeroFactureFournisseur: string;
+  fournisseurId: string;
+  fournisseurNom: string;
+  utilisateurId: number;
+  dateAchat: string;
+  dateReception?: string;
+  montantTotalHt: number;
+  montantTotalTtc: number;
+  statutAchat: 'EN_ATTENTE' | 'RECU' | 'ANNULE';
+}
+
+export const achatsService = {
+  /**
+   * Créer un nouveau bon d'achat fournisseur
+   * POST /api/v1/achats
+   */
+  async create(payload: AchatPayload): Promise<AchatItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/achats`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) throw new Error("Échec de la création du bon d'achat");
+    return response.json();
+  },
+
+  /**
+   * Lister tous les bons d'achat
+   * GET /api/v1/achats
+   */
+  async getAll(): Promise<AchatItem[]> {
+    const response = await fetch(`${API_BASE_URL}/v1/achats`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error("Échec du chargement des bons d'achat");
+    return response.json();
+  },
+
+  /**
+   * Enregistrer la réception d'une commande (incrémente le stock)
+   * POST /api/v1/achats/:id/reception
+   */
+  async validerReception(id: string, lignesRecues: { produitId: string; quantiteRecue: number }[]): Promise<AchatItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/achats/${id}/reception`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ lignesRecues }),
+    });
+    if (!response.ok) throw new Error('Échec de la validation de la réception');
+    return response.json();
+  },
+};

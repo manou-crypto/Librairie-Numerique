@@ -1,0 +1,459 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ------------------------------------------------------
+// ENUMS
+// ------------------------------------------------------
+
+enum StatutUser {
+  ACTIF
+  INACTIF
+}
+
+enum EtatProduit {
+  NEUF
+  OCCASION
+  RECONDITIONNE
+}
+
+enum VisibiliteProduit {
+  VISIBLE
+  MASQUE
+}
+
+enum StatutAchat {
+  EN_ATTENTE
+  RECU
+  ANNULE
+}
+
+enum TypeMouvementStock {
+  ENTREE_ACHAT
+  SORTIE_VENTE
+  AJUSTEMENT_INVENTAIRE
+}
+
+enum StatutInventaire {
+  EN_COURS
+  VALIDE
+  ANNULE
+}
+
+enum StatutCaisse {
+  OUVERTE
+  FERMEE
+}
+
+enum StatutSession {
+  OUVERTE
+  CLOTUREE
+}
+
+enum StatutVente {
+  VALIDEE
+  ANNULEE
+  REMBOURSEE
+}
+
+enum ModePaiement {
+  ESPECES
+  CARTE_BANCAIRE
+  MOBILE_MONEY
+  CHEQUE
+}
+
+// ------------------------------------------------------
+// 1. SECTEUR SÉCURITÉ & RBAC
+// ------------------------------------------------------
+
+model Role {
+  id_role      Int              @id @default(autoincrement())
+  code_role    String           @unique @db.VarChar(50)
+  libelle      String           @db.VarChar(100)
+  utilisateurs Utilisateur[]
+  permissions  RolePermission[]
+
+  @@map("role")
+}
+
+model Utilisateur {
+  id_utilisateur    Int         @id @default(autoincrement())
+  id_role           Int
+  nom               String      @db.VarChar(100)
+  prenom            String      @db.VarChar(100)
+  email             String      @unique @db.VarChar(150)
+  mot_de_passe_hash String      @db.VarChar(255)
+  statut            StatutUser  @default(ACTIF)
+
+  role               Role                 @relation(fields: [id_role], references: [id_role])
+  logs               LogAudit[]
+  historiques_prix   HistoriquePrix[]
+  achats             Achat[]
+  mouvements_stock   MouvementStock[]
+  inventaires        Inventaire[]
+  sessions_caisse    SessionCaisse[]
+  clotures_validees  ClotureJournaliere[]
+
+  @@map("utilisateur")
+}
+
+model Permission {
+  id_permission   Int              @id @default(autoincrement())
+  code_permission String           @unique @db.VarChar(100)
+  module          String           @db.VarChar(50)
+  roles           RolePermission[]
+
+  @@map("permission")
+}
+
+model RolePermission {
+  id_role       Int
+  id_permission Int
+
+  role       Role       @relation(fields: [id_role], references: [id_role], onDelete: Cascade)
+  permission Permission @relation(fields: [id_permission], references: [id_permission], onDelete: Cascade)
+
+  @@id([id_role, id_permission])
+  @@map("role_permission")
+}
+
+model LogAudit {
+  id_log         BigInt   @id @default(autoincrement())
+  id_utilisateur Int?
+  action         String   @db.VarChar(50)
+  entite_cible   String   @db.VarChar(50)
+  details_json   Json?
+  date_action    DateTime @default(now())
+
+  utilisateur Utilisateur? @relation(fields: [id_utilisateur], references: [id_utilisateur], onDelete: SetNull)
+
+  @@map("log_audit")
+}
+
+// ------------------------------------------------------
+// 2. CATALOGUE & EAV
+// ------------------------------------------------------
+
+model Categorie {
+  id_categorie         Int    @id @default(autoincrement())
+  nom                  String @db.VarChar(100)
+  slug                 String @unique @db.VarChar(120)
+  id_categorie_parente Int?
+
+  parent           Categorie?         @relation("ArborescenceCategorie", fields: [id_categorie_parente], references: [id_categorie], onDelete: SetNull)
+  sous_categories  Categorie[]        @relation("ArborescenceCategorie")
+  produits         CategorieProduit[]
+
+  @@map("categorie")
+}
+
+model Produit {
+  id_produit        Int               @id @default(autoincrement())
+  reference         String            @unique @db.VarChar(50)
+  code_barre        String?           @unique @db.VarChar(100)
+  libelle           String            @db.VarChar(255)
+  description       String?           @db.Text
+  marque            String?           @db.VarChar(100)
+  unite             String            @default("Pièce") @db.VarChar(50)
+  poids             Decimal?          @db.Decimal(8, 2)
+  etat              EtatProduit       @default(NEUF)
+  prix_achat        Decimal           @default(0.00) @db.Decimal(10, 2)
+  prix_vente        Decimal           @default(0.00) @db.Decimal(10, 2)
+  taux_tva          Decimal           @default(20.00) @db.Decimal(4, 2)
+  statut_visibilite VisibiliteProduit @default(VISIBLE)
+  date_creation     DateTime          @default(now())
+
+  categories        CategorieProduit[]
+  images            ImageProduit[]
+  valeurs_attribut  ValeurAttribut[]
+  historiques_prix  HistoriquePrix[]
+  lignes_achat      LigneAchat[]
+  stock             Stock?
+  mouvements_stock  MouvementStock[]
+  lignes_inventaire LigneInventaire[]
+  lignes_vente      LigneVente[]
+
+  @@map("produit")
+}
+
+model CategorieProduit {
+  id_produit   Int
+  id_categorie Int
+
+  produit   Produit   @relation(fields: [id_produit], references: [id_produit], onDelete: Cascade)
+  categorie Categorie @relation(fields: [id_categorie], references: [id_categorie], onDelete: Cascade)
+
+  @@id([id_produit, id_categorie])
+  @@map("categorie_produit")
+}
+
+model ImageProduit {
+  id_image       Int     @id @default(autoincrement())
+  id_produit     Int
+  url_image      String  @db.VarChar(500)
+  est_principale Boolean @default(false)
+
+  produit Produit @relation(fields: [id_produit], references: [id_produit], onDelete: Cascade)
+
+  @@map("image_produit")
+}
+
+model AttributSpecifique {
+  id_attribut   Int              @id @default(autoincrement())
+  code_attribut String           @unique @db.VarChar(50)
+  libelle       String           @db.VarChar(100)
+  valeurs       ValeurAttribut[]
+
+  @@map("attribut_specifique")
+}
+
+model ValeurAttribut {
+  id_produit  Int
+  id_attribut Int
+  valeur      String @db.Text
+
+  produit  Produit            @relation(fields: [id_produit], references: [id_produit], onDelete: Cascade)
+  attribut AttributSpecifique @relation(fields: [id_attribut], references: [id_attribut], onDelete: Cascade)
+
+  @@id([id_produit, id_attribut])
+  @@map("valeur_attribut")
+}
+
+model HistoriquePrix {
+  id_historique      Int      @id @default(autoincrement())
+  id_produit         Int
+  id_utilisateur     Int
+  ancien_prix_achat  Decimal  @db.Decimal(10, 2)
+  nouveau_prix_achat Decimal  @db.Decimal(10, 2)
+  ancien_prix_vente  Decimal  @db.Decimal(10, 2)
+  nouveau_prix_vente Decimal  @db.Decimal(10, 2)
+  motif_changement   String?  @db.VarChar(255)
+  date_changement    DateTime @default(now())
+
+  produit     Produit     @relation(fields: [id_produit], references: [id_produit])
+  utilisateur Utilisateur @relation(fields: [id_utilisateur], references: [id_utilisateur])
+
+  @@map("historique_prix")
+}
+
+// ------------------------------------------------------
+// 3. APPROVISIONNEMENT & FOURNISSEURS
+// ------------------------------------------------------
+
+model Fournisseur {
+  id_fournisseur      Int     @id @default(autoincrement())
+  nom_entreprise      String  @db.VarChar(150)
+  contact_nom         String? @db.VarChar(100)
+  telephone           String? @db.VarChar(30)
+  email               String? @db.VarChar(150)
+  adresse             String? @db.VarChar(255)
+  ville               String? @db.VarChar(100)
+  pays                String? @default("Côte d'Ivoire") @db.VarChar(100)
+  numero_contribuable String? @db.VarChar(100)
+  observations        String? @db.Text
+
+  achats Achat[]
+
+  @@map("fournisseur")
+}
+
+model Achat {
+  id_achat                   Int         @id @default(autoincrement())
+  numero_facture_fournisseur String      @db.VarChar(100)
+  id_fournisseur             Int
+  id_utilisateur             Int
+  date_achat                 DateTime    @default(now())
+  date_reception             DateTime?
+  montant_total_ht           Decimal     @default(0.00) @db.Decimal(10, 2)
+  montant_total_ttc          Decimal     @default(0.00) @db.Decimal(10, 2)
+  statut_achat               StatutAchat @default(EN_ATTENTE)
+
+  fournisseur      Fournisseur      @relation(fields: [id_fournisseur], references: [id_fournisseur])
+  utilisateur      Utilisateur      @relation(fields: [id_utilisateur], references: [id_utilisateur])
+  lignes           LigneAchat[]
+  mouvements_stock MouvementStock[]
+
+  @@map("achat")
+}
+
+model LigneAchat {
+  id_ligne_achat         Int     @id @default(autoincrement())
+  id_achat               Int
+  id_produit             Int
+  quantite_commandee     Int
+  quantite_recue         Int     @default(0)
+  prix_achat_unitaire_ht Decimal @db.Decimal(10, 2)
+
+  achat   Achat   @relation(fields: [id_achat], references: [id_achat], onDelete: Cascade)
+  produit Produit @relation(fields: [id_produit], references: [id_produit])
+
+  @@map("ligne_achat")
+}
+
+// ------------------------------------------------------
+// 4. STOCKS & INVENTAIRES
+// ------------------------------------------------------
+
+model Stock {
+  id_stock             Int       @id @default(autoincrement())
+  id_produit           Int       @unique
+  quantite_en_stock    Int       @default(0)
+  seuil_alerte         Int       @default(5)
+  date_derniere_entree DateTime?
+  date_derniere_sortie DateTime?
+
+  produit Produit @relation(fields: [id_produit], references: [id_produit], onDelete: Cascade)
+
+  @@map("stock")
+}
+
+model MouvementStock {
+  id_mouvement   Int                @id @default(autoincrement())
+  id_produit     Int
+  id_utilisateur Int
+  id_achat       Int?
+  type_mouvement TypeMouvementStock
+  quantite       Int
+  date_mouvement DateTime           @default(now())
+
+  produit     Produit     @relation(fields: [id_produit], references: [id_produit])
+  utilisateur Utilisateur @relation(fields: [id_utilisateur], references: [id_utilisateur])
+  achat       Achat?      @relation(fields: [id_achat], references: [id_achat], onDelete: SetNull)
+
+  @@map("mouvement_stock")
+}
+
+model Inventaire {
+  id_inventaire        Int              @id @default(autoincrement())
+  reference_inventaire String           @unique @db.VarChar(60)
+  id_utilisateur       Int
+  date_inventaire      DateTime         @default(now())
+  statut_inventaire    StatutInventaire @default(EN_COURS)
+  observations         String?          @db.Text
+
+  utilisateur Utilisateur       @relation(fields: [id_utilisateur], references: [id_utilisateur])
+  lignes      LigneInventaire[]
+
+  @@map("inventaire")
+}
+
+model LigneInventaire {
+  id_ligne_inventaire Int     @id @default(autoincrement())
+  id_inventaire       Int
+  id_produit          Int
+  quantite_theorique  Int
+  quantite_reelle     Int
+  ecart               Int
+  motif_ajustement    String? @db.VarChar(255)
+
+  inventaire Inventaire @relation(fields: [id_inventaire], references: [id_inventaire], onDelete: Cascade)
+  produit    Produit    @relation(fields: [id_produit], references: [id_produit])
+
+  @@map("ligne_inventaire")
+}
+
+// ------------------------------------------------------
+// 5. CAISSES, VENTES & FINANCES
+// ------------------------------------------------------
+
+model Caisse {
+  id_caisse     Int          @id @default(autoincrement())
+  code_caisse   String       @unique @db.VarChar(50)
+  emplacement   String?      @db.VarChar(100)
+  statut_caisse StatutCaisse @default(FERMEE)
+
+  sessions SessionCaisse[]
+
+  @@map("caisse")
+}
+
+model SessionCaisse {
+  id_session             Int           @id @default(autoincrement())
+  id_caisse              Int
+  id_utilisateur         Int
+  date_ouverture         DateTime      @default(now())
+  date_cloture           DateTime?
+  fond_de_caisse_initial Decimal       @default(0.00) @db.Decimal(10, 2)
+  total_encaisse_calcule Decimal       @default(0.00) @db.Decimal(10, 2)
+  total_encaisse_reel    Decimal       @default(0.00) @db.Decimal(10, 2)
+  ecart_caisse           Decimal       @default(0.00) @db.Decimal(10, 2)
+  motif_ecart            String?       @db.Text
+  statut_session         StatutSession @default(OUVERTE)
+
+  caisse      Caisse      @relation(fields: [id_caisse], references: [id_caisse])
+  utilisateur Utilisateur @relation(fields: [id_utilisateur], references: [id_utilisateur])
+  ventes      Vente[]
+
+  @@map("session_caisse")
+}
+
+model Vente {
+  id_vente         Int         @id @default(autoincrement())
+  reference_ticket String      @unique @db.VarChar(60)
+  id_session       Int
+  date_vente       DateTime    @default(now())
+  total_ht         Decimal     @db.Decimal(10, 2)
+  total_tva        Decimal     @db.Decimal(10, 2)
+  total_ttc        Decimal     @db.Decimal(10, 2)
+  marge_totale     Decimal     @db.Decimal(10, 2)
+  statut_vente     StatutVente @default(VALIDEE)
+
+  session   SessionCaisse @relation(fields: [id_session], references: [id_session])
+  lignes    LigneVente[]
+  paiements Paiement[]
+
+  @@map("vente")
+}
+
+model LigneVente {
+  id_ligne_vente                 Int     @id @default(autoincrement())
+  id_vente                       Int
+  id_produit                     Int
+  quantite                       Int
+  prix_achat_unitaire_snapshot   Decimal @db.Decimal(10, 2)
+  prix_vente_unitaire_ht_snapshot Decimal @db.Decimal(10, 2)
+  taux_tva_snapshot              Decimal @db.Decimal(4, 2)
+  marge_unitaire                 Decimal @db.Decimal(10, 2)
+  total_ligne_ht                 Decimal @db.Decimal(10, 2)
+
+  vente   Vente   @relation(fields: [id_vente], references: [id_vente], onDelete: Cascade)
+  produit Produit @relation(fields: [id_produit], references: [id_produit])
+
+  @@map("ligne_vente")
+}
+
+model Paiement {
+  id_paiement           Int          @id @default(autoincrement())
+  id_vente              Int
+  mode_paiement         ModePaiement
+  montant               Decimal      @db.Decimal(10, 2)
+  reference_transaction String?      @db.VarChar(100)
+  date_paiement         DateTime     @default(now())
+
+  vente Vente @relation(fields: [id_vente], references: [id_vente], onDelete: Cascade)
+
+  @@map("paiement")
+}
+
+model ClotureJournaliere {
+  id_cloture                 Int      @id @default(autoincrement())
+  date_cloture               DateTime @unique @db.Date
+  chiffre_affaires_ht        Decimal  @db.Decimal(10, 2)
+  chiffre_affaires_ttc       Decimal  @db.Decimal(10, 2)
+  tva_collectee              Decimal  @db.Decimal(10, 2)
+  benefice_brut_total        Decimal  @db.Decimal(10, 2)
+  nombre_ventes              Int
+  nombre_articles_vendus     Int
+  id_utilisateur_validation Int
+  date_validation            DateTime @default(now())
+
+  utilisateur_validation Utilisateur @relation(fields: [id_utilisateur_validation], references: [id_utilisateur])
+
+  @@map("cloture_journaliere")
+}

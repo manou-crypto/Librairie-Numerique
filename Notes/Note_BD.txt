@@ -1,0 +1,10 @@
+1. Analyse de ta Base de Données
+Ton modèle de base de données est déjà très solide et couvre 95% des besoins du cahier des charges. Cependant, vu que tu vas utiliser Laravel, il y a plusieurs ajustements stratégiques et corrections à y apporter :
+
+🛠️ Améliorations recommandées (et intégrées dans le script ci-dessous) :
+Conventions de requêtes Laravel (Timestamps) : Laravel utilise nativement des colonnes created_at et updated_at pour suivre la création et la modification des données. Je les ai ajoutées.
+Soft Deletes (Suppression logique) : Dans un logiciel de caisse/comptabilité, on ne supprime jamais vraiment un produit ou une vente (pour garantir la cohérence des archives). J'ai ajouté une colonne deleted_at manquante pour activer la fonctionnalité SoftDeletes de Laravel.
+Marge et Rentabilité : Pour calculer précisément tes marges (comme demandé dans le module "Reporting"), il faut enregistrer le prix_achat_ht_histo dans Detail_Vente. Sinon, si le prix d'achat change 6 mois plus tard, tes anciens rapports de marge seront faussés.
+Logique Métier (Triggers vs Laravel) :
+Attention à ton Trigger FIFO (trg_stock_vente_auto) : Ta condition quantite_restante >= NEW.quantite pose un problème. Si tu vends 5 articles, mais que le lot le plus ancien n'en a que 3, le trigger va l'ignorer et déduire les 5 directement du lot suivant ! Le lot le plus proche de la péremption ne sera pas vidé.
+Recommandation : Dans un framework comme Laravel, il est préférable de gérer cette logique dans des "Services" ou des "Actions" PHP plutôt que dans des triggers SQL. Cela te permet de gérer la répartition sur plusieurs lots facilement, d'ajouter des logs, et de rendre le code plus maintenable. J'ai gardé les triggers pour les totaux, mais retiré celui du stock par mesure de sécurité, à implémenter côté Laravel.

@@ -1,0 +1,124 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+
+@Injectable()
+export class StockService {
+  constructor(private prisma: PrismaService) {}
+
+  async findAll(query?: { search?: string; status?: string }) {
+    const stocks = await this.prisma.stock.findMany({
+      include: {
+        produit: {
+          include: {
+            categories: { include: { categorie: true } },
+          },
+        },
+      },
+      orderBy: { id_stock: 'asc' },
+    });
+
+    let result = stocks.map((s) => {
+      const qte = s.quantite_en_stock;
+      const seuil = s.seuil_alerte;
+      return {
+        id: String(s.id_stock),
+        produitId: String(s.id_produit),
+        produitReference: s.produit.reference,
+        produitLibelle: s.produit.libelle,
+        categoryName: s.produit.categories[0]?.categorie?.nom || 'Général',
+        quantiteEnStock: qte,
+        seuilAlerte: seuil,
+        dateDerniereEntree: s.date_derniere_entree ? s.date_derniere_entree.toISOString() : undefined,
+        dateDerniereSortie: s.date_derniere_sortie ? s.date_derniere_sortie.toISOString() : undefined,
+        estEnAlerte: qte > 0 && qte <= seuil,
+        estEnRupture: qte === 0,
+      };
+    });
+
+    if (query?.search) {
+      const q = query.search.toLowerCase();
+      result = result.filter(
+        (r) => r.produitLibelle.toLowerCase().includes(q) || r.produitReference.toLowerCase().includes(q)
+      );
+    }
+
+    if (query?.status === 'rupture') {
+      result = result.filter((r) => r.estEnRupture);
+    } else if (query?.status === 'alerte') {
+      result = result.filter((r) => r.estEnAlerte);
+    } else if (query?.status === 'ok') {
+      result = result.filter((r) => !r.estEnAlerte && !r.estEnRupture);
+    }
+
+    return result;
+  }
+
+  async ajusterStock(userId: number, data: { produitId: string; typeMouvement: 'ENTREE_ACHAT' | 'SORTIE_VENTE' | 'AJUSTEMENT_INVENTAIRE'; quantite: number; achatId?: string }) {
+    const produitIdNum = Number(data.produitId);
+    const stock = await this.prisma.stock.findUnique({
+      where: { id_produit: produitIdNum },
+    });
+
+    if (!stock) {
+      throw new NotFoundException(`Stock introuvable pour le produit #${data.produitId}`);
+    }
+
+    const nouvelleQte =
+      data.typeMouvement === 'ENTREE_ACHAT'
+        ? stock.quantite_en_stock + data.quantite
+        : data.typeMouvement === 'SORTIE_VENTE'
+        ? Math.max(0, stock.quantite_en_stock - data.quantite)
+        : data.quantite;
+
+    const [updatedStock, mouvement] = await this.prisma.$transaction([
+      this.prisma.stock.update({
+        where: { id_produit: produitIdNum },
+        data: {
+          quantite_en_stock: nouvelleQte,
+          ...(data.typeMouvement === 'ENTREE_ACHAT'
+            ? { date_derniere_entree: new Date() }
+            : { date_derniere_sortie: new Date() }),
+        },
+      }),
+      this.prisma.mouvementStock.create({
+        data: {
+          id_produit: produitIdNum,
+          id_utilisateur: userId,
+          type_mouvement: data.typeMouvement,
+          quantite: data.quantite,
+          ...(data.achatId ? { id_achat: Number(data.achatId) } : {}),
+        },
+      }),
+    ]);
+
+    return {
+      id: String(mouvement.id_mouvement),
+      produitId: String(mouvement.id_produit),
+      utilisateurId: mouvement.id_utilisateur,
+      typeMouvement: mouvement.type_mouvement,
+      quantite: mouvement.quantite,
+      dateMouvement: mouvement.date_mouvement.toISOString(),
+      nouvelleQuantiteEnStock: updatedStock.quantite_en_stock,
+    };
+  }
+
+  async getMouvements(produitId?: string) {
+    const where = produitId ? { id_produit: Number(produitId) } : {};
+    const mouvements = await this.prisma.mouvementStock.findMany({
+      where,
+      include: { produit: true, utilisateur: true },
+      orderBy: { date_mouvement: 'desc' },
+      take: 100,
+    });
+
+    return mouvements.map((m) => ({
+      id: String(m.id_mouvement),
+      produitId: String(m.id_produit),
+      produitLibelle: m.produit.libelle,
+      utilisateurNom: `${m.utilisateur.prenom} ${m.utilisateur.nom}`,
+      typeMouvement: m.type_mouvement,
+      quantite: m.quantite,
+      dateMouvement: m.date_mouvement.toISOString(),
+    }));
+  }
+}

@@ -1,0 +1,25 @@
+# SSL/TLS Certificates Directory
+
+## Setup Instructions
+
+### Self-signed Certificate (Development)
+
+```bash
+openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes
+```
+
+### Let's Encrypt Certificate (Production)
+
+```bash
+certbot certonly --standalone -d your-domain.com
+# Then copy:
+# /etc/letsencrypt/live/your-domain.com/fullchain.pem -> cert.pem
+# /etc/letsencrypt/live/your-domain.com/privkey.pem -> key.pem
+```
+
+### Certificate Format
+
+- `cert.pem` - SSL Certificate
+- `key.pem` - Private Key
+
+**Important**: Never commit keys to version control!
