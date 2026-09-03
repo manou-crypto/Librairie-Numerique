@@ -21,7 +21,15 @@ export interface Produit {
   status: 'VISIBLE' | 'MASQUE';
   categoryId: string;
   categoryName: string;
+  categoryIds?: string[];
   imageUrl?: string;
+}
+
+export interface CategorieItem {
+  id: string;
+  nom: string;
+  slug: string;
+  parentId: string | null;
 }
 
 export interface ProduitsFilters {
@@ -41,6 +49,31 @@ export interface PaginatedResponse<T> {
 }
 
 export const produitsService = {
+  /**
+   * Récupérer toutes les catégories
+   * GET /api/v1/categories
+   */
+  async getCategories(): Promise<CategorieItem[]> {
+    const response = await fetch(`${API_BASE_URL}/v1/categories`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Échec du chargement des catégories');
+    return response.json();
+  },
+
+  /**
+   * Créer une nouvelle catégorie
+   * POST /api/v1/categories
+   */
+  async createCategory(data: { nom: string; parentId?: string | null }): Promise<CategorieItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/categories`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Échec de la création de la catégorie');
+    return response.json();
+  },
   /**
    * Liste paginée des produits avec filtres
    * GET /api/v1/produits
@@ -136,5 +169,29 @@ export const produitsService = {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error(`Échec de la suppression du produit #${id}`);
+  },
+
+  /**
+   * Associer une image Cloudinary à un produit
+   */
+  async addImage(id: string, url: string, estPrincipale: boolean = false): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/v1/produits/${id}/images`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ url, est_principale: estPrincipale }),
+    });
+    if (!response.ok) throw new Error(`Échec de l'ajout de l'image`);
+    return response.json();
+  },
+
+  /**
+   * Supprimer une image d'un produit
+   */
+  async removeImage(imageId: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/v1/produits/images/${imageId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error(`Échec de la suppression de l'image`);
   },
 };

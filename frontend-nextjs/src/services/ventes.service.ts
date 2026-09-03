@@ -25,6 +25,21 @@ export interface VentePayload {
   paiements: PaiementPayload[];
 }
 
+export interface VenteLigneResponse {
+  id: string;
+  produitId: string;
+  produitLibelle: string;
+  quantite: number;
+  prixVenteUnitaireHt: number;
+  tauxTva: number;
+  totalLigneHt: number;
+}
+
+export interface VentePaiementResponse {
+  modePaiement: string;
+  montant: number;
+}
+
 export interface VenteResponse {
   id: string;
   referenceTicket: string;
@@ -34,6 +49,8 @@ export interface VenteResponse {
   totalTtc: number;
   margeTotale: number;
   statutVente: 'VALIDEE' | 'ANNULEE' | 'REMBOURSEE';
+  lignes?: VenteLigneResponse[];
+  paiements?: VentePaiementResponse[];
 }
 
 export interface VentesFilters {

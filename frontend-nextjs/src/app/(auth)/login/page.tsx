@@ -15,13 +15,6 @@ const ROLE_REDIRECTS: Record<string, string> = {
   CAISSIER: '/caisse',
 };
 
-// Comptes de démonstration pour le pré-remplissage rapide
-const DEMO_ACCOUNTS = [
-  { label: 'Super Admin', email: 'admin@librairie.ci', pass: 'admin123', role: 'ADMIN' },
-  { label: 'Gestionnaire', email: 'manager@librairie.ci', pass: 'manager123', role: 'GESTIONNAIRE_CATALOGUE' },
-  { label: 'Caissier', email: 'caissier@librairie.ci', pass: 'caisse123', role: 'CAISSIER' },
-];
-
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -50,12 +43,6 @@ function LoginForm() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const fillDemoAccount = (acc: typeof DEMO_ACCOUNTS[0]) => {
-    setEmail(acc.email);
-    setPassword(acc.pass);
-    setError('');
   };
 
   return (
@@ -142,30 +129,6 @@ function LoginForm() {
               )}
             </button>
           </form>
-
-          {/* Raccourcis démo */}
-          <div className="mt-6 pt-5 border-t border-border">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-              Raccourcis de test rapide
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              {DEMO_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.role}
-                  onClick={() => fillDemoAccount(acc)}
-                  className="flex flex-col items-center gap-1 p-2.5 rounded-lg border border-border hover:border-primary hover:bg-blue-50 transition-all text-center group"
-                >
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                    acc.role === 'ADMIN' ? 'bg-primary/10 text-primary' :
-                    acc.role === 'GESTIONNAIRE_CATALOGUE' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                  }`}>
-                    {acc.label[0]}
-                  </div>
-                  <span className="text-[10px] font-semibold text-foreground leading-tight">{acc.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-4">

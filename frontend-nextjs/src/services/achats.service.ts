@@ -10,9 +10,17 @@ export interface LigneAchatPayload {
 }
 
 export interface AchatPayload {
-  numeroFactureFournisseur: string;
   fournisseurId: string;
   lignes: LigneAchatPayload[];
+}
+
+export interface LigneAchatItem {
+  id: string;
+  produitId: string;
+  produitLibelle: string;
+  quantiteCommandee: number;
+  quantiteRecue: number;
+  prixAchatUnitaireHt: number;
 }
 
 export interface AchatItem {
@@ -26,6 +34,7 @@ export interface AchatItem {
   montantTotalHt: number;
   montantTotalTtc: number;
   statutAchat: 'EN_ATTENTE' | 'RECU' | 'ANNULE';
+  lignes?: LigneAchatItem[];
 }
 
 export const achatsService = {
@@ -56,6 +65,18 @@ export const achatsService = {
   },
 
   /**
+   * Obtenir les détails d'un achat avec ses lignes
+   * GET /api/v1/achats/:id
+   */
+  async getById(id: string): Promise<AchatItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/achats/${id}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error("Échec du chargement du bon d'achat");
+    return response.json();
+  },
+
+  /**
    * Enregistrer la réception d'une commande (incrémente le stock)
    * POST /api/v1/achats/:id/reception
    */
@@ -69,3 +90,4 @@ export const achatsService = {
     return response.json();
   },
 };
+

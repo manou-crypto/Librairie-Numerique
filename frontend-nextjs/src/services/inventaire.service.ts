@@ -16,13 +16,25 @@ export interface InventairePayload {
   lignes: LigneInventairePayload[];
 }
 
+export interface LigneInventaireItem {
+  id: string;
+  produitId: string;
+  produitLibelle: string;
+  quantiteTheorique: number;
+  quantiteReelle: number;
+  ecart: number;
+  motifAjustement?: string;
+}
+
 export interface InventaireItem {
   id: string;
   referenceInventaire: string;
   utilisateurId: number;
+  utilisateurNom?: string;
   dateInventaire: string;
   statutInventaire: 'EN_COURS' | 'VALIDE' | 'ANNULE';
   observations?: string;
+  lignes?: LigneInventaireItem[];
 }
 
 export const inventaireService = {
@@ -41,6 +53,20 @@ export const inventaireService = {
   },
 
   /**
+   * Mettre à jour un inventaire en brouillon
+   * POST /api/v1/inventaires/:id
+   */
+  async update(id: string, payload: { observations?: string; lignes: LigneInventairePayload[] }): Promise<InventaireItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/inventaires/${id}`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) throw new Error("Échec de la sauvegarde de l'inventaire");
+    return response.json();
+  },
+
+  /**
    * Lister tous les inventaires
    * GET /api/v1/inventaires
    */
@@ -49,6 +75,18 @@ export const inventaireService = {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Échec du chargement des inventaires');
+    return response.json();
+  },
+
+  /**
+   * Obtenir les détails d'un inventaire
+   * GET /api/v1/inventaires/:id
+   */
+  async getById(id: string): Promise<InventaireItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/inventaires/${id}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error("Échec du chargement de l'inventaire");
     return response.json();
   },
 

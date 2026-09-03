@@ -1,15 +1,9 @@
 import React from 'react';
 import type { Metadata, Viewport } from 'next';
-import { Plus_Jakarta_Sans } from 'next/font/google';
 import { Toaster } from 'sonner';
+import { ConfigProvider } from '@/contexts/ConfigContext';
+import { SocketProvider } from '@/contexts/SocketContext';
 import '../styles/tailwind.css';
-
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
-  variable: '--font-plus-jakarta-sans',
-  display: 'swap',
-});
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -29,14 +23,25 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="fr" className={plusJakartaSans.variable}>
-      <body className={plusJakartaSans.className}>
-        {children}
+    <html lang="fr">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+      </head>
+      <body>
+        {/* ConfigProvider charge les paramètres globaux (nom, devise, TVA) */}
+        <ConfigProvider>
+          {/* SocketProvider établit la connexion WebSocket pour le temps réel */}
+          <SocketProvider>
+            {children}
+          </SocketProvider>
+        </ConfigProvider>
         <Toaster
           position="bottom-right"
           toastOptions={{
             style: {
-              fontFamily: 'var(--font-plus-jakarta-sans)',
+              fontFamily: 'Plus Jakarta Sans, sans-serif',
               fontSize: '14px',
             },
           }}

@@ -16,6 +16,18 @@ export class FinancesController {
     return this.financesService.getDashboardKpis();
   }
 
+  @Get('dashboard/charts')
+  @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
+  async getDashboardCharts() {
+    return this.financesService.getDashboardCharts();
+  }
+
+  @Get('dashboard/feed')
+  @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
+  async getDashboardFeed() {
+    return this.financesService.getDashboardFeed();
+  }
+
   @Post('finances/cloture-journaliere')
   @Roles('ADMIN')
   async effectuerClotureJournaliere(@CurrentUser() user: any, @Body('dateCloture') dateCloture: string) {

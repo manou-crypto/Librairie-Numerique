@@ -1,9 +1,15 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AppGateway } from '../events/app.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class VentesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly gateway: AppGateway,
+    private notificationsService: NotificationsService,
+  ) {}
 
   private generateTicketReference(): string {
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -12,24 +18,15 @@ export class VentesService {
   }
 
   async createVente(userId: number, payload: any) {
-    let sessionIdNum = payload.sessionId ? Number(payload.sessionId) : null;
+    const activeSession = await this.prisma.sessionCaisse.findFirst({
+      where: { id_utilisateur: userId, statut_session: 'OUVERTE' },
+    });
 
-    if (!sessionIdNum) {
-      const activeSession = await this.prisma.sessionCaisse.findFirst({
-        where: { id_utilisateur: userId, statut_session: 'OUVERTE' },
-      });
-      if (!activeSession) {
-        const anyActive = await this.prisma.sessionCaisse.findFirst({
-          where: { statut_session: 'OUVERTE' },
-        });
-        if (!anyActive) {
-          throw new BadRequestException('Aucune session de caisse ouverte. Veuillez d\'abord ouvrir la caisse.');
-        }
-        sessionIdNum = anyActive.id_session;
-      } else {
-        sessionIdNum = activeSession.id_session;
-      }
+    if (!activeSession) {
+      throw new BadRequestException("Aucune session de caisse ouverte pour votre compte. Veuillez d'abord ouvrir la caisse.");
     }
+
+    const sessionIdNum = activeSession.id_session;
 
     let totalHt = 0;
     let totalTva = 0;
@@ -94,16 +91,25 @@ export class VentesService {
         },
       });
 
+      // Mise à jour du stock pour chaque ligne vendue
+      const stockUpdates: Array<{
+        produitId: string;
+        produitLibelle: string;
+        nouvelleQuantite: number;
+        seuilAlerte: number;
+      }> = [];
+
       for (const l of payload.lignes) {
         const pId = Number(l.produitId || l.id);
         const qte = l.quantite || l.qty;
 
-        await tx.stock.update({
+        const updatedStock = await tx.stock.update({
           where: { id_produit: pId },
           data: {
             quantite_en_stock: { decrement: qte },
             date_derniere_sortie: new Date(),
           },
+          include: { produit: true },
         });
 
         await tx.mouvementStock.create({
@@ -114,6 +120,13 @@ export class VentesService {
             quantite: qte,
           },
         });
+
+        stockUpdates.push({
+          produitId: String(pId),
+          produitLibelle: updatedStock.produit.libelle,
+          nouvelleQuantite: updatedStock.quantite_en_stock,
+          seuilAlerte: updatedStock.seuil_alerte,
+        });
       }
 
       await tx.sessionCaisse.update({
@@ -123,19 +136,96 @@ export class VentesService {
         },
       });
 
-      return v;
+      return { v, stockUpdates };
     });
 
-    return {
-      id: String(vente.id_vente),
-      referenceTicket: vente.reference_ticket,
-      dateVente: vente.date_vente.toISOString(),
-      totalHt: Number(vente.total_ht),
-      totalTva: Number(vente.total_tva),
-      totalTtc: Number(vente.total_ttc),
-      margeTotale: Number(vente.marge_totale),
-      statutVente: vente.statut_vente,
+    const result = {
+      id: String(vente.v.id_vente),
+      referenceTicket: vente.v.reference_ticket,
+      dateVente: vente.v.date_vente.toISOString(),
+      totalHt: Number(vente.v.total_ht),
+      totalTva: Number(vente.v.total_tva),
+      totalTtc: Number(vente.v.total_ttc),
+      margeTotale: Number(vente.v.marge_totale),
+      statutVente: vente.v.statut_vente,
+      lignesCount: payload.lignes.length,
     };
+
+    // 📡 Émettre l'événement de vente complétée en temps réel.
+    // Tous les clients (Dashboard, page Ventes) recevront cette info instantanément.
+    this.gateway.emitSaleCompleted(result);
+
+    // 📡 Émettre les mises à jour de stock pour chaque produit vendu.
+    // Les clients peuvent ainsi afficher des alertes de rupture en temps réel.
+    for (const su of vente.stockUpdates) {
+      const estEnRupture = su.nouvelleQuantite === 0;
+      const estEnAlerte = su.nouvelleQuantite > 0 && su.nouvelleQuantite <= su.seuilAlerte;
+      this.gateway.emitStockUpdated({
+        ...su,
+        estEnAlerte,
+        estEnRupture,
+      });
+
+      // --- NOUVEAU : Création de la notification ---
+      if (estEnRupture) {
+        await this.notificationsService.createNotification(
+          'alerte',
+          'Rupture de Stock',
+          `Le produit "${su.produitLibelle}" est complètement épuisé.`
+        );
+      } else if (estEnAlerte) {
+        await this.notificationsService.createNotification(
+          'alerte',
+          'Stock Faible',
+          `Attention, le produit "${su.produitLibelle}" a atteint son seuil critique (Reste : ${su.nouvelleQuantite}).`
+        );
+      }
+    }
+
+    // 📡 Calculer et émettre les KPI mis à jour pour le Dashboard.
+    // On fait ce calcul en arrière-plan sans bloquer la réponse HTTP.
+    this.emitFreshKpis().catch(() => {});
+
+    return result;
+  }
+
+  /**
+   * Calcule les KPI du tableau de bord et les émet en temps réel.
+   * Méthode privée appelée après chaque vente ou annulation.
+   */
+  private async emitFreshKpis() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [ventesJour, rupturesCount, totalMonthSales] = await Promise.all([
+      this.prisma.vente.findMany({
+        where: { date_vente: { gte: today }, statut_vente: 'VALIDEE' },
+      }),
+      this.prisma.stock.count({ where: { quantite_en_stock: 0 } }),
+      this.prisma.vente.aggregate({
+        _sum: { total_ttc: true },
+        where: { statut_vente: 'VALIDEE' },
+      }),
+    ]);
+
+    let caJour = 0;
+    let beneficeBrutJour = 0;
+    ventesJour.forEach((v) => {
+      caJour += Number(v.total_ttc);
+      beneficeBrutJour += Number(v.marge_totale);
+    });
+
+    const ventesJourCount = ventesJour.length;
+    const panierMoyen = ventesJourCount > 0 ? caJour / ventesJourCount : 0;
+
+    this.gateway.emitKpiUpdate({
+      caJour,
+      beneficeBrutJour,
+      ventesJourCount,
+      panierMoyen: Number(panierMoyen.toFixed(2)),
+      caMoisTotal: Number(totalMonthSales._sum.total_ttc || caJour),
+      rupturesStockCount: rupturesCount,
+    });
   }
 
   async getVentes(query?: { sessionId?: string; statut?: string; page?: number; pageSize?: number }) {
@@ -236,6 +326,10 @@ export class VentesService {
         });
       }
     });
+
+    // 📡 Signaler l'annulation et rafraîchir les KPI
+    this.gateway.emitSaleCancelled(String(id));
+    this.emitFreshKpis().catch(() => {});
 
     return this.getVenteById(id);
   }

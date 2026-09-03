@@ -88,4 +88,3 @@ You can check out the [Next.js GitHub repository](https://github.com/vercel/next
 - Powered by Next.js and React
 - Styled with Tailwind CSS
 
-Built with ❤️ on Rocket.new

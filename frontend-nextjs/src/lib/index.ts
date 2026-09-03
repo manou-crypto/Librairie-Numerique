@@ -86,13 +86,12 @@ export function getTokenFromCookie(): string | null {
 }
 
 /**
- * Stocke le token JWT dans un cookie sécurisé (SameSite=Strict, pas HttpOnly depuis le client)
- * Note : Pour HttpOnly réel, le token doit être positionné par le serveur NestJS via Set-Cookie.
+ * Stocke le token JWT comme cookie de session éphémère
+ * (Détruit automatiquement par le navigateur dès sa fermeture)
  */
-export function setTokenCookie(token: string, days = 1): void {
+export function setTokenCookie(token: string): void {
   if (typeof document === 'undefined') return;
-  const expires = new Date(Date.now() + days * 864e5).toUTCString();
-  document.cookie = `auth_token=${encodeURIComponent(token)}; expires=${expires}; path=/; SameSite=Strict`;
+  document.cookie = `auth_token=${encodeURIComponent(token)}; path=/; SameSite=Strict`;
 }
 
 /**

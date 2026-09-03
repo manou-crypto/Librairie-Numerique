@@ -14,10 +14,19 @@ export interface UserAccount {
   statut: 'ACTIF' | 'INACTIF';
 }
 
+export interface PermissionItem {
+  id: number;
+  codePermission: string;
+  module: string;
+  libelle: string;
+}
+
 export interface RoleItem {
   id: number;
   codeRole: string;
   libelle: string;
+  usersCount?: number;
+  permissions?: string[];
 }
 
 export interface LogAuditItem {
@@ -53,7 +62,44 @@ export const utilisateursService = {
       headers: getAuthHeaders(),
       body: JSON.stringify(user),
     });
-    if (!response.ok) throw new Error("Échec de la création du compte utilisateur");
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || "Échec de la création du compte utilisateur");
+    }
+    return response.json();
+  },
+
+  /**
+   * Modifier son propre profil
+   * PUT /api/v1/users/me/profile
+   */
+  async updateMyProfile(data: { nom: string; prenom: string; email: string; telephone?: string }) {
+    const response = await fetch(`${API_BASE_URL}/v1/users/me/profile`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || 'Échec de la mise à jour du profil');
+    }
+    return response.json();
+  },
+
+  /**
+   * Modifier son propre mot de passe
+   * PUT /api/v1/users/me/password
+   */
+  async updateMyPassword(data: { actuel: string; nouveau: string }) {
+    const response = await fetch(`${API_BASE_URL}/v1/users/me/password`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || 'Échec de la mise à jour du mot de passe');
+    }
     return response.json();
   },
 
@@ -67,20 +113,84 @@ export const utilisateursService = {
       headers: getAuthHeaders(),
       body: JSON.stringify(user),
     });
-    if (!response.ok) throw new Error(`Échec de la mise à jour de l'utilisateur #${id}`);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || `Échec de la mise à jour de l'utilisateur #${id}`);
+    }
     return response.json();
   },
 
   /**
-   * Obtenir la liste de tous les rôles et leurs libellés
-   * GET /api/v1/roles
+   * Obtenir la liste de tous les rôles avec leurs permissions
+   * GET /api/v1/users/roles
    */
   async getRoles(): Promise<RoleItem[]> {
-    const response = await fetch(`${API_BASE_URL}/v1/roles`, {
+    const response = await fetch(`${API_BASE_URL}/v1/users/roles`, {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Échec du chargement des rôles');
     return response.json();
+  },
+
+  /**
+   * Obtenir toutes les permissions disponibles dans le système
+   * GET /api/v1/users/permissions
+   */
+  async getPermissions(): Promise<PermissionItem[]> {
+    const response = await fetch(`${API_BASE_URL}/v1/users/permissions`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Échec du chargement des permissions');
+    return response.json();
+  },
+
+  /**
+   * Créer un nouveau rôle
+   * POST /api/v1/users/roles
+   */
+  async createRole(data: { codeRole: string; libelle: string; permissions?: string[] }): Promise<RoleItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/users/roles`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || 'Échec de la création du rôle');
+    }
+    return response.json();
+  },
+
+  /**
+   * Mettre à jour un rôle
+   * PUT /api/v1/users/roles/:id
+   */
+  async updateRole(id: number, data: { libelle?: string; permissions?: string[] }): Promise<RoleItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/users/roles/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || `Échec de la modification du rôle #${id}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Supprimer un rôle
+   * DELETE /api/v1/users/roles/:id
+   */
+  async deleteRole(id: number): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/v1/users/roles/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || `Échec de la suppression du rôle #${id}`);
+    }
   },
 
   /**
@@ -94,4 +204,20 @@ export const utilisateursService = {
     if (!response.ok) throw new Error('Échec du chargement des logs d’audit');
     return response.json();
   },
+
+  /**
+   * Supprimer un compte utilisateur (Réservé Super Admin)
+   * DELETE /api/v1/users/:id
+   */
+  async delete(id: number): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/v1/users/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || `Échec de la suppression de l'utilisateur #${id}`);
+    }
+  },
 };
+

@@ -8,6 +8,12 @@ export interface CaisseItem {
   codeCaisse: string;
   emplacement?: string;
   statutCaisse: 'OUVERTE' | 'FERMEE';
+  caissier?: string;
+  utilisateurId?: string;
+  totalVentes?: number;
+  nbTransactions?: number;
+  heureOuverture?: string;
+  sessionId?: string;
 }
 
 export interface SessionCaisseItem {
@@ -26,6 +32,16 @@ export interface SessionCaisseItem {
   statutSession: 'OUVERTE' | 'CLOTUREE';
 }
 
+export interface UserItem {
+  id: number;
+  nom: string;
+  prenom: string;
+  email: string;
+  codeRole: string;
+  libelleRole: string;
+  statut: string;
+}
+
 export const caissesService = {
   /**
    * Lister toutes les caisses
@@ -40,6 +56,72 @@ export const caissesService = {
   },
 
   /**
+   * Créer une nouvelle caisse
+   * POST /api/v1/caisses
+   */
+  async createCaisse(data: { codeCaisse: string; emplacement?: string; utilisateurId: number }): Promise<CaisseItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/caisses`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || 'Échec de la création de la caisse');
+    }
+    return response.json();
+  },
+
+  /**
+   * Supprimer une caisse
+   * DELETE /api/v1/caisses/:id
+   */
+  async deleteCaisse(id: string): Promise<{ success: boolean; message: string }> {
+    const response = await fetch(`${API_BASE_URL}/v1/caisses/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || 'Échec de la suppression de la caisse');
+    }
+    return response.json();
+  },
+
+  /**
+   * Modifier une caisse (nom, emplacement, utilisateur assigné)
+   * PATCH /api/v1/caisses/:id
+   */
+  async updateCaisse(
+    id: string,
+    data: { codeCaisse?: string; emplacement?: string; utilisateurId?: number | null },
+  ): Promise<CaisseItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/caisses/${id}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || 'Échec de la modification de la caisse');
+    }
+    return response.json();
+  },
+
+
+  /**
+   * Lister tous les utilisateurs (pour l'assignation caissier)
+   * GET /api/v1/users
+   */
+  async getUtilisateurs(): Promise<UserItem[]> {
+    const response = await fetch(`${API_BASE_URL}/v1/users`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Échec du chargement des utilisateurs');
+    return response.json();
+  },
+
+  /**
    * Ouvrir une session de caisse avec un fond de caisse initial
    * POST /api/v1/sessions-caisse/ouvrir
    */
@@ -49,7 +131,10 @@ export const caissesService = {
       headers: getAuthHeaders(),
       body: JSON.stringify({ caisseId, fondDeCaisseInitial }),
     });
-    if (!response.ok) throw new Error("Échec de l'ouverture de la session de caisse");
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || "Échec de l'ouverture de la session de caisse");
+    }
     return response.json();
   },
 
@@ -63,7 +148,10 @@ export const caissesService = {
       headers: getAuthHeaders(),
       body: JSON.stringify({ totalEncaisseReel, motifEcart }),
     });
-    if (!response.ok) throw new Error('Échec de la clôture de la session de caisse');
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || 'Échec de la clôture de la session de caisse');
+    }
     return response.json();
   },
 
@@ -77,6 +165,23 @@ export const caissesService = {
     });
     if (response.status === 404) return null;
     if (!response.ok) throw new Error('Échec de la vérification de la session active');
-    return response.json();
+    const text = await response.text();
+    if (!text || text === 'null') return null;
+    return JSON.parse(text);
+  },
+
+  /**
+   * Obtenir la caisse assignée à l'utilisateur connecté
+   * GET /api/v1/caisses/ma-caisse
+   */
+  async getMyCaisse(): Promise<CaisseItem | null> {
+    const response = await fetch(`${API_BASE_URL}/v1/caisses/ma-caisse`, {
+      headers: getAuthHeaders(),
+    });
+    if (response.status === 404) return null;
+    if (!response.ok) throw new Error('Échec de la récupération de la caisse assignée');
+    const text = await response.text();
+    if (!text || text === 'null') return null;
+    return JSON.parse(text);
   },
 };

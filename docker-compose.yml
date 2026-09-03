@@ -43,7 +43,7 @@ services:
       mysql:
         condition: service_healthy
     environment:
-      DATABASE_URL: "mysql://root:2007@mysql:3306/librairie_numérique"
+      DATABASE_URL: "mysql://root:${MYSQL_ROOT_PASSWORD}@mysql:3306/${MYSQL_DATABASE}"
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-1d}
@@ -115,11 +115,11 @@ services:
     networks:
       - AppNetwork
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://127.0.0.1/health || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 5s
+      retries: 5
+      start_period: 10s
     mem_limit: 256m
     memswap_limit: 256m
     logging:

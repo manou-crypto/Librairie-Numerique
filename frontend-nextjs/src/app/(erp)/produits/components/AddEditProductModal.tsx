@@ -1,35 +1,145 @@
 'use client';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Loader2, AlertCircle } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
+import { useAppConfig } from '@/contexts/ConfigContext';
+import { produitsService, CategorieItem } from '@/services/produits.service';
 import type { Product } from './ProductManagementClient';
+import AddCategoryModal from './AddCategoryModal';
 
-interface AddEditProductModalProps { open: boolean; onClose: () => void; product: Product | null; onSave: (product: Product) => void; }
-
-interface FormValues {
-  name: string; reference: string; categoryId: string; categoryName: string; prixAchat: number; prixVente: number; stock: number; seuilAlerte: number; status: 'actif' | 'masque' | 'brouillon'; visible: boolean; description: string;
+interface AddEditProductModalProps {
+  open: boolean;
+  onClose: () => void;
+  product: Product | null;
+  categories?: CategorieItem[];
+  onSave: (product: Product) => void;
+  onCategoryAdded?: () => void;
 }
 
-const categoryOptions = [
-  { id: 'cat-livres', label: 'Livres' }, { id: 'cat-romans', label: 'Livres > Romans & Littérature' }, { id: 'cat-scolaires', label: 'Livres > Manuels scolaires' }, { id: 'cat-dictionnaires', label: 'Livres > Dictionnaires' },
-  { id: 'cat-fournitures', label: 'Fournitures scolaires' }, { id: 'cat-cahiers', label: 'Fournitures > Cahiers & Carnets' }, { id: 'cat-stylos', label: 'Fournitures > Stylos & Crayons' }, { id: 'cat-colle', label: 'Fournitures > Colle & Ciseaux' },
-  { id: 'cat-informatique', label: 'Informatique' }, { id: 'cat-peripheriques', label: 'Informatique > Périphériques' }, { id: 'cat-consommables', label: 'Informatique > Consommables' }, { id: 'cat-stockage', label: 'Informatique > Stockage' },
-  { id: 'cat-bureautique', label: 'Bureautique' }, { id: 'cat-classement', label: 'Bureautique > Classement' }, { id: 'cat-papier', label: 'Bureautique > Papier & Impression' },
-];
+interface FormValues {
+  name: string;
+  reference: string;
+  categoryId: string;
+  categoryName: string;
+  prixAchat: number;
+  prixVente: number;
+  stock: number;
+  seuilAlerte: number;
+  status: 'actif' | 'masque' | 'brouillon';
+  visible: boolean;
+  description: string;
+  marque: string;
+}
 
-export default function AddEditProductModal({ open, onClose, product, onSave }: AddEditProductModalProps) {
+function buildCategoryLabel(cat: CategorieItem, allCats: CategorieItem[]): string {
+  if (!cat.parentId) return cat.nom;
+  const parent = allCats.find((c) => c.id === cat.parentId);
+  if (!parent) return cat.nom;
+  return `${parent.nom} > ${cat.nom}`;
+}
+
+export default function AddEditProductModal({
+  open,
+  onClose,
+  product,
+  categories: initialCategories = [],
+  onSave,
+  onCategoryAdded,
+}: AddEditProductModalProps) {
   const isEdit = product !== null;
-  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({
-    defaultValues: { name: '', reference: '', categoryId: 'cat-fournitures', categoryName: 'Fournitures scolaires', prixAchat: 0, prixVente: 0, stock: 0, seuilAlerte: 10, status: 'actif', visible: true, description: '' },
+  const { config } = useAppConfig();
+  const devise = config?.devise || 'FCFA';
+
+  const [categories, setCategories] = useState<CategorieItem[]>(initialCategories);
+  const [loadingCats, setLoadingCats] = useState(false);
+  const [isAddCatOpen, setIsAddCatOpen] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm<FormValues>({
+    defaultValues: {
+      name: '',
+      reference: '',
+      categoryId: '',
+      categoryName: '',
+      prixAchat: 0,
+      prixVente: 0,
+      stock: 0,
+      seuilAlerte: 5,
+      status: 'actif',
+      visible: true,
+      description: '',
+      marque: '',
+    },
   });
+
+  // Charger les catégories si non fournies
+  useEffect(() => {
+    if (!open) return;
+    if (initialCategories.length > 0) {
+      setCategories(initialCategories);
+      if (!product && initialCategories.length > 0) {
+        setValue('categoryId', initialCategories[0].id);
+        setValue('categoryName', initialCategories[0].nom);
+      }
+      return;
+    }
+
+    setLoadingCats(true);
+    produitsService
+      .getCategories()
+      .then((data) => {
+        setCategories(Array.isArray(data) ? data : []);
+        if (!product && Array.isArray(data) && data.length > 0) {
+          setValue('categoryId', data[0].id);
+          setValue('categoryName', data[0].nom);
+        }
+      })
+      .catch(() => setCategories([]))
+      .finally(() => setLoadingCats(false));
+  }, [open, initialCategories, product, setValue]);
 
   useEffect(() => {
     if (open) {
-      if (product) reset({ name: product.name, reference: product.reference, categoryId: product.categoryId, categoryName: product.categoryName, prixAchat: product.prixAchat, prixVente: product.prixVente, stock: product.stock, seuilAlerte: product.seuilAlerte, status: product.status, visible: product.visible, description: product.description });
-      else reset({ name: '', reference: '', categoryId: 'cat-fournitures', categoryName: 'Fournitures scolaires', prixAchat: 0, prixVente: 0, stock: 0, seuilAlerte: 10, status: 'actif', visible: true, description: '' });
+      if (product) {
+        reset({
+          name: product.name,
+          reference: product.reference,
+          categoryId: product.categoryId || (categories[0]?.id ?? ''),
+          categoryName: product.categoryName || (categories[0]?.nom ?? ''),
+          prixAchat: product.prixAchat,
+          prixVente: product.prixVente,
+          stock: product.stock,
+          seuilAlerte: product.seuilAlerte,
+          status: product.status,
+          visible: product.visible,
+          description: product.description || '',
+          marque: product.marque || '',
+        });
+      } else {
+        reset({
+          name: '',
+          reference: '',
+          categoryId: categories[0]?.id ?? '',
+          categoryName: categories[0]?.nom ?? '',
+          prixAchat: 0,
+          prixVente: 0,
+          stock: 0,
+          seuilAlerte: 5,
+          status: 'actif',
+          visible: true,
+          description: '',
+          marque: '',
+        });
+      }
     }
-  }, [open, product, reset]);
+  }, [open, product, categories, reset]);
 
   const prixAchat = watch('prixAchat');
   const prixVente = watch('prixVente');
@@ -37,13 +147,36 @@ export default function AddEditProductModal({ open, onClose, product, onSave }: 
   const benefice = prixVente > 0 ? (prixVente - prixAchat).toFixed(2) : '0.00';
 
   const onSubmit = async (data: FormValues) => {
-    await new Promise((r) => setTimeout(r, 800));
-    const catOption = categoryOptions.find((c) => c.id === data.categoryId);
-    const saved: Product = { id: product?.id ?? `p-${Date.now()}`, name: data.name, reference: data.reference, categoryId: data.categoryId, categoryName: catOption?.label.split(' > ').pop() ?? data.categoryId, prixAchat: Number(data.prixAchat), prixVente: Number(data.prixVente), stock: Number(data.stock), seuilAlerte: Number(data.seuilAlerte), status: data.status, visible: data.visible, description: data.description, imageUrl: product?.imageUrl ?? '' };
+    const selectedCat = categories.find((c) => c.id === data.categoryId);
+    const saved: Product = {
+      id: product?.id ?? '',
+      name: data.name,
+      reference: data.reference,
+      categoryId: data.categoryId,
+      categoryName: selectedCat?.nom ?? data.categoryName,
+      prixAchat: Number(data.prixAchat),
+      prixVente: Number(data.prixVente),
+      stock: Number(data.stock),
+      seuilAlerte: Number(data.seuilAlerte),
+      status: data.status,
+      visible: data.visible,
+      description: data.description,
+      marque: data.marque,
+      imageUrl: product?.imageUrl ?? ''
+    };
     onSave(saved);
   };
 
+  const handleSaveCategory = async (catData: { nom: string; parentId: string | null }) => {
+    const newCat = await produitsService.createCategory(catData);
+    setCategories(prev => [...prev, newCat]);
+    setValue('categoryId', newCat.id);
+    setValue('categoryName', newCat.nom);
+    if (onCategoryAdded) onCategoryAdded();
+  };
+
   return (
+    <>
     <Modal open={open} onClose={onClose} title={isEdit ? `Modifier — ${product?.name}` : 'Ajouter un nouveau produit'} size="lg">
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <div className="space-y-6">
@@ -51,18 +184,105 @@ export default function AddEditProductModal({ open, onClose, product, onSave }: 
             <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4 pb-2 border-b border-border">Informations générales</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2"><label className="block text-xs font-semibold text-foreground mb-1.5" htmlFor="name">Nom du produit <span className="text-negative">*</span></label><input id="name" type="text" {...register('name', { required: 'Le nom du produit est obligatoire.' })} placeholder="Ex: Cahier grand format 200p Clairefontaine" className="input-field" />{errors.name && <p className="flex items-center gap-1 text-xs text-negative mt-1.5"><AlertCircle size={12} />{errors.name.message}</p>}</div>
-              <div><label className="block text-xs font-semibold text-foreground mb-1.5" htmlFor="reference">Référence <span className="text-negative">*</span></label><input id="reference" type="text" {...register('reference', { required: 'La référence est obligatoire.' })} placeholder="EX: FOU-0021" className="input-field font-mono" />{errors.reference && <p className="flex items-center gap-1 text-xs text-negative mt-1.5"><AlertCircle size={12} />{errors.reference.message}</p>}</div>
-              <div><label className="block text-xs font-semibold text-foreground mb-1.5" htmlFor="categoryId">Catégorie <span className="text-negative">*</span></label><select id="categoryId" {...register('categoryId', { required: 'Veuillez sélectionner une catégorie.' })} className="input-field">{categoryOptions.map((cat) => (<option key={`catopt-${cat.id}`} value={cat.id}>{cat.label}</option>))}</select>{errors.categoryId && <p className="flex items-center gap-1 text-xs text-negative mt-1.5"><AlertCircle size={12} />{errors.categoryId.message}</p>}</div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5" htmlFor="reference">
+                  Référence {isEdit ? <span className="text-negative">*</span> : <span className="text-muted-foreground font-normal">(Optionnelle)</span>}
+                </label>
+                <input id="reference" type="text" {...register('reference', { required: isEdit ? 'La référence est obligatoire.' : false })} placeholder={isEdit ? "EX: FOU-0021" : "Laissez vide pour générer auto"} className="input-field font-mono" disabled={!isEdit && !!watch('reference') === false} />
+                {errors.reference && <p className="flex items-center gap-1 text-xs text-negative mt-1.5"><AlertCircle size={12} />{errors.reference.message}</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5" htmlFor="categoryId">Catégorie <span className="text-negative">*</span></label>
+                <div className="flex gap-2">
+                  <select id="categoryId" {...register('categoryId', { required: 'Veuillez sélectionner une catégorie.' })} className="input-field flex-1" disabled={loadingCats}>
+                    {loadingCats && <option value="">Chargement...</option>}
+                    {!loadingCats && categories.length === 0 && <option value="">Aucune catégorie disponible</option>}
+                    {categories.map((cat) => (
+                      <option key={`catopt-${cat.id}`} value={cat.id}>{buildCategoryLabel(cat, categories)}</option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={() => setIsAddCatOpen(true)} className="btn-secondary px-3 flex items-center justify-center border border-border" title="Nouvelle catégorie">+</button>
+                </div>
+                {errors.categoryId && <p className="flex items-center gap-1 text-xs text-negative mt-1.5"><AlertCircle size={12} />{errors.categoryId.message}</p>}
+              </div>
+              <div><label className="block text-xs font-semibold text-foreground mb-1.5" htmlFor="marque">Marque</label><input id="marque" type="text" {...register('marque')} placeholder="Ex: Clairefontaine" className="input-field" /></div>
               <div className="sm:col-span-2"><label className="block text-xs font-semibold text-foreground mb-1.5" htmlFor="description">Description</label><textarea id="description" {...register('description')} rows={3} placeholder="Description courte du produit..." className="input-field resize-none" /></div>
             </div>
           </div>
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4 pb-2 border-b border-border">Tarification</h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div><label className="block text-xs font-semibold text-foreground mb-1.5" htmlFor="prixAchat">Prix d&apos;achat (FCFA) <span className="text-negative">*</span></label><input id="prixAchat" type="number" step="1" min="0" {...register('prixAchat', { required: 'Obligatoire.', min: { value: 0, message: 'Doit être positif.' }, valueAsNumber: true })} className="input-field tabular-nums" />{errors.prixAchat && <p className="flex items-center gap-1 text-xs text-negative mt-1.5"><AlertCircle size={12} />{errors.prixAchat.message}</p>}</div>
-              <div><label className="block text-xs font-semibold text-foreground mb-1.5" htmlFor="prixVente">Prix de vente (FCFA) <span className="text-negative">*</span></label><input id="prixVente" type="number" step="1" min="0" {...register('prixVente', { required: 'Obligatoire.', min: { value: 1, message: 'Doit être supérieur à 0.' }, valueAsNumber: true })} className="input-field tabular-nums" />{errors.prixVente && <p className="flex items-center gap-1 text-xs text-negative mt-1.5"><AlertCircle size={12} />{errors.prixVente.message}</p>}</div>
-              <div><label className="block text-xs font-semibold text-foreground mb-1.5">Marge brute</label><div className="input-field bg-muted/50 flex items-center gap-2 cursor-not-allowed"><span className={`text-sm font-bold tabular-nums ${Number(marge) >= 40 ? 'text-green-600' : Number(marge) >= 25 ? 'text-blue-600' : 'text-amber-600'}`}>{marge}%</span><span className="text-xs text-muted-foreground">(+{benefice} FCFA/unité)</span></div></div>
-              <div><label className="block text-xs font-semibold text-foreground mb-1.5" htmlFor="seuilAlerte">Seuil d&apos;alerte stock</label><input id="seuilAlerte" type="number" min="0" {...register('seuilAlerte', { valueAsNumber: true })} className="input-field tabular-nums" /></div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5" htmlFor="prixAchat">
+                  Prix d&apos;achat ({devise}) <span className="text-negative">*</span>
+                </label>
+                <input
+                  id="prixAchat"
+                  type="number"
+                  step="1"
+                  min="0"
+                  {...register('prixAchat', {
+                    required: 'Obligatoire.',
+                    min: { value: 0, message: 'Doit être positif.' },
+                    valueAsNumber: true,
+                  })}
+                  className="input-field tabular-nums"
+                />
+                {errors.prixAchat && (
+                  <p className="flex items-center gap-1 text-xs text-negative mt-1.5">
+                    <AlertCircle size={12} />
+                    {errors.prixAchat.message}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5" htmlFor="prixVente">
+                  Prix de vente ({devise}) <span className="text-negative">*</span>
+                </label>
+                <input
+                  id="prixVente"
+                  type="number"
+                  step="1"
+                  min="0"
+                  {...register('prixVente', {
+                    required: 'Obligatoire.',
+                    min: { value: 1, message: 'Doit être supérieur à 0.' },
+                    valueAsNumber: true,
+                  })}
+                  className="input-field tabular-nums"
+                />
+                {errors.prixVente && (
+                  <p className="flex items-center gap-1 text-xs text-negative mt-1.5">
+                    <AlertCircle size={12} />
+                    {errors.prixVente.message}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5">Marge brute</label>
+                <div className="input-field bg-muted/50 flex items-center gap-2 cursor-not-allowed">
+                  <span
+                    className={`text-sm font-bold tabular-nums ${
+                      Number(marge) >= 40 ? 'text-green-600' : Number(marge) >= 25 ? 'text-blue-600' : 'text-amber-600'
+                    }`}
+                  >
+                    {marge}%
+                  </span>
+                  <span className="text-xs text-muted-foreground">(+{benefice} {devise}/u)</span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5" htmlFor="seuilAlerte">
+                  Seuil d&apos;alerte stock
+                </label>
+                <input
+                  id="seuilAlerte"
+                  type="number"
+                  min="0"
+                  {...register('seuilAlerte', { valueAsNumber: true })}
+                  className="input-field tabular-nums"
+                />
+              </div>
             </div>
           </div>
           <div>
@@ -81,5 +301,13 @@ export default function AddEditProductModal({ open, onClose, product, onSave }: 
         </div>
       </form>
     </Modal>
+    
+    <AddCategoryModal 
+      open={isAddCatOpen} 
+      onClose={() => setIsAddCatOpen(false)} 
+      onSave={handleSaveCategory} 
+      categories={categories} 
+    />
+    </>
   );
 }

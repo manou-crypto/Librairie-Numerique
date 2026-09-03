@@ -1,12 +1,15 @@
+'use client';
 import React from 'react';
 import { ShoppingBag, CreditCard, Banknote, FileText } from 'lucide-react';
-
-const recentSales: any[] = [];
+import { useAppConfig } from '@/contexts/ConfigContext';
+import { RecentSaleItem } from '@/services/finances.service';
 
 const modeIcon: Record<string, React.ElementType> = { carte: CreditCard, especes: Banknote, cheque: FileText };
 const modeLabel: Record<string, string> = { carte: 'Carte', especes: 'Espèces', cheque: 'Chèque' };
 
-export default function RecentSalesFeed() {
+export default function RecentSalesFeed({ sales = [] }: { sales?: RecentSaleItem[] }) {
+  const { config } = useAppConfig();
+  const devise = config?.devise || 'FCFA';
   return (
     <div className="card-base overflow-hidden h-full">
       <div className="px-5 py-4 border-b border-border flex items-center justify-between">
@@ -14,8 +17,10 @@ export default function RecentSalesFeed() {
         <span className="text-xs text-muted-foreground">Session du jour</span>
       </div>
       <div className="divide-y divide-border">
-        {recentSales.map((sale) => {
-          const ModeIcon = modeIcon[sale.mode];
+        {sales.length === 0 ? (
+          <div className="px-5 py-8 text-center text-sm text-muted-foreground">Aucune vente enregistrée aujourd'hui</div>
+        ) : sales.map((sale) => {
+          const ModeIcon = modeIcon[sale.mode] || modeIcon.especes;
           return (
             <div key={sale.id} className="px-5 py-3 hover:bg-muted/40 transition-colors">
               <div className="flex items-center justify-between mb-1">
@@ -27,7 +32,7 @@ export default function RecentSalesFeed() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold tabular-nums text-foreground">{sale.montant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</p>
+                  <p className="text-sm font-bold tabular-nums text-foreground">{sale.montant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {devise}</p>
                   <p className="text-[10px] text-muted-foreground">{sale.time}</p>
                 </div>
               </div>

@@ -24,16 +24,66 @@ export class AchatsService {
     }));
   }
 
-  async create(userId: number, data: { numeroFactureFournisseur: string; fournisseurId: string; lignes: { produitId: string; quantiteCommandee: number; prixAchatUnitaireHt: number }[] }) {
+  async findOne(id: number) {
+    const a = await this.prisma.achat.findUnique({
+      where: { id_achat: id },
+      include: {
+        fournisseur: true,
+        utilisateur: true,
+        lignes: { include: { produit: true } },
+      },
+    });
+    if (!a) throw new NotFoundException(`Achat #${id} introuvable`);
+    return {
+      id: String(a.id_achat),
+      numeroFactureFournisseur: a.numero_facture_fournisseur,
+      fournisseurId: String(a.id_fournisseur),
+      fournisseurNom: a.fournisseur.nom_entreprise,
+      utilisateurId: a.id_utilisateur,
+      dateAchat: a.date_achat.toISOString(),
+      dateReception: a.date_reception ? a.date_reception.toISOString() : undefined,
+      montantTotalHt: Number(a.montant_total_ht),
+      montantTotalTtc: Number(a.montant_total_ttc),
+      statutAchat: a.statut_achat,
+      lignes: a.lignes.map((l) => ({
+        id: String(l.id_ligne_achat),
+        produitId: String(l.id_produit),
+        produitLibelle: l.produit.libelle,
+        quantiteCommandee: l.quantite_commandee,
+        quantiteRecue: l.quantite_recue,
+        prixAchatUnitaireHt: Number(l.prix_achat_unitaire_ht),
+      })),
+    };
+  }
+
+  async create(userId: number, data: { fournisseurId: string; lignes: { produitId: string; quantiteCommandee: number; prixAchatUnitaireHt: number }[] }) {
+    const config = await this.prisma.configuration.findUnique({ where: { id_configuration: 1 } });
+    const tauxTva = config ? Number(config.tva) / 100 : 0;
+
+    // Génération automatique du numéro de bon
+    const now = new Date();
+    const prefix = `BON-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const lastAchat = await this.prisma.achat.findFirst({
+      where: { numero_facture_fournisseur: { startsWith: prefix } },
+      orderBy: { date_achat: 'desc' },
+    });
+    let seq = 1;
+    if (lastAchat) {
+      const parts = lastAchat.numero_facture_fournisseur.split('-');
+      const lastSeq = parseInt(parts[parts.length - 1]);
+      if (!isNaN(lastSeq)) seq = lastSeq + 1;
+    }
+    const numeroAuto = `${prefix}-${String(seq).padStart(4, '0')}`;
+
     let totalHt = 0;
     data.lignes.forEach((l) => {
       totalHt += l.quantiteCommandee * l.prixAchatUnitaireHt;
     });
-    const totalTtc = totalHt * 1.20;
+    const totalTtc = totalHt * (1 + tauxTva);
 
     const achat = await this.prisma.achat.create({
       data: {
-        numero_facture_fournisseur: data.numeroFactureFournisseur,
+        numero_facture_fournisseur: numeroAuto,
         id_fournisseur: Number(data.fournisseurId),
         id_utilisateur: userId,
         montant_total_ht: totalHt,

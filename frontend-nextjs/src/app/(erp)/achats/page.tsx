@@ -1,90 +1,285 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/AppLayout';
 import Topbar from '@/components/Topbar';
-import { Search, Plus, Truck, X, Eye } from 'lucide-react';
+import { Search, Plus, Truck, X, Eye, Loader2, CheckCircle, Package, Trash2 } from 'lucide-react';
+import { achatsService, AchatItem } from '@/services/achats.service';
+import { fournisseursService, Fournisseur } from '@/services/fournisseurs.service';
+import { produitsService, Produit } from '@/services/produits.service';
+import { useAppConfig } from '@/contexts/ConfigContext';
+import { toast } from 'sonner';
 
-interface BonAchat {
-  id: number; reference: string; fournisseur: string; date: string; dateReception: string | null; montantHT: number; statut: 'brouillon' | 'envoye' | 'recu' | 'annule'; lignes: number;
-}
-
-const ACHATS: BonAchat[] = [];
-
-const STATUT_CONFIG = {
-  brouillon: { label: 'Brouillon', className: 'badge-hidden' },
-  envoye: { label: 'Envoyé', className: 'badge-draft' },
-  recu: { label: 'Reçu', className: 'badge-active' },
-  annule: { label: 'Annulé', className: 'badge-rupture' },
+const STATUT_CONFIG: Record<string, {label: string, className: string}> = {
+  EN_ATTENTE: { label: 'En attente', className: 'badge-draft' },
+  RECU: { label: 'Reçu', className: 'badge-active' },
+  ANNULE: { label: 'Annulé', className: 'badge-rupture' },
 };
 
-interface NewAchatForm { fournisseur: string; date: string; notes: string; }
+interface LigneForm { produitId: string; produitLibelle: string; quantiteCommandee: number; prixAchatUnitaireHt: number; }
 
 export default function AchatsPage() {
+  const { config } = useAppConfig();
+  const devise = config?.devise || 'FCFA';
+
   const [search, setSearch] = useState('');
   const [filterStatut, setFilterStatut] = useState('all');
-  const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState<NewAchatForm>({ fournisseur: '', date: '', notes: '' });
+  const [achats, setAchats] = useState<AchatItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = ACHATS.filter((a) => {
-    const matchSearch = a.reference.toLowerCase().includes(search.toLowerCase()) || a.fournisseur.toLowerCase().includes(search.toLowerCase());
-    const matchStatut = filterStatut === 'all' || a.statut === filterStatut;
-    return matchSearch && matchStatut;
+  const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
+  const [produits, setProduits] = useState<Produit[]>([]);
+
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [formFournisseur, setFormFournisseur] = useState('');
+  const [lignesForm, setLignesForm] = useState<LigneForm[]>([]);
+  const [selectedProduit, setSelectedProduit] = useState('');
+
+  const [showDetail, setShowDetail] = useState(false);
+  const [selectedAchat, setSelectedAchat] = useState<AchatItem | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState<string | null>(null);
+  const [validating, setValidating] = useState(false);
+
+  const loadAchats = async () => {
+    setLoading(true);
+    try { setAchats(await achatsService.getAll()); }
+    catch { toast.error("Erreur lors du chargement des achats"); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { loadAchats(); }, []);
+
+  const openCreateModal = async () => {
+    try {
+      const [f, p] = await Promise.all([
+        fournisseursService.getAll(),
+        produitsService.getAll({ pageSize: 10000 }).then(r => r.data),
+      ]);
+      setFournisseurs(f);
+      setProduits(p);
+      setFormFournisseur('');
+      setLignesForm([]);
+      setSelectedProduit('');
+      setShowCreate(true);
+    } catch { toast.error("Impossible de charger les données"); }
+  };
+
+  const addLigne = () => {
+    const p = produits.find(pr => pr.id === selectedProduit);
+    if (!p) return toast.error('Sélectionnez un produit');
+    if (lignesForm.some(l => l.produitId === p.id)) return toast.error('Produit déjà ajouté');
+    setLignesForm(prev => [...prev, { produitId: p.id, produitLibelle: p.libelle, quantiteCommandee: 1, prixAchatUnitaireHt: p.prixAchat }]);
+    setSelectedProduit('');
+  };
+
+  const updateLigne = (idx: number, field: keyof LigneForm, value: string) => {
+    setLignesForm(prev => prev.map((l, i) => i === idx ? { ...l, [field]: field === 'produitId' || field === 'produitLibelle' ? value : Number(value) } : l));
+  };
+
+  const removeLigne = (idx: number) => setLignesForm(prev => prev.filter((_, i) => i !== idx));
+  const totalFormHt = lignesForm.reduce((s, l) => s + l.quantiteCommandee * l.prixAchatUnitaireHt, 0);
+
+  const handleCreate = async () => {
+    if (!formFournisseur) return toast.error('Sélectionnez un fournisseur');
+    if (lignesForm.length === 0) return toast.error('Ajoutez au moins un produit');
+    setCreating(true);
+    try {
+      await achatsService.create({
+        fournisseurId: formFournisseur,
+        lignes: lignesForm.map(l => ({ produitId: l.produitId, quantiteCommandee: l.quantiteCommandee, prixAchatUnitaireHt: l.prixAchatUnitaireHt })),
+      });
+      toast.success("Bon d'achat créé !");
+      setShowCreate(false);
+      loadAchats();
+    } catch { toast.error("Erreur lors de la création"); }
+    finally { setCreating(false); }
+  };
+
+  const openDetail = async (id: string) => {
+    setLoadingDetail(id);
+    try {
+      const detail = await achatsService.getById(id);
+      setSelectedAchat(detail);
+      setShowDetail(true);
+    } catch { toast.error("Impossible de charger les détails"); }
+    finally { setLoadingDetail(null); }
+  };
+
+  const handleValiderReception = async () => {
+    if (!selectedAchat?.lignes) return;
+    if (!confirm('Confirmer la réception ? Cela va augmenter vos stocks.')) return;
+    setValidating(true);
+    try {
+      await achatsService.validerReception(
+        selectedAchat.id,
+        selectedAchat.lignes.map(l => ({ produitId: l.produitId, quantiteRecue: l.quantiteCommandee }))
+      );
+      toast.success('Réception validée ! Stocks mis à jour.');
+      setShowDetail(false);
+      loadAchats();
+    } catch { toast.error("Erreur lors de la validation"); }
+    finally { setValidating(false); }
+  };
+
+  const filtered = achats.filter((a) => {
+    const matchSearch = a.numeroFactureFournisseur.toLowerCase().includes(search.toLowerCase()) || a.fournisseurNom.toLowerCase().includes(search.toLowerCase());
+    return matchSearch && (filterStatut === 'all' || a.statutAchat === filterStatut);
   });
 
-  const totalMontant = ACHATS.filter(a => a.statut === 'recu').reduce((s, a) => s + a.montantHT, 0);
-  const enAttente = ACHATS.filter(a => a.statut === 'envoye').length;
+  const totalMontant = achats.filter(a => a.statutAchat === 'RECU').reduce((s, a) => s + a.montantTotalHt, 0);
+  const enAttente = achats.filter(a => a.statutAchat === 'EN_ATTENTE').length;
 
   return (
     <AppLayout currentPath="/achats">
       <Topbar title="Achats & Approvisionnements" subtitle="Bons de commande et réceptions fournisseurs" />
       <div className="px-6 py-6 max-w-screen-2xl mx-auto space-y-6">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="kpi-card-info"><p className="text-xs text-muted-foreground mb-1">Total achats (mois)</p><p className="text-xl font-bold text-foreground tabular-nums">{totalMontant.toLocaleString('fr-FR')} FCFA</p><p className="text-xs text-muted-foreground mt-1">{ACHATS.filter(a => a.statut === 'recu').length} commandes reçues</p></div>
+          <div className="kpi-card-info"><p className="text-xs text-muted-foreground mb-1">Total achats reçus</p><p className="text-xl font-bold text-foreground tabular-nums">{totalMontant.toLocaleString('fr-FR')} {devise}</p><p className="text-xs text-muted-foreground mt-1">{achats.filter(a => a.statutAchat === 'RECU').length} commandes reçues</p></div>
           <div className="kpi-card-warning"><p className="text-xs text-muted-foreground mb-1">En attente réception</p><p className="text-xl font-bold text-warning tabular-nums">{enAttente}</p><p className="text-xs text-muted-foreground mt-1">bons envoyés</p></div>
-          <div className="kpi-card-neutral"><p className="text-xs text-muted-foreground mb-1">Brouillons</p><p className="text-xl font-bold text-foreground tabular-nums">{ACHATS.filter(a => a.statut === 'brouillon').length}</p><p className="text-xs text-muted-foreground mt-1">à finaliser</p></div>
-          <div className="kpi-card-negative"><p className="text-xs text-muted-foreground mb-1">Annulés</p><p className="text-xl font-bold text-negative tabular-nums">{ACHATS.filter(a => a.statut === 'annule').length}</p><p className="text-xs text-muted-foreground mt-1">ce mois</p></div>
+          <div className="kpi-card-neutral"><p className="text-xs text-muted-foreground mb-1">Total Commandes</p><p className="text-xl font-bold text-foreground tabular-nums">{achats.length}</p><p className="text-xs text-muted-foreground mt-1">historique</p></div>
+          <div className="kpi-card-negative"><p className="text-xs text-muted-foreground mb-1">Annulés</p><p className="text-xl font-bold text-negative tabular-nums">{achats.filter(a => a.statutAchat === 'ANNULE').length}</p></div>
         </div>
+
         <div className="card-base overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <div className="relative flex-1 max-w-sm"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Référence, fournisseur..." className="input-field pl-9 text-sm" /></div>
             <div className="flex items-center gap-2">
-              <select value={filterStatut} onChange={(e) => setFilterStatut(e.target.value)} className="input-field text-sm w-auto"><option value="all">Tous les statuts</option><option value="brouillon">Brouillon</option><option value="envoye">Envoyé</option><option value="recu">Reçu</option><option value="annule">Annulé</option></select>
-              <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-1.5 text-sm py-2"><Plus size={14} /> Nouveau bon</button>
+              <select value={filterStatut} onChange={(e) => setFilterStatut(e.target.value)} className="input-field text-sm w-auto"><option value="all">Tous les statuts</option><option value="EN_ATTENTE">En attente</option><option value="RECU">Reçu</option><option value="ANNULE">Annulé</option></select>
+              <button onClick={openCreateModal} className="btn-primary flex items-center gap-1.5 text-sm py-2"><Plus size={14} /> Nouveau bon</button>
             </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead><tr className="border-b border-border bg-muted/50"><th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">Référence</th><th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">Fournisseur</th><th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">Date commande</th><th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">Date réception</th><th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground">Montant HT</th><th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">Lignes</th><th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">Statut</th><th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">Actions</th></tr></thead>
+              <thead><tr className="border-b border-border bg-muted/50"><th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">Référence</th><th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">Fournisseur</th><th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">Date commande</th><th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">Date réception</th><th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground">Montant HT</th><th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">Statut</th><th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">Actions</th></tr></thead>
               <tbody>
-                {filtered.map((achat, idx) => (
+                {loading ? (<tr><td colSpan={7} className="py-8 text-center text-muted-foreground"><Loader2 className="animate-spin mx-auto mb-2" size={24} /> Chargement...</td></tr>
+                ) : filtered.map((achat, idx) => (
                   <tr key={achat.id} className={`border-b border-border table-row-hover ${idx % 2 === 0 ? '' : 'bg-muted/20'}`}>
-                    <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{achat.reference}</td>
-                    <td className="px-5 py-3 font-medium text-foreground">{achat.fournisseur}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{achat.date}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{achat.dateReception ?? '—'}</td>
-                    <td className="px-5 py-3 text-right tabular-nums font-semibold text-foreground">{achat.montantHT.toLocaleString('fr-FR')} FCFA</td>
-                    <td className="px-5 py-3 text-center text-muted-foreground">{achat.lignes}</td>
-                    <td className="px-5 py-3 text-center"><span className={STATUT_CONFIG[achat.statut].className}>{STATUT_CONFIG[achat.statut].label}</span></td>
-                    <td className="px-5 py-3 text-center"><button className="inline-flex items-center gap-1 text-xs text-primary hover:underline"><Eye size={12} /> Détail</button></td>
+                    <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{achat.numeroFactureFournisseur}</td>
+                    <td className="px-5 py-3 font-medium text-foreground">{achat.fournisseurNom}</td>
+                    <td className="px-5 py-3 text-muted-foreground">{new Date(achat.dateAchat).toLocaleDateString('fr-FR')}</td>
+                    <td className="px-5 py-3 text-muted-foreground">{achat.dateReception ? new Date(achat.dateReception).toLocaleDateString('fr-FR') : '—'}</td>
+                    <td className="px-5 py-3 text-right tabular-nums font-semibold text-foreground">{achat.montantTotalHt.toLocaleString('fr-FR')} {devise}</td>
+                    <td className="px-5 py-3 text-center"><span className={STATUT_CONFIG[achat.statutAchat]?.className}>{STATUT_CONFIG[achat.statutAchat]?.label}</span></td>
+                    <td className="px-5 py-3 text-center">
+                      <button onClick={() => openDetail(achat.id)} disabled={loadingDetail === achat.id} className="inline-flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50">
+                        {loadingDetail === achat.id ? <Loader2 size={12} className="animate-spin" /> : <Eye size={12} />} Détail
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {filtered.length === 0 && <div className="py-16 text-center"><Truck size={32} className="mx-auto text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground">Aucun bon d'achat trouvé</p></div>}
-          <div className="px-5 py-3 border-t border-border text-xs text-muted-foreground">{filtered.length} résultat{filtered.length !== 1 ? 's' : ''}</div>
+          {!loading && filtered.length === 0 && <div className="py-16 text-center"><Truck size={32} className="mx-auto text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground">Aucun bon d'achat trouvé</p></div>}
+          <div className="px-5 py-3 border-t border-border text-xs text-muted-foreground">{!loading ? filtered.length : 0} résultat{!loading && filtered.length !== 1 ? 's' : ''}</div>
         </div>
       </div>
-      {showModal && (
+
+      {/* MODALE CRÉATION */}
+      {showCreate && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-card rounded-xl shadow-2xl w-full max-w-md fade-in">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border"><h3 className="text-base font-bold text-foreground">Nouveau bon d'achat</h3><button onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-foreground"><X size={18} /></button></div>
-            <div className="px-6 py-5 space-y-4">
-              <div><label className="block text-xs font-semibold text-foreground mb-1.5">Fournisseur</label><select value={form.fournisseur} onChange={(e) => setForm({ ...form, fournisseur: e.target.value })} className="input-field text-sm"><option value="">Sélectionner un fournisseur</option><option>Éditions Casbah</option><option>Distri-Info Algérie</option><option>Papeterie Centrale</option><option>TechDist Algérie</option></select></div>
-              <div><label className="block text-xs font-semibold text-foreground mb-1.5">Date de commande</label><input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="input-field text-sm" /></div>
-              <div><label className="block text-xs font-semibold text-foreground mb-1.5">Notes</label><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} placeholder="Instructions particulières..." className="input-field text-sm resize-none" /></div>
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col fade-in">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h3 className="text-base font-bold text-foreground">Nouveau bon d'achat</h3>
+              <button onClick={() => setShowCreate(false)} className="text-muted-foreground hover:text-foreground"><X size={18} /></button>
             </div>
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border"><button onClick={() => setShowModal(false)} className="btn-secondary text-sm py-2">Annuler</button><button onClick={() => setShowModal(false)} className="btn-primary text-sm py-2">Créer le bon</button></div>
+            <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">Fournisseur *</label>
+                  <select value={formFournisseur} onChange={e => setFormFournisseur(e.target.value)} className="input-field text-sm">
+                    <option value="">Sélectionner...</option>
+                    {fournisseurs.map(f => <option key={f.id} value={f.id}>{f.nomEntreprise}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5">Ajouter un produit</label>
+                <div className="flex gap-2">
+                  <select value={selectedProduit} onChange={e => setSelectedProduit(e.target.value)} className="input-field text-sm flex-1">
+                    <option value="">Choisir un produit...</option>
+                    {produits.map(p => <option key={p.id} value={p.id}>{p.libelle} (stock: {p.stock})</option>)}
+                  </select>
+                  <button onClick={addLigne} className="btn-secondary text-sm py-2 px-3 flex items-center gap-1"><Plus size={14} /> Ajouter</button>
+                </div>
+              </div>
+              {lignesForm.length > 0 && (
+                <div className="card-base overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead><tr className="border-b border-border bg-muted/50"><th className="text-left px-4 py-2 text-xs font-semibold text-muted-foreground">Produit</th><th className="text-right px-4 py-2 text-xs font-semibold text-muted-foreground">Qté</th><th className="text-right px-4 py-2 text-xs font-semibold text-muted-foreground">PU HT</th><th className="text-right px-4 py-2 text-xs font-semibold text-muted-foreground">Total</th><th className="px-4 py-2"></th></tr></thead>
+                    <tbody>
+                      {lignesForm.map((l, idx) => (
+                        <tr key={idx} className="border-b border-border last:border-0">
+                          <td className="px-4 py-2 text-foreground">{l.produitLibelle}</td>
+                          <td className="px-4 py-2 text-right"><input type="number" min="1" value={l.quantiteCommandee} onChange={e => updateLigne(idx, 'quantiteCommandee', e.target.value)} className="input-field w-20 text-right py-1 text-sm" /></td>
+                          <td className="px-4 py-2 text-right"><input type="number" min="0" step="0.01" value={l.prixAchatUnitaireHt} onChange={e => updateLigne(idx, 'prixAchatUnitaireHt', e.target.value)} className="input-field w-28 text-right py-1 text-sm" /></td>
+                          <td className="px-4 py-2 text-right font-medium tabular-nums">{(l.quantiteCommandee * l.prixAchatUnitaireHt).toLocaleString('fr-FR')} {devise}</td>
+                          <td className="px-4 py-2 text-center"><button onClick={() => removeLigne(idx)} className="text-muted-foreground hover:text-negative"><Trash2 size={14} /></button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="px-4 py-2 border-t border-border flex justify-end text-sm font-bold text-foreground">
+                    Total HT : <span className="ml-2 tabular-nums">{totalFormHt.toLocaleString('fr-FR')} {devise}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border">
+              <button onClick={() => setShowCreate(false)} className="btn-secondary text-sm py-2">Annuler</button>
+              <button onClick={handleCreate} disabled={creating} className="btn-primary text-sm py-2 flex items-center gap-2">
+                {creating ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />} Créer le bon
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE DÉTAIL / RÉCEPTION */}
+      {showDetail && selectedAchat && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col fade-in">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <div>
+                <h3 className="text-base font-bold text-foreground">Bon d'achat — {selectedAchat.numeroFactureFournisseur}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">{selectedAchat.fournisseurNom} · {new Date(selectedAchat.dateAchat).toLocaleDateString('fr-FR')}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={STATUT_CONFIG[selectedAchat.statutAchat]?.className}>{STATUT_CONFIG[selectedAchat.statutAchat]?.label}</span>
+                <button onClick={() => setShowDetail(false)} className="text-muted-foreground hover:text-foreground"><X size={18} /></button>
+              </div>
+            </div>
+            <div className="px-6 py-5 overflow-y-auto flex-1">
+              <div className="card-base overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b border-border bg-muted/50"><th className="text-left px-4 py-2 text-xs font-semibold text-muted-foreground">Produit</th><th className="text-right px-4 py-2 text-xs font-semibold text-muted-foreground">Qté commandée</th><th className="text-right px-4 py-2 text-xs font-semibold text-muted-foreground">Qté reçue</th><th className="text-right px-4 py-2 text-xs font-semibold text-muted-foreground">PU HT</th><th className="text-right px-4 py-2 text-xs font-semibold text-muted-foreground">Total</th></tr></thead>
+                  <tbody>
+                    {selectedAchat.lignes?.map(l => (
+                      <tr key={l.id} className="border-b border-border last:border-0 table-row-hover">
+                        <td className="px-4 py-3 font-medium text-foreground">{l.produitLibelle}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{l.quantiteCommandee}</td>
+                        <td className="px-4 py-3 text-right tabular-nums">{selectedAchat.statutAchat === 'RECU' ? <span className="text-positive font-semibold">{l.quantiteRecue}</span> : <span className="text-muted-foreground">—</span>}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{l.prixAchatUnitaireHt.toLocaleString('fr-FR')}</td>
+                        <td className="px-4 py-3 text-right tabular-nums font-medium text-foreground">{(l.quantiteCommandee * l.prixAchatUnitaireHt).toLocaleString('fr-FR')} {devise}</td>
+                      </tr>
+                    )) || <tr><td colSpan={5} className="text-center py-4 text-muted-foreground text-xs italic">Aucune ligne</td></tr>}
+                  </tbody>
+                </table>
+                <div className="px-4 py-3 border-t border-border grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex justify-between text-muted-foreground"><span>Total HT</span><span className="tabular-nums font-medium text-foreground">{selectedAchat.montantTotalHt.toLocaleString('fr-FR')} {devise}</span></div>
+                  <div className="flex justify-between text-muted-foreground"><span>Total TTC</span><span className="tabular-nums font-bold text-foreground">{selectedAchat.montantTotalTtc.toLocaleString('fr-FR')} {devise}</span></div>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border">
+              <button onClick={() => setShowDetail(false)} className="btn-secondary text-sm py-2">Fermer</button>
+              {selectedAchat.statutAchat === 'EN_ATTENTE' && (
+                <button onClick={handleValiderReception} disabled={validating} className="btn-primary text-sm py-2 flex items-center gap-2">
+                  {validating ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />} Valider la réception
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

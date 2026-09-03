@@ -28,6 +28,13 @@ export class CatalogueController {
     return this.catalogueService.getCategories();
   }
 
+  @Post('categories')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
+  async createCategory(@Body() data: any) {
+    return this.catalogueService.createCategory(data);
+  }
+
   @Post('produits')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
@@ -54,5 +61,19 @@ export class CatalogueController {
   @Roles('ADMIN')
   async remove(@Param('id', ParseIntPipe) id: number) {
     return this.catalogueService.remove(id);
+  }
+
+  @Post('produits/:id/images')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
+  async addImage(@Param('id', ParseIntPipe) id: number, @Body() data: { url: string; est_principale?: boolean }) {
+    return this.catalogueService.addImage(id, data.url, data.est_principale);
+  }
+
+  @Delete('produits/images/:imageId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
+  async removeImage(@Param('imageId', ParseIntPipe) imageId: number) {
+    return this.catalogueService.removeImage(imageId);
   }
 }

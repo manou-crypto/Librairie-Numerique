@@ -90,6 +90,7 @@ model Utilisateur {
   email             String      @unique @db.VarChar(150)
   mot_de_passe_hash String      @db.VarChar(255)
   statut            StatutUser  @default(ACTIF)
+  avatar_url        String?     @db.VarChar(500)
 
   role               Role                 @relation(fields: [id_role], references: [id_role])
   logs               LogAudit[]
@@ -99,6 +100,7 @@ model Utilisateur {
   inventaires        Inventaire[]
   sessions_caisse    SessionCaisse[]
   clotures_validees  ClotureJournaliere[]
+  caisses_assignees  Caisse[]             @relation("CaisseAssignee")
 
   @@map("utilisateur")
 }
@@ -134,6 +136,21 @@ model LogAudit {
   utilisateur Utilisateur? @relation(fields: [id_utilisateur], references: [id_utilisateur], onDelete: SetNull)
 
   @@map("log_audit")
+}
+
+// ------------------------------------------------------
+// 1.5 CONFIGURATION GLOBALE
+// ------------------------------------------------------
+
+model Configuration {
+  id_configuration Int      @id @default(1)
+  nom_librairie    String   @default("LibrairieNumerique") @db.VarChar(150)
+  logo_url         String?  @db.VarChar(500)
+  devise           String   @default("DZD") @db.VarChar(10)
+  tva              Decimal  @default(0.00) @db.Decimal(4, 2)
+  updated_at       DateTime @updatedAt
+
+  @@map("configuration")
 }
 
 // ------------------------------------------------------
@@ -363,12 +380,15 @@ model LigneInventaire {
 // ------------------------------------------------------
 
 model Caisse {
-  id_caisse     Int          @id @default(autoincrement())
-  code_caisse   String       @unique @db.VarChar(50)
-  emplacement   String?      @db.VarChar(100)
-  statut_caisse StatutCaisse @default(FERMEE)
+  id_caisse      Int          @id @default(autoincrement())
+  code_caisse    String       @unique @db.VarChar(50)
+  emplacement    String?      @db.VarChar(100)
+  statut_caisse  StatutCaisse @default(FERMEE)
+  est_active     Boolean      @default(true)
+  id_utilisateur Int?
 
-  sessions SessionCaisse[]
+  utilisateur Utilisateur? @relation("CaisseAssignee", fields: [id_utilisateur], references: [id_utilisateur], onDelete: SetNull)
+  sessions    SessionCaisse[]
 
   @@map("caisse")
 }
@@ -456,4 +476,15 @@ model ClotureJournaliere {
   utilisateur_validation Utilisateur @relation(fields: [id_utilisateur_validation], references: [id_utilisateur])
 
   @@map("cloture_journaliere")
+}
+
+model Notification {
+  id_notification Int      @id @default(autoincrement())
+  type            String   // 'alerte', 'info', 'succes', 'vente', 'stock', 'caisse', 'utilisateur'
+  titre           String
+  message         String   @db.Text
+  lue             Boolean  @default(false)
+  date_creation   DateTime @default(now())
+
+  @@map("notification")
 }

@@ -1,8 +1,7 @@
 'use client';
 import React from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
-const data: any[] = [];
+import { useAppConfig } from '@/contexts/ConfigContext';
 
 interface CustomTooltipProps {
   active?: boolean;
@@ -11,6 +10,8 @@ interface CustomTooltipProps {
 }
 
 function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
+  const { config } = useAppConfig();
+  const devise = config?.devise || 'FCFA';
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-card border border-border rounded-xl shadow-elevated px-4 py-3 text-sm">
@@ -19,14 +20,18 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
         <div key={`tt-${i}`} className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full" style={{ background: p.color }} />
           <span className="text-muted-foreground text-xs">{p.name === 'semaine' ? 'Cette semaine' : 'Semaine préc.'}</span>
-          <span className="font-bold tabular-nums text-foreground ml-auto pl-4">{p.value.toLocaleString('fr-FR')} FCFA</span>
+          <span className="font-bold tabular-nums text-foreground ml-auto pl-4">{p.value.toLocaleString('fr-FR')} {devise}</span>
         </div>
       ))}
     </div>
   );
 }
 
-export default function CAAreaChart() {
+interface CAAreaChartProps {
+  data: { jour: string; semaine: number; precedente: number }[];
+}
+
+export default function CAAreaChart({ data }: CAAreaChartProps) {
   return (
     <ResponsiveContainer width="100%" height={220}>
       <AreaChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>

@@ -13,9 +13,11 @@ export interface AuthUser {
   name: string;
   email: string;
   // Aligné sur les codes de rôle de la base de données MySQL (table role.code_role)
-  role: 'ADMIN' | 'GESTIONNAIRE_CATALOGUE' | 'ACHETEUR_STOCK' | 'CAISSIER';
+  role: 'ADMIN' | 'GESTIONNAIRE_CATALOGUE' | 'ACHETEUR_STOCK' | 'CAISSIER' | string;
   // Alias UI pour la Sidebar (mappé depuis le code_role BD)
   roleUi: 'super_admin' | 'manager' | 'cashier';
+  // Liste des permissions accordées
+  permissions?: string[];
 }
 
 export interface AuthTokens {
@@ -61,10 +63,10 @@ export const authService = {
       roleUi: mapRoleToUi(data.user.role),
     };
 
-    // Stocker le token JWT dans un cookie sécurisé (1 jour)
-    setTokenCookie(data.tokens.accessToken, 1);
+    // Stocker le token JWT dans un cookie de session (effacé dès fermeture du navigateur)
+    setTokenCookie(data.tokens.accessToken);
 
-    // Stocker les infos utilisateur dans un cookie non sensible
+    // Stocker les infos utilisateur dans un cookie de session (effacé dès fermeture du navigateur)
     if (typeof document !== 'undefined') {
       document.cookie = `auth_user=${encodeURIComponent(JSON.stringify(user))}; path=/; SameSite=Strict`;
     }
@@ -101,7 +103,7 @@ export const authService = {
     });
     if (!response.ok) throw new Error('Impossible de rafraîchir la session');
     const tokens: AuthTokens = await response.json();
-    setTokenCookie(tokens.accessToken, 1);
+    setTokenCookie(tokens.accessToken);
     return tokens;
   },
 
@@ -116,6 +118,17 @@ export const authService = {
       return JSON.parse(decodeURIComponent(match[1]));
     } catch {
       return null;
+    }
+  },
+
+  /**
+   * Met à jour les informations de l'utilisateur dans le cookie
+   */
+  updateUserCookie(updates: Partial<AuthUser>): void {
+    const user = this.getUser();
+    if (user && typeof document !== 'undefined') {
+      const updatedUser = { ...user, ...updates };
+      document.cookie = `auth_user=${encodeURIComponent(JSON.stringify(updatedUser))}; path=/; SameSite=Strict`;
     }
   },
 

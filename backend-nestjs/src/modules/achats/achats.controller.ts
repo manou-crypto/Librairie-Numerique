@@ -16,6 +16,12 @@ export class AchatsController {
     return this.achatsService.findAll();
   }
 
+  @Get(':id')
+  @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE', 'ACHETEUR_STOCK')
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.achatsService.findOne(id);
+  }
+
   @Post()
   @Roles('ADMIN', 'ACHETEUR_STOCK')
   async create(@CurrentUser() user: any, @Body() data: any) {

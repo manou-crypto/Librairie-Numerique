@@ -57,7 +57,15 @@ export class AuthService implements OnModuleInit {
   async login(loginDto: LoginDto) {
     const user = await this.prisma.utilisateur.findUnique({
       where: { email: loginDto.email },
-      include: { role: true },
+      include: {
+        role: {
+          include: {
+            permissions: {
+              include: { permission: true },
+            },
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -98,6 +106,7 @@ export class AuthService implements OnModuleInit {
         name: `${user.prenom} ${user.nom}`,
         email: user.email,
         role: user.role.code_role,
+        permissions: user.role.permissions.map((p) => p.permission.code_permission),
       },
       tokens: {
         accessToken,

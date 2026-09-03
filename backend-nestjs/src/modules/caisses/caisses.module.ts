@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { CaissesService } from './caisses.service';
 import { CaissesController } from './caisses.controller';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
+  imports: [NotificationsModule],
   controllers: [CaissesController],
   providers: [CaissesService],
   exports: [CaissesService],

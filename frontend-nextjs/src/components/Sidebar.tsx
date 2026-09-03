@@ -5,6 +5,7 @@ import AppLogo from '@/components/ui/AppLogo';
 import { LayoutDashboard, ShoppingCart, Package, Users, BarChart3, Settings, ChevronLeft, ChevronRight, Bell, LogOut, Warehouse, FileText, Truck, ClipboardList, CreditCard, Globe, User, ShoppingBag, ClipboardCheck } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Icon from '@/components/ui/AppIcon';
+import { useAppConfig } from '@/contexts/ConfigContext';
 
 
 interface NavItem {
@@ -30,11 +31,30 @@ const navItems: NavItem[] = [
   { id: 'nav-utilisateurs', label: 'Utilisateurs', href: '/utilisateurs', icon: Users, group: 'Gestion', roles: ['super_admin'] },
   { id: 'nav-rapports', label: 'Rapports', href: '/rapports', icon: FileText, group: 'Gestion', roles: ['super_admin'] },
   { id: 'nav-caisses', label: 'Caisses', href: '/caisses', icon: CreditCard, group: 'Gestion', roles: ['super_admin'] },
-  { id: 'nav-catalogue-public', label: 'Catalogue public', href: '/catalogue', icon: Globe, group: 'Système', roles: ['super_admin', 'manager'] },
-  { id: 'nav-notifications', label: 'Notifications', href: '/notifications', icon: Bell, badge: 3, group: 'Système', roles: ['super_admin', 'manager', 'cashier'] },
+  { id: 'nav-catalogue-public', label: 'Gestion Images Catalogue', href: '/gestion-catalogue', icon: Globe, group: 'Catalogue', roles: ['super_admin', 'manager'] },
+  { id: 'nav-notifications', label: 'Notifications', href: '/notifications', icon: Bell, group: 'Système', roles: ['super_admin', 'manager', 'cashier'] },
   { id: 'nav-parametres', label: 'Paramètres', href: '/parametres', icon: Settings, group: 'Système', roles: ['super_admin'] },
   { id: 'nav-profil', label: 'Mon profil', href: '/profil', icon: User, group: 'Système', roles: ['super_admin', 'manager', 'cashier'] },
 ];
+
+const PERMISSION_BY_HREF: Record<string, string> = {
+  '/dashboard': 'VIEW_DASHBOARD',
+  '/caisse': 'VIEW_POS',
+  '/ventes': 'VIEW_VENTES',
+  '/produits': 'VIEW_CATALOGUE',
+  '/stock': 'VIEW_STOCK',
+  '/inventaire': 'VIEW_INVENTAIRE',
+  '/achats': 'VIEW_ACHATS',
+  '/fournisseurs': 'VIEW_FOURNISSEURS',
+  '/finances': 'VIEW_FINANCES',
+  '/utilisateurs': 'VIEW_UTILISATEURS',
+  '/rapports': 'VIEW_RAPPORTS',
+  '/caisses': 'VIEW_CAISSES',
+  '/catalogue': 'VIEW_CATALOGUE',
+  '/notifications': 'VIEW_NOTIFICATIONS',
+  '/parametres': 'VIEW_PARAMETRES',
+  '/profil': 'ALL',
+};
 
 const groups = ['Principal', 'Ventes', 'Catalogue', 'Gestion', 'Système'];
 
@@ -43,14 +63,12 @@ const roleLabels: Record<string, string> = {
   manager: 'Gestionnaire',
   cashier: 'Caissier',
 };
-
 function getInitials(name: string): string {
   if (!name) return '?';
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
-
 interface SidebarProps {
   currentPath: string;
 }
@@ -59,6 +77,7 @@ export default function Sidebar({ currentPath }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, logout } = useAuth();
+  const { config } = useAppConfig();
 
   const rawRole = user?.roleUi ?? user?.role ?? 'super_admin';
   const roleMap: Record<string, 'super_admin' | 'manager' | 'cashier'> = {
@@ -71,22 +90,36 @@ export default function Sidebar({ currentPath }: SidebarProps) {
     cashier: 'cashier',
   };
   const userRole = roleMap[rawRole] ?? 'super_admin';
-  const visibleItems = navItems.filter((item) => item.roles.includes(userRole));
+
+  const visibleItems = navItems.filter((item) => {
+    if (user?.role === 'ADMIN' || rawRole === 'ADMIN' || rawRole === 'super_admin') {
+      return true;
+    }
+    if (item.href === '/profil') return true;
+
+    // Si des permissions personnalisées sont définies
+    if (user?.permissions && user.permissions.length > 0) {
+      const reqPerm = PERMISSION_BY_HREF[item.href];
+      return reqPerm ? user.permissions.includes(reqPerm) : false;
+    }
+
+    return item.roles.includes(userRole);
+  });
 
   const isActive = (href: string) => {
     if (href === '/dashboard') return currentPath === '/dashboard' || currentPath === '/';
     return currentPath.startsWith(href);
   };
 
-  const displayName = user?.name ?? 'Utilisateur';
-  const displayInitials = getInitials(displayName);
-  const displayRole = roleLabels[userRole] ?? userRole;
+  const displayName = user?.name ?? '';
+  const displayInitials = user?.name ? getInitials(user.name) : '';
+  const displayRole = user ? (roleLabels[userRole] ?? userRole) : '';
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       <div className={`flex items-center gap-3 px-4 py-4 border-b border-border ${collapsed ? 'justify-center' : ''}`}>
-        <AppLogo size={32} />
-        {!collapsed && <span className="font-bold text-base text-foreground tracking-tight">LibrairieNumerique</span>}
+        {config?.logo_url ? <img src={config.logo_url} alt="Logo" className="w-8 h-8 object-contain" /> : <AppLogo size={32} />}
+        {!collapsed && <span className="font-bold text-base text-foreground tracking-tight">{config?.nom_librairie || 'LibrairieNumerique'}</span>}
       </div>
       <nav className="flex-1 overflow-y-auto scrollbar-thin py-3 px-2">
         {groups.map((group) => {
@@ -110,24 +143,26 @@ export default function Sidebar({ currentPath }: SidebarProps) {
           );
         })}
       </nav>
-      <div className="border-t border-border px-2 py-3">
-        <div className={`flex items-center gap-3 px-3 py-2 rounded-lg ${collapsed ? 'justify-center' : ''}`}>
-          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-            <span className="text-xs font-bold text-primary">{displayInitials}</span>
-          </div>
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-foreground truncate">{displayName}</p>
-              <p className="text-[10px] text-muted-foreground">{displayRole}</p>
+      {user && (
+        <div className="border-t border-border px-2 py-3">
+          <div className={`flex items-center gap-3 px-3 py-2 rounded-lg ${collapsed ? 'justify-center' : ''}`}>
+            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <span className="text-xs font-bold text-primary">{displayInitials}</span>
             </div>
-          )}
-          {!collapsed && (
-            <button onClick={logout} className="text-muted-foreground hover:text-negative transition-colors" title="Se déconnecter">
-              <LogOut size={15} />
-            </button>
-          )}
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-foreground truncate">{displayName}</p>
+                <p className="text-[10px] text-muted-foreground">{displayRole}</p>
+              </div>
+            )}
+            {!collapsed && (
+              <button onClick={logout} className="text-muted-foreground hover:text-negative transition-colors" title="Se déconnecter">
+                <LogOut size={15} />
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
       <button onClick={() => setCollapsed(!collapsed)} className="absolute -right-3 top-20 bg-card border border-border rounded-full w-6 h-6 flex items-center justify-center shadow-sm hover:shadow-md transition-shadow z-10" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
         {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
       </button>

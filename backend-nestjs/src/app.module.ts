@@ -12,10 +12,17 @@ import { CaissesModule } from './modules/caisses/caisses.module';
 import { VentesModule } from './modules/ventes/ventes.module';
 import { InventaireModule } from './modules/inventaire/inventaire.module';
 import { FinancesModule } from './modules/finances/finances.module';
+import { ConfigurationModule } from './modules/configuration/configuration.module';
+import { EventsModule } from './modules/events/events.module';
+
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { RapportsModule } from './modules/rapports/rapports.module';
+import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
 
 @Module({
   imports: [
     PrismaModule,
+    EventsModule, // Doit être importé EN PREMIER car il est @Global()
     AuthModule,
     UsersModule,
     CatalogueModule,
@@ -26,8 +33,13 @@ import { FinancesModule } from './modules/finances/finances.module';
     VentesModule,
     InventaireModule,
     FinancesModule,
+    ConfigurationModule,
+    NotificationsModule,
+    RapportsModule,
+    CloudinaryModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
+

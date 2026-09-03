@@ -15,6 +15,7 @@
 ### 🛒 1. Vitrine Publique & E-Commerce
 - **Catalogue dynamique** filtrable par catégories et mots-clés.
 - **Fiches produits détaillées** avec tarification en **Franc CFA (XOF)**.
+- **Gestion des images** hébergées et optimisées dynamiquement via **Cloudinary** (Upload direct, génération d'OG Images pour le partage social).
 - **Système EAV (Entity-Attribute-Value)** pour la gestion flexible des attributs spécifiques (Auteur, Éditeur, ISBN, Format, Nb de pages...).
 
 ### 💳 2. Terminal Caisse POS (Point de Vente)
@@ -121,6 +122,8 @@ Toute l'application est conteneurisée pour pouvoir être déployée ou testée 
 3. **Nginx** (`nginx/default.conf`) : Sert de reverse-proxy (redirige le trafic web standard vers le frontend et les requêtes `/api/*` vers le backend).
 4. **Docker Compose** (`docker-compose.yml`) : Orchestre les 4 services (`mysql`, `backend`, `frontend`, `nginx`) avec volumes persistants pour les données MySQL.
 
+> ⚠️ **Important pour Docker** : Le frontend nécessite l'accès à la variable `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` au moment du build. Assurez-vous que le fichier `.env` est présent et non ignoré par `.dockerignore` lors du `docker-compose build`.
+
 ### 🚀 Lancement avec Docker Compose
 
 ```bash
@@ -154,6 +157,7 @@ cd backend-nestjs
 
 # 1. Vérifier le fichier .env (adapter le mot de passe root de MySQL si besoin)
 # DATABASE_URL="mysql://root:root@localhost:3306/librairie_db"
+# Renseigner également vos clés Cloudinary : CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
 
 # 2. Exécuter la migration Prisma pour créer les 26 tables dans MySQL
 npx prisma migrate dev --name init
@@ -185,7 +189,9 @@ Dans un second terminal :
 ```powershell
 cd frontend-nextjs
 
-# Démarrer le serveur Next.js en mode développement
+# 1. Vérifier le fichier .env (il doit contenir NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME)
+
+# 2. Démarrer le serveur Next.js en mode développement
 npm run dev
 ```
 > ℹ️ *Le frontend sera accessible sur `http://localhost:4028`.*

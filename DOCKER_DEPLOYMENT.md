@@ -47,8 +47,9 @@ docker compose ps
 
 | Service | URL | Détails |
 |---------|-----|---------|
-| **Application Complète** | http://localhost | Via Nginx reverse proxy |
-| **API Backend** | http://localhost/api | NestJS (port 3000 interne) |
+| **Application Complète** | 
+| Via Nginx reverse proxy |
+| **API Backend** | http:// xlocalhost/api | NestJS (port 3000 interne) |
 | **Base de Données** | localhost:3306 | MySQL 8.0 |
 
 ### Identifiants de Connexion

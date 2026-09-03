@@ -1,11 +1,20 @@
 'use client';
 import React from 'react';
 import dynamic from 'next/dynamic';
+import { financesService, DashboardChartsResponse } from '@/services/finances.service';
 
 const CAAreaChart = dynamic(() => import('./CAAreaChart'), { ssr: false });
 const CategoryPieChart = dynamic(() => import('./CategoryPieChart'), { ssr: false });
 
 export default function DashboardChartsRow() {
+  const [chartsData, setChartsData] = React.useState<DashboardChartsResponse | null>(null);
+
+  React.useEffect(() => {
+    financesService.getDashboardCharts()
+      .then(data => setChartsData(data))
+      .catch(err => console.error("Erreur de chargement des graphiques", err));
+  }, []);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-3 gap-4">
       <div className="lg:col-span-2 card-base p-5">
@@ -20,14 +29,14 @@ export default function DashboardChartsRow() {
             <option>3 mois</option>
           </select>
         </div>
-        <CAAreaChart />
+        <CAAreaChart data={chartsData?.weeklyTrends || []} />
       </div>
       <div className="card-base p-5">
         <div className="mb-4">
           <h3 className="text-sm font-bold text-foreground">Ventes par catégorie</h3>
           <p className="text-xs text-muted-foreground">Ce mois — répartition CA</p>
         </div>
-        <CategoryPieChart />
+        <CategoryPieChart data={chartsData?.categoriesDistribution || []} />
       </div>
     </div>
   );
