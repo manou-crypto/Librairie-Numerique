@@ -17,6 +17,12 @@ export class VentesService {
     return `TCK-${today}-${rand}`;
   }
 
+  private generateRetourReference(): string {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const rand = Math.floor(1000 + Math.random() * 9000);
+    return `RET-${today}-${rand}`;
+  }
+
   async createVente(userId: number, payload: any) {
     const activeSession = await this.prisma.sessionCaisse.findFirst({
       where: { id_utilisateur: userId, statut_session: 'OUVERTE' },
@@ -69,6 +75,9 @@ export class VentesService {
               return {
                 id_produit: Number(l.produitId || l.id),
                 quantite: qte,
+                quantite_retournee: 0,
+                nom_kit: l.nomKit || null,
+                id_kit_groupe: l.idKitGroupe || null,
                 prix_achat_unitaire_snapshot: prixAchat,
                 prix_vente_unitaire_ht_snapshot: prixVenteHt,
                 taux_tva_snapshot: tauxTva,
@@ -240,7 +249,11 @@ export class VentesService {
     const [ventes, total] = await Promise.all([
       this.prisma.vente.findMany({
         where,
-        include: { lignes: { include: { produit: true } }, paiements: true },
+        include: {
+          lignes: { include: { produit: true } },
+          paiements: true,
+          retours: true,
+        },
         skip,
         take: pageSize,
         orderBy: { date_vente: 'desc' },
@@ -259,6 +272,7 @@ export class VentesService {
         margeTotale: Number(v.marge_totale),
         statutVente: v.statut_vente,
         lignesCount: v.lignes.length,
+        retoursCount: v.retours.length,
       })),
       total,
       page,
@@ -269,7 +283,17 @@ export class VentesService {
   async getVenteById(id: number) {
     const v = await this.prisma.vente.findUnique({
       where: { id_vente: id },
-      include: { lignes: { include: { produit: true } }, paiements: true },
+      include: {
+        lignes: { include: { produit: true } },
+        paiements: true,
+        retours: {
+          include: {
+            lignes: { include: { produit: true } },
+            utilisateur: true,
+          },
+          orderBy: { date_retour: 'desc' },
+        },
+      },
     });
     if (!v) throw new NotFoundException(`Vente #${id} introuvable`);
     return {
@@ -286,6 +310,10 @@ export class VentesService {
         produitId: String(l.id_produit),
         produitLibelle: l.produit.libelle,
         quantite: l.quantite,
+        quantiteRetournee: l.quantite_retournee,
+        quantiteRestante: l.quantite - l.quantite_retournee,
+        nomKit: l.nom_kit || undefined,
+        idKitGroupe: l.id_kit_groupe || undefined,
         prixVenteUnitaireHt: Number(l.prix_vente_unitaire_ht_snapshot),
         tauxTva: Number(l.taux_tva_snapshot),
         totalLigneHt: Number(l.total_ligne_ht),
@@ -293,6 +321,24 @@ export class VentesService {
       paiements: v.paiements.map((p) => ({
         modePaiement: p.mode_paiement,
         montant: Number(p.montant),
+      })),
+      retours: v.retours.map((r) => ({
+        id: String(r.id_retour_vente),
+        referenceRetour: r.reference_retour,
+        dateRetour: r.date_retour.toISOString(),
+        typeRetour: r.type_retour,
+        motif: r.motif,
+        montantRembourse: Number(r.montant_rembourse),
+        modeRemboursement: r.mode_remboursement,
+        utilisateurNom: `${r.utilisateur.prenom} ${r.utilisateur.nom}`,
+        lignes: r.lignes.map((lr) => ({
+          id: String(lr.id_ligne_retour),
+          produitId: String(lr.id_produit),
+          produitLibelle: lr.produit.libelle,
+          quantiteRetournee: lr.quantite_retournee,
+          prixUnitaireRembourse: Number(lr.prix_unitaire_rembourse),
+          totalLigne: Number(lr.total_ligne),
+        })),
       })),
     };
   }
@@ -332,5 +378,415 @@ export class VentesService {
     this.emitFreshKpis().catch(() => {});
 
     return this.getVenteById(id);
+  }
+
+  /**
+   * Retour d'articles partiel
+   */
+  async retourArticles(
+    venteId: number,
+    userId: number,
+    payload: {
+      lignes: Array<{ ligneVenteId: number; quantite: number }>;
+      motif: string;
+      modeRemboursement?: any;
+    },
+  ) {
+    const v = await this.prisma.vente.findUnique({
+      where: { id_vente: venteId },
+      include: {
+        lignes: { include: { produit: true } },
+      },
+    });
+
+    if (!v) throw new NotFoundException(`Vente #${venteId} introuvable`);
+    if (v.statut_vente === 'ANNULEE' || v.statut_vente === 'REMBOURSEE') {
+      throw new BadRequestException('Cette vente est déjà clôturée ou totalement remboursée');
+    }
+    if (!payload.lignes || payload.lignes.length === 0) {
+      throw new BadRequestException('Veuillez sélectionner au moins un article à retourner');
+    }
+    if (!payload.motif || !payload.motif.trim()) {
+      throw new BadRequestException('Le motif du retour est obligatoire');
+    }
+
+    const activeSession = await this.prisma.sessionCaisse.findFirst({
+      where: { id_utilisateur: userId, statut_session: 'OUVERTE' },
+    });
+
+    const refRetour = this.generateRetourReference();
+    const modeRemboursement = payload.modeRemboursement || 'ESPECES';
+
+    let totalRembourse = 0;
+    const itemsToProcess: Array<{
+      ligneVenteId: number;
+      produitId: number;
+      produitLibelle: string;
+      quantite: number;
+      prixUnitaireTtc: number;
+      totalLigneTtc: number;
+    }> = [];
+
+    for (const reqLine of payload.lignes) {
+      if (reqLine.quantite <= 0) continue;
+
+      const ligne = v.lignes.find((l) => l.id_ligne_vente === Number(reqLine.ligneVenteId));
+      if (!ligne) {
+        throw new BadRequestException(`Ligne de vente #${reqLine.ligneVenteId} introuvable`);
+      }
+
+      const qteRestante = ligne.quantite - ligne.quantite_retournee;
+      if (reqLine.quantite > qteRestante) {
+        throw new BadRequestException(
+          `Impossible de retourner ${reqLine.quantite} unité(s) pour "${ligne.produit.libelle}". Quantité restante retournable : ${qteRestante}`,
+        );
+      }
+
+      const puHt = Number(ligne.prix_vente_unitaire_ht_snapshot);
+      const tauxTva = Number(ligne.taux_tva_snapshot);
+      const puTtc = puHt * (1 + tauxTva / 100);
+      const totalLigne = puTtc * reqLine.quantite;
+
+      totalRembourse += totalLigne;
+      itemsToProcess.push({
+        ligneVenteId: ligne.id_ligne_vente,
+        produitId: ligne.id_produit,
+        produitLibelle: ligne.produit.libelle,
+        quantite: reqLine.quantite,
+        prixUnitaireTtc: puTtc,
+        totalLigneTtc: totalLigne,
+      });
+    }
+
+    if (itemsToProcess.length === 0) {
+      throw new BadRequestException('Aucune quantité valide à retourner');
+    }
+
+    const retourResult = await this.prisma.$transaction(async (tx) => {
+      const ret = await tx.retourVente.create({
+        data: {
+          reference_retour: refRetour,
+          id_vente: venteId,
+          id_utilisateur: userId,
+          id_session_caisse: activeSession ? activeSession.id_session : null,
+          type_retour: 'ARTICLE',
+          motif: payload.motif.trim(),
+          montant_rembourse: totalRembourse,
+          mode_remboursement: modeRemboursement,
+          lignes: {
+            create: itemsToProcess.map((item) => ({
+              id_ligne_vente: item.ligneVenteId,
+              id_produit: item.produitId,
+              quantite_retournee: item.quantite,
+              prix_unitaire_rembourse: item.prixUnitaireTtc,
+              total_ligne: item.totalLigneTtc,
+            })),
+          },
+        },
+        include: {
+          lignes: { include: { produit: true } },
+          utilisateur: true,
+        },
+      });
+
+      for (const item of itemsToProcess) {
+        await tx.stock.update({
+          where: { id_produit: item.produitId },
+          data: {
+            quantite_en_stock: { increment: item.quantite },
+          },
+        });
+
+        await tx.mouvementStock.create({
+          data: {
+            id_produit: item.produitId,
+            id_utilisateur: userId,
+            type_mouvement: 'AJUSTEMENT_INVENTAIRE',
+            quantite: item.quantite,
+          },
+        });
+
+        await tx.ligneVente.update({
+          where: { id_ligne_vente: item.ligneVenteId },
+          data: {
+            quantite_retournee: { increment: item.quantite },
+          },
+        });
+      }
+
+      const allLines = await tx.ligneVente.findMany({ where: { id_vente: venteId } });
+      const allReturned = allLines.every((l) => l.quantite_retournee >= l.quantite);
+      const newStatus = allReturned ? 'REMBOURSEE' : 'PARTIELLEMENT_REMBOURSEE';
+
+      await tx.vente.update({
+        where: { id_vente: venteId },
+        data: { statut_vente: newStatus },
+      });
+
+      if (activeSession && modeRemboursement === 'ESPECES') {
+        await tx.sessionCaisse.update({
+          where: { id_session: activeSession.id_session },
+          data: {
+            total_encaisse_calcule: { decrement: totalRembourse },
+          },
+        });
+      }
+
+      return ret;
+    });
+
+    await this.notificationsService
+      .createNotification(
+        'info',
+        'Retour d\'article effectué',
+        `Retour d'article (${refRetour}) sur le ticket ${v.reference_ticket} : ${totalRembourse.toLocaleString('fr-FR')} FCFA remboursé(s). Motif : ${payload.motif.trim()}`,
+      )
+      .catch(() => {});
+
+    this.emitFreshKpis().catch(() => {});
+
+    return {
+      id: String(retourResult.id_retour_vente),
+      referenceRetour: retourResult.reference_retour,
+      referenceTicketVente: v.reference_ticket,
+      dateRetour: retourResult.date_retour.toISOString(),
+      typeRetour: retourResult.type_retour,
+      motif: retourResult.motif,
+      montantRembourse: Number(retourResult.montant_rembourse),
+      modeRemboursement: retourResult.mode_remboursement,
+      utilisateurNom: `${retourResult.utilisateur.prenom} ${retourResult.utilisateur.nom}`,
+      lignes: retourResult.lignes.map((l) => ({
+        id: String(l.id_ligne_retour),
+        produitId: String(l.id_produit),
+        produitLibelle: l.produit.libelle,
+        quantiteRetournee: l.quantite_retournee,
+        prixUnitaireRembourse: Number(l.prix_unitaire_rembourse),
+        totalLigne: Number(l.total_ligne),
+      })),
+    };
+  }
+
+  /**
+   * Retour de vente complet
+   */
+  async retourVenteComplete(
+    venteId: number,
+    userId: number,
+    payload: { motif: string; modeRemboursement?: any },
+  ) {
+    const v = await this.prisma.vente.findUnique({
+      where: { id_vente: venteId },
+      include: { lignes: true },
+    });
+    if (!v) throw new NotFoundException(`Vente #${venteId} introuvable`);
+    if (v.statut_vente === 'ANNULEE' || v.statut_vente === 'REMBOURSEE') {
+      throw new BadRequestException('Cette vente est déjà clôturée ou totalement remboursée');
+    }
+
+    const lignesToReturn = v.lignes
+      .filter((l) => l.quantite - l.quantite_retournee > 0)
+      .map((l) => ({
+        ligneVenteId: l.id_ligne_vente,
+        quantite: l.quantite - l.quantite_retournee,
+      }));
+
+    if (lignesToReturn.length === 0) {
+      throw new BadRequestException('Tous les articles de cette vente ont déjà été retournés');
+    }
+
+    const res = await this.retourArticles(venteId, userId, {
+      lignes: lignesToReturn,
+      motif: payload.motif,
+      modeRemboursement: payload.modeRemboursement,
+    });
+
+    await this.prisma.retourVente.update({
+      where: { reference_retour: res.referenceRetour },
+      data: { type_retour: 'VENTE' },
+    });
+
+    res.typeRetour = 'VENTE';
+    return res;
+  }
+
+  /**
+   * Historique de tous les retours
+   */
+  async getRetours(query: any = {}) {
+    const page = Math.max(1, Number(query.page) || 1);
+    const pageSize = Math.max(1, Math.min(100, Number(query.pageSize) || 20));
+    const skip = (page - 1) * pageSize;
+
+    const [retours, total] = await Promise.all([
+      this.prisma.retourVente.findMany({
+        include: {
+          vente: true,
+          utilisateur: true,
+          lignes: { include: { produit: true } },
+        },
+        skip,
+        take: pageSize,
+        orderBy: { date_retour: 'desc' },
+      }),
+      this.prisma.retourVente.count(),
+    ]);
+
+    return {
+      data: retours.map((r) => ({
+        id: String(r.id_retour_vente),
+        referenceRetour: r.reference_retour,
+        venteId: String(r.id_vente),
+        referenceTicketVente: r.vente.reference_ticket,
+        dateRetour: r.date_retour.toISOString(),
+        typeRetour: r.type_retour,
+        motif: r.motif,
+        montantRembourse: Number(r.montant_rembourse),
+        modeRemboursement: r.mode_remboursement,
+        utilisateurNom: `${r.utilisateur.prenom} ${r.utilisateur.nom}`,
+        lignesCount: r.lignes.length,
+        lignes: r.lignes.map((l) => ({
+          id: String(l.id_ligne_retour),
+          produitId: String(l.id_produit),
+          produitLibelle: l.produit.libelle,
+          quantiteRetournee: l.quantite_retournee,
+          prixUnitaireRembourse: Number(l.prix_unitaire_rembourse),
+          totalLigne: Number(l.total_ligne),
+        })),
+      })),
+      total,
+      page,
+      pageSize,
+    };
+  }
+
+  async getRetourById(id: number) {
+    const r = await this.prisma.retourVente.findUnique({
+      where: { id_retour_vente: id },
+      include: {
+        vente: true,
+        utilisateur: true,
+        lignes: { include: { produit: true } },
+      },
+    });
+    if (!r) throw new NotFoundException(`Retour #${id} introuvable`);
+    return {
+      id: String(r.id_retour_vente),
+      referenceRetour: r.reference_retour,
+      venteId: String(r.id_vente),
+      referenceTicketVente: r.vente.reference_ticket,
+      dateRetour: r.date_retour.toISOString(),
+      typeRetour: r.type_retour,
+      motif: r.motif,
+      montantRembourse: Number(r.montant_rembourse),
+      modeRemboursement: r.mode_remboursement,
+      utilisateurNom: `${r.utilisateur.prenom} ${r.utilisateur.nom}`,
+      lignes: r.lignes.map((l) => ({
+        id: String(l.id_ligne_retour),
+        produitId: String(l.id_produit),
+        produitLibelle: l.produit.libelle,
+        quantiteRetournee: l.quantite_retournee,
+        prixUnitaireRembourse: Number(l.prix_unitaire_rembourse),
+        totalLigne: Number(l.total_ligne),
+      })),
+    };
+  }
+
+  /**
+   * Modèles de kits réutilisables
+   */
+  async getKits() {
+    const kits = await this.prisma.modeleKit.findMany({
+      where: { est_actif: true },
+      include: {
+        lignes: {
+          include: {
+            produit: {
+              include: { stock: true },
+            },
+          },
+        },
+      },
+      orderBy: { date_creation: 'desc' },
+    });
+
+    return kits.map((k) => ({
+      id: String(k.id_modele_kit),
+      nomKit: k.nom_kit,
+      description: k.description || undefined,
+      prixForfaitaire: Number(k.prix_forfaitaire),
+      dateCreation: k.date_creation.toISOString(),
+      lignes: k.lignes.map((l) => ({
+        id: String(l.id_ligne_modele_kit),
+        produitId: String(l.id_produit),
+        produitLibelle: l.produit.libelle,
+        produitReference: l.produit.reference,
+        prixUnitaireCatalogue: Number(l.produit.prix_vente),
+        stockActuel: l.produit.stock?.quantite_en_stock || 0,
+        quantite: l.quantite,
+      })),
+    }));
+  }
+
+  async createKit(data: {
+    nomKit: string;
+    description?: string;
+    prixForfaitaire: number;
+    lignes: Array<{ produitId: number; quantite: number }>;
+  }) {
+    if (!data.nomKit || !data.nomKit.trim()) {
+      throw new BadRequestException('Le nom du kit est obligatoire');
+    }
+    if (data.prixForfaitaire <= 0) {
+      throw new BadRequestException('Le prix du kit doit être supérieur à zéro');
+    }
+    if (!data.lignes || data.lignes.length === 0) {
+      throw new BadRequestException('Le kit doit contenir au moins un produit');
+    }
+
+    const kit = await this.prisma.modeleKit.create({
+      data: {
+        nom_kit: data.nomKit.trim(),
+        description: data.description ? data.description.trim() : null,
+        prix_forfaitaire: data.prixForfaitaire,
+        lignes: {
+          create: data.lignes.map((l) => ({
+            id_produit: Number(l.produitId),
+            quantite: Math.max(1, Number(l.quantite) || 1),
+          })),
+        },
+      },
+      include: {
+        lignes: {
+          include: {
+            produit: {
+              include: { stock: true },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      id: String(kit.id_modele_kit),
+      nomKit: kit.nom_kit,
+      description: kit.description || undefined,
+      prixForfaitaire: Number(kit.prix_forfaitaire),
+      lignes: kit.lignes.map((l) => ({
+        id: String(l.id_ligne_modele_kit),
+        produitId: String(l.id_produit),
+        produitLibelle: l.produit.libelle,
+        quantite: l.quantite,
+      })),
+    };
+  }
+
+  async deleteKit(id: number) {
+    const kit = await this.prisma.modeleKit.findUnique({ where: { id_modele_kit: id } });
+    if (!kit) throw new NotFoundException(`Kit #${id} introuvable`);
+    await this.prisma.modeleKit.update({
+      where: { id_modele_kit: id },
+      data: { est_actif: false },
+    });
+    return { success: true, message: `Kit ${kit.nom_kit} désactivé` };
   }
 }

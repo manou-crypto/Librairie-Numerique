@@ -8,11 +8,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // Routes accessibles sans authentification
-const PUBLIC_PATHS = [
-  '/',
-  '/login',
-  '/catalogue',
-];
+const PUBLIC_PATHS = ['/', '/login', '/catalogue'];
 
 // Préfixes des routes publiques (vitrine)
 const PUBLIC_PREFIXES = [

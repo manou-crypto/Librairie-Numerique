@@ -50,6 +50,9 @@ services:
       JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-7d}
       PORT: 3000
       NODE_ENV: ${NODE_ENV:-production}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-gbb7huxa}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-959631882842267}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
     networks:
       - AppNetwork
     healthcheck:
@@ -73,12 +76,17 @@ services:
       dockerfile: Dockerfile
       cache_from:
         - frontend:latest
+      args:
+        NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-gbb7huxa}
+        NEXT_PUBLIC_CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-959631882842267}
     container_name: frontend_app
     restart: unless-stopped
     depends_on:
       - backend
     environment:
       NEXT_PUBLIC_API_URL: ""
+      NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-gbb7huxa}
+      NEXT_PUBLIC_CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-959631882842267}
       NODE_ENV: ${NODE_ENV:-production}
     networks:
       - AppNetwork

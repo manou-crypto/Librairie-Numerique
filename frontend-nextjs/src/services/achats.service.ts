@@ -11,6 +11,7 @@ export interface LigneAchatPayload {
 
 export interface AchatPayload {
   fournisseurId: string;
+  datePrevueReception?: string;
   lignes: LigneAchatPayload[];
 }
 
@@ -30,11 +31,23 @@ export interface AchatItem {
   fournisseurNom: string;
   utilisateurId: number;
   dateAchat: string;
+  datePrevueReception?: string;
   dateReception?: string;
   montantTotalHt: number;
   montantTotalTtc: number;
   statutAchat: 'EN_ATTENTE' | 'RECU' | 'ANNULE';
   lignes?: LigneAchatItem[];
+}
+
+export interface AchatEnRetardItem {
+  id: string;
+  numeroFactureFournisseur: string;
+  fournisseurId: string;
+  fournisseurNom: string;
+  dateAchat: string;
+  datePrevueReception?: string;
+  montantTotalHt: number;
+  joursRetard: number;
 }
 
 export const achatsService = {
@@ -77,10 +90,14 @@ export const achatsService = {
   },
 
   /**
-   * Enregistrer la réception d'une commande (incrémente le stock)
+   * Enregistrer la réception d'une commande avec saisie interactive (qté + prix)
+   * Recalcule les totaux monétaires côté backend
    * POST /api/v1/achats/:id/reception
    */
-  async validerReception(id: string, lignesRecues: { produitId: string; quantiteRecue: number }[]): Promise<AchatItem> {
+  async validerReception(
+    id: string,
+    lignesRecues: { produitId: string; quantiteRecue: number; prixAchatUnitaireHt: number }[]
+  ): Promise<AchatItem> {
     const response = await fetch(`${API_BASE_URL}/v1/achats/${id}/reception`, {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -89,5 +106,30 @@ export const achatsService = {
     if (!response.ok) throw new Error('Échec de la validation de la réception');
     return response.json();
   },
-};
 
+  /**
+   * Annuler un bon d'achat en attente (« retour d'achat »)
+   * PATCH /api/v1/achats/:id/annuler
+   */
+  async annuler(id: string): Promise<AchatItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/achats/${id}/annuler`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error("Échec de l'annulation du bon d'achat");
+    return response.json();
+  },
+
+  /**
+   * Récupérer les achats en retard de livraison
+   * GET /api/v1/achats/en-retard
+   */
+  async getEnRetard(seuil?: number): Promise<AchatEnRetardItem[]> {
+    const params = seuil ? `?seuil=${seuil}` : '';
+    const response = await fetch(`${API_BASE_URL}/v1/achats/en-retard${params}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Échec du chargement des achats en retard');
+    return response.json();
+  },
+};

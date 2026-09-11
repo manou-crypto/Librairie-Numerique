@@ -47,7 +47,7 @@ export default function RoleModal({ open, onClose, role, permissions, onSave }: 
 
   const togglePerm = (code: string) => {
     if (isProtectedAdmin) return;
-    setSelectedPerms(prev => {
+    setSelectedPerms((prev) => {
       const next = new Set(prev);
       if (next.has(code)) {
         next.delete(code);
@@ -60,10 +60,10 @@ export default function RoleModal({ open, onClose, role, permissions, onSave }: 
 
   const toggleModule = (modulePerms: PermissionItem[]) => {
     if (isProtectedAdmin) return;
-    const allSelected = modulePerms.every(p => selectedPerms.has(p.codePermission));
-    setSelectedPerms(prev => {
+    const allSelected = modulePerms.every((p) => selectedPerms.has(p.codePermission));
+    setSelectedPerms((prev) => {
       const next = new Set(prev);
-      modulePerms.forEach(p => {
+      modulePerms.forEach((p) => {
         if (allSelected) {
           next.delete(p.codePermission);
         } else {
@@ -79,7 +79,7 @@ export default function RoleModal({ open, onClose, role, permissions, onSave }: 
     if (selectedPerms.size === permissions.length) {
       setSelectedPerms(new Set());
     } else {
-      setSelectedPerms(new Set(permissions.map(p => p.codePermission)));
+      setSelectedPerms(new Set(permissions.map((p) => p.codePermission)));
     }
   };
 
@@ -120,7 +120,10 @@ export default function RoleModal({ open, onClose, role, permissions, onSave }: 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5" htmlFor="role-libelle">
+            <label
+              className="block text-xs font-semibold text-foreground mb-1.5"
+              htmlFor="role-libelle"
+            >
               Libellé du rôle <span className="text-negative">*</span>
             </label>
             <input
@@ -136,8 +139,14 @@ export default function RoleModal({ open, onClose, role, permissions, onSave }: 
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5" htmlFor="role-code">
-              Code technique {isEdit && <span className="text-muted-foreground font-normal">(Non modifiable)</span>}
+            <label
+              className="block text-xs font-semibold text-foreground mb-1.5"
+              htmlFor="role-code"
+            >
+              Code technique{' '}
+              {isEdit && (
+                <span className="text-muted-foreground font-normal">(Non modifiable)</span>
+              )}
               {!isEdit && <span className="text-negative">*</span>}
             </label>
             <input
@@ -169,7 +178,9 @@ export default function RoleModal({ open, onClose, role, permissions, onSave }: 
                 onClick={handleSelectAll}
                 className="text-xs font-semibold text-primary hover:underline"
               >
-                {selectedPerms.size === permissions.length ? 'Tout désélectionner' : 'Tout sélectionner'}
+                {selectedPerms.size === permissions.length
+                  ? 'Tout désélectionner'
+                  : 'Tout sélectionner'}
               </button>
             )}
           </div>
@@ -177,17 +188,27 @@ export default function RoleModal({ open, onClose, role, permissions, onSave }: 
           {isProtectedAdmin && (
             <div className="p-3 mb-4 bg-primary/10 border border-primary/20 rounded-xl text-xs text-primary flex items-center gap-2">
               <Shield size={16} className="shrink-0" />
-              <span>Le rôle <strong>Administrateur</strong> possède automatiquement un accès complet et irrévocable à toutes les fonctionnalités.</span>
+              <span>
+                Le rôle <strong>Administrateur</strong> possède automatiquement un accès complet et
+                irrévocable à toutes les fonctionnalités.
+              </span>
             </div>
           )}
 
           <div className="space-y-4 max-h-80 overflow-y-auto scrollbar-thin pr-1">
             {Object.entries(permsByModule).map(([moduleName, modulePerms]) => {
-              const allModuleSelected = modulePerms.every(p => selectedPerms.has(p.codePermission));
-              const someModuleSelected = modulePerms.some(p => selectedPerms.has(p.codePermission));
+              const allModuleSelected = modulePerms.every((p) =>
+                selectedPerms.has(p.codePermission)
+              );
+              const someModuleSelected = modulePerms.some((p) =>
+                selectedPerms.has(p.codePermission)
+              );
 
               return (
-                <div key={moduleName} className="p-3 bg-muted/40 border border-border rounded-xl space-y-2.5">
+                <div
+                  key={moduleName}
+                  className="p-3 bg-muted/40 border border-border rounded-xl space-y-2.5"
+                >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-primary" />
@@ -199,7 +220,9 @@ export default function RoleModal({ open, onClose, role, permissions, onSave }: 
                         onClick={() => toggleModule(modulePerms)}
                         className="text-[11px] text-muted-foreground hover:text-foreground font-medium"
                       >
-                        {allModuleSelected ? 'Désélectionner le module' : 'Sélectionner tout le module'}
+                        {allModuleSelected
+                          ? 'Désélectionner le module'
+                          : 'Sélectionner tout le module'}
                       </button>
                     )}
                   </div>

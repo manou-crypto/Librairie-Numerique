@@ -36,7 +36,8 @@ function LoginForm() {
       const { user } = await authService.login({ email, password });
 
       // Déterminer la redirection selon la cible demandée ou le rôle de l'utilisateur
-      const target = redirectTarget || ROLE_REDIRECTS[user.roleUi] || ROLE_REDIRECTS[user.role] || '/dashboard';
+      const target =
+        redirectTarget || ROLE_REDIRECTS[user.roleUi] || ROLE_REDIRECTS[user.role] || '/dashboard';
       router.push(target);
     } catch (err: any) {
       setError(err.message || 'Échec de la connexion. Vérifiez vos identifiants.');
@@ -54,7 +55,9 @@ function LoginForm() {
             <BookOpen size={28} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">LibrairieNumérique</h1>
-          <p className="text-sm text-muted-foreground mt-1">Plateforme de Gestion Intégrée ERP & POS</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Plateforme de Gestion Intégrée ERP & POS
+          </p>
         </div>
 
         {/* Formulaire de Connexion */}
@@ -73,9 +76,14 @@ function LoginForm() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">Adresse email</label>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">
+                Adresse email
+              </label>
               <div className="relative">
-                <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Mail
+                  size={15}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                />
                 <input
                   type="email"
                   value={email}
@@ -89,9 +97,14 @@ function LoginForm() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">Mot de passe</label>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">
+                Mot de passe
+              </label>
               <div className="relative">
-                <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Lock
+                  size={15}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
@@ -119,8 +132,19 @@ function LoginForm() {
               {loading ? (
                 <>
                   <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
                   </svg>
                   Connexion au serveur...
                 </>
@@ -132,7 +156,9 @@ function LoginForm() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-4">
-          <a href="/catalogue" className="text-primary hover:underline">← Retour au catalogue public</a>
+          <a href="/catalogue" className="text-primary hover:underline">
+            ← Retour au catalogue public
+          </a>
         </p>
       </div>
     </div>
@@ -141,7 +167,9 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center">Chargement...</div>}>
+    <React.Suspense
+      fallback={<div className="min-h-screen flex items-center justify-center">Chargement...</div>}
+    >
       <LoginForm />
     </React.Suspense>
   );

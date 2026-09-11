@@ -39,4 +39,26 @@ export class InventaireController {
   async valider(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
     return this.inventaireService.valider(id, user.id);
   }
+
+  @Post(':id/demande-invalidation')
+  @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE', 'ACHETEUR_STOCK')
+  async demanderInvalidation(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+    @Body('motif') motif: string,
+  ) {
+    return this.inventaireService.demanderInvalidation(id, user.id, motif);
+  }
+
+  @Post(':id/invalider')
+  @Roles('ADMIN')
+  async invalider(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
+    return this.inventaireService.invalider(id, user);
+  }
+
+  @Post(':id/rejeter-invalidation')
+  @Roles('ADMIN')
+  async rejeterInvalidation(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
+    return this.inventaireService.rejeterDemandeInvalidation(id, user);
+  }
 }

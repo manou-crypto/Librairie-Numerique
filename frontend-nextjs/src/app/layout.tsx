@@ -19,23 +19,22 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="fr">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
       </head>
       <body>
         {/* ConfigProvider charge les paramètres globaux (nom, devise, TVA) */}
         <ConfigProvider>
           {/* SocketProvider établit la connexion WebSocket pour le temps réel */}
-          <SocketProvider>
-            {children}
-          </SocketProvider>
+          <SocketProvider>{children}</SocketProvider>
         </ConfigProvider>
         <Toaster
           position="bottom-right"
@@ -46,7 +45,7 @@ export default function RootLayout({
             },
           }}
         />
-</body>
+      </body>
     </html>
   );
 }

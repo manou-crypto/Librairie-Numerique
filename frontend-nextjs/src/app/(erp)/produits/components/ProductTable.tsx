@@ -1,6 +1,17 @@
 'use client';
 import React from 'react';
-import { ChevronUp, ChevronDown, ChevronsUpDown, Edit2, Trash2, Eye, EyeOff, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import {
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
+  Edit2,
+  Trash2,
+  Eye,
+  EyeOff,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+} from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import { useAppConfig } from '@/contexts/ConfigContext';
 import type { Product, SortField, SortDir } from './ProductManagementClient';
@@ -26,15 +37,31 @@ interface ProductTableProps {
   loading?: boolean;
 }
 
-function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: SortField; sortDir: SortDir }) {
+function SortIcon({
+  field,
+  sortField,
+  sortDir,
+}: {
+  field: SortField;
+  sortField: SortField;
+  sortDir: SortDir;
+}) {
   if (sortField !== field) return <ChevronsUpDown size={12} className="text-muted-foreground/50" />;
-  return sortDir === 'asc' ? <ChevronUp size={12} className="text-primary" /> : <ChevronDown size={12} className="text-primary" />;
+  return sortDir === 'asc' ? (
+    <ChevronUp size={12} className="text-primary" />
+  ) : (
+    <ChevronDown size={12} className="text-primary" />
+  );
 }
 
 function getStockDisplay(stock: number, seuil: number) {
   if (stock === 0) return <Badge variant="rupture">Rupture (0)</Badge>;
   if (stock <= seuil) return <Badge variant="alert">{stock} (Alerte)</Badge>;
-  return <span className="text-xs font-semibold tabular-nums text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-200">{stock} en stock</span>;
+  return (
+    <span className="text-xs font-semibold tabular-nums text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-200">
+      {stock} en stock
+    </span>
+  );
 }
 
 function getStatusBadge(status: Product['status']) {
@@ -50,9 +77,27 @@ function calcMarge(prixAchat: number, prixVente: number): number {
 
 function getProductEmoji(catName?: string, libelle?: string): string {
   const s = ((catName || '') + ' ' + (libelle || '')).toLowerCase();
-  if (s.includes('roman') || s.includes('litterature') || s.includes('livre') || s.includes('manuel')) return '📚';
-  if (s.includes('cahier') || s.includes('stylo') || s.includes('feuille') || s.includes('papeterie')) return '✏️';
-  if (s.includes('informatique') || s.includes('cle usb') || s.includes('souris') || s.includes('disque')) return '💻';
+  if (
+    s.includes('roman') ||
+    s.includes('litterature') ||
+    s.includes('livre') ||
+    s.includes('manuel')
+  )
+    return '📚';
+  if (
+    s.includes('cahier') ||
+    s.includes('stylo') ||
+    s.includes('feuille') ||
+    s.includes('papeterie')
+  )
+    return '✏️';
+  if (
+    s.includes('informatique') ||
+    s.includes('cle usb') ||
+    s.includes('souris') ||
+    s.includes('disque')
+  )
+    return '💻';
   if (s.includes('classeur') || s.includes('bureau') || s.includes('chemise')) return '🗂️';
   return '📦';
 }
@@ -83,7 +128,8 @@ export default function ProductTable({
   const start = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const end = Math.min(currentPage * pageSize, totalItems);
   const pageNumbers: number[] = [];
-  for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) pageNumbers.push(i);
+  for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++)
+    pageNumbers.push(i);
 
   if (loading) {
     return (
@@ -103,7 +149,8 @@ export default function ProductTable({
           </div>
           <p className="text-sm font-semibold text-foreground mb-1">Aucun produit trouvé</p>
           <p className="text-xs text-muted-foreground mx-auto">
-            Aucun produit ne correspond à vos filtres. Modifiez votre recherche ou ajoutez un nouveau produit.
+            Aucun produit ne correspond à vos filtres. Modifiez votre recherche ou ajoutez un
+            nouveau produit.
           </p>
         </div>
       </div>
@@ -215,14 +262,20 @@ export default function ProductTable({
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <p className="text-xs font-bold text-foreground truncate max-w-[200px]">{product.name}</p>
+                          <p className="text-xs font-bold text-foreground truncate max-w-[200px]">
+                            {product.name}
+                          </p>
                           {product.marque && (
                             <span className="text-[9px] font-medium bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20 shrink-0">
                               {product.marque}
                             </span>
                           )}
                         </div>
-                        {desc && <p className="text-[10px] text-muted-foreground truncate max-w-[200px]">{desc}</p>}
+                        {desc && (
+                          <p className="text-[10px] text-muted-foreground truncate max-w-[200px]">
+                            {desc}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -249,7 +302,13 @@ export default function ProductTable({
                   <td className="px-4 py-3 text-right">
                     <span
                       className={`text-xs font-semibold tabular-nums ${
-                        marge >= 45 ? 'text-green-600' : marge >= 30 ? 'text-blue-600' : marge >= 20 ? 'text-amber-600' : 'text-red-600'
+                        marge >= 45
+                          ? 'text-green-600'
+                          : marge >= 30
+                            ? 'text-blue-600'
+                            : marge >= 20
+                              ? 'text-amber-600'
+                              : 'text-red-600'
                       }`}
                     >
                       {marge.toFixed(1)}%
@@ -261,14 +320,16 @@ export default function ProductTable({
                     <button
                       onClick={() => onToggleVisible(product.id)}
                       className={`p-1.5 rounded-lg transition-colors ${
-                        product.visible ? 'text-green-600 hover:bg-green-50' : 'text-muted-foreground hover:bg-muted'
+                        product.visible
+                          ? 'text-green-600 hover:bg-green-50'
+                          : 'text-muted-foreground hover:bg-muted'
                       }`}
                       title={product.visible ? 'Masquer ce produit' : 'Rendre ce produit visible'}
                       aria-label={product.visible ? 'Masquer le produit' : 'Afficher le produit'}
                     >
                       {product.visible ? <Eye size={15} /> : <EyeOff size={15} />}
                     </button>
-                  </td>
+                  </td> */
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-1">
                       <button
@@ -297,8 +358,11 @@ export default function ProductTable({
       </div>
       <div className="border-t border-border px-5 py-3 bg-card flex items-center justify-between gap-4 shrink-0 flex-wrap">
         <p className="text-xs text-muted-foreground">
-          Affichage de <span className="font-semibold text-foreground">{start}–{end}</span> sur{' '}
-          <span className="font-semibold text-foreground">{totalItems}</span> produits
+          Affichage de{' '}
+          <span className="font-semibold text-foreground">
+            {start}–{end}
+          </span>{' '}
+          sur <span className="font-semibold text-foreground">{totalItems}</span> produits
         </p>
         <div className="flex items-center gap-1.5">
           <button
@@ -325,7 +389,9 @@ export default function ProductTable({
               key={`page-${page}`}
               onClick={() => onPageChange(page)}
               className={`w-7 h-7 rounded-lg text-xs font-semibold transition-colors ${
-                page === currentPage ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+                page === currentPage
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted'
               }`}
             >
               {page}

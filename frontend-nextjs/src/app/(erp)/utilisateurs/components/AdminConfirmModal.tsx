@@ -21,7 +21,12 @@ export default function AdminConfirmModal({
   isLoading = false,
 }: AdminConfirmModalProps) {
   return (
-    <Modal open={open} onClose={onClose} title="Confirmation de sécurité — Rôle Administrateur" size="sm">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Confirmation de sécurité — Rôle Administrateur"
+      size="sm"
+    >
       <div className="space-y-4 pt-1">
         <div className="flex items-start gap-3.5 p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-600">
           <div className="p-2 rounded-xl bg-amber-500/20 shrink-0">
@@ -29,10 +34,14 @@ export default function AdminConfirmModal({
           </div>
           <div className="space-y-1">
             <h4 className="text-sm font-bold text-foreground">
-              {isEdit ? 'Attribution du rôle Administrateur' : 'Création d\'un compte Administrateur'}
+              {isEdit
+                ? 'Attribution du rôle Administrateur'
+                : "Création d'un compte Administrateur"}
             </h4>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Vous êtes sur le point d'accorder le rôle <strong>Administrateur</strong> à <span className="font-semibold text-foreground">{userName || 'cet utilisateur'}</span>.
+              Vous êtes sur le point d'accorder le rôle <strong>Administrateur</strong> à{' '}
+              <span className="font-semibold text-foreground">{userName || 'cet utilisateur'}</span>
+              .
             </p>
           </div>
         </div>
@@ -69,7 +78,7 @@ export default function AdminConfirmModal({
                 <Loader2 size={14} className="animate-spin" /> Confirmation...
               </>
             ) : (
-              'Confirmer l\'enregistrement'
+              "Confirmer l'enregistrement"
             )}
           </button>
         </div>

@@ -1,12 +1,5 @@
 'use client';
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useRef,
-  useCallback,
-} from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 
 // ─── Types des événements émis par le serveur ──────────────────────────────
@@ -161,7 +154,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
      * Déclenché après chaque vente ou mouvement de stock.
      */
     socketInstance.on('stock_updated', (data: StockUpdatedPayload) => {
-      console.log(`📥 [Socket] stock_updated: ${data.produitLibelle} — ${data.nouvelleQuantite} unités`);
+      console.log(
+        `📥 [Socket] stock_updated: ${data.produitLibelle} — ${data.nouvelleQuantite} unités`
+      );
       setLastStockUpdate(data);
     });
 
@@ -194,7 +189,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       socket.on(event, handler);
       return () => socket.off(event, handler);
     },
-    [socket],
+    [socket]
   );
 
   return (

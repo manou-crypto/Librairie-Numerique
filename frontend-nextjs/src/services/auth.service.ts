@@ -30,11 +30,15 @@ export interface AuthTokens {
  */
 function mapRoleToUi(codeRole: string): AuthUser['roleUi'] {
   switch (codeRole) {
-    case 'ADMIN':                 return 'super_admin';
+    case 'ADMIN':
+      return 'super_admin';
     case 'GESTIONNAIRE_CATALOGUE':
-    case 'ACHETEUR_STOCK':        return 'manager';
-    case 'CAISSIER':              return 'cashier';
-    default:                      return 'cashier';
+    case 'ACHETEUR_STOCK':
+      return 'manager';
+    case 'CAISSIER':
+      return 'cashier';
+    default:
+      return 'cashier';
   }
 }
 

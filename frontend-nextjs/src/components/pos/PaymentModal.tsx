@@ -15,7 +15,14 @@ interface PaymentModalProps {
 
 type PaymentMode = 'especes' | 'carte' | 'cheque';
 
-export default function PaymentModal({ open, onClose, total, devise, isLoading = false, onSuccess }: PaymentModalProps) {
+export default function PaymentModal({
+  open,
+  onClose,
+  total,
+  devise,
+  isLoading = false,
+  onSuccess,
+}: PaymentModalProps) {
   const [mode, setMode] = useState<PaymentMode>('especes');
   const [montantRecu, setMontantRecu] = useState('');
 
@@ -41,7 +48,9 @@ export default function PaymentModal({ open, onClose, total, devise, isLoading =
     Math.ceil(total / 500) * 500,
     Math.ceil(total / 1000) * 1000,
     Math.ceil(total / 5000) * 5000,
-  ].filter((v, i, arr) => arr.indexOf(v) === i && v >= total).slice(0, 4);
+  ]
+    .filter((v, i, arr) => arr.indexOf(v) === i && v >= total)
+    .slice(0, 4);
 
   const modes: Array<{ id: PaymentMode; label: string; icon: React.ElementType }> = [
     { id: 'especes', label: 'Espèces', icon: Banknote },
@@ -54,7 +63,9 @@ export default function PaymentModal({ open, onClose, total, devise, isLoading =
       <div className="space-y-5">
         {/* Montant à encaisser */}
         <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-center">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Montant à encaisser</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+            Montant à encaisser
+          </p>
           <p className="text-4xl font-bold tabular-nums text-primary">
             {total.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {devise}
           </p>
@@ -62,7 +73,9 @@ export default function PaymentModal({ open, onClose, total, devise, isLoading =
 
         {/* Mode de paiement */}
         <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Mode de paiement</label>
+          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+            Mode de paiement
+          </label>
           <div className="grid grid-cols-3 gap-2">
             {modes.map(({ id, label, icon: Icon }) => (
               <button
@@ -91,7 +104,7 @@ export default function PaymentModal({ open, onClose, total, devise, isLoading =
               <input
                 type="number"
                 value={montantRecu}
-                onChange={e => setMontantRecu(e.target.value)}
+                onChange={(e) => setMontantRecu(e.target.value)}
                 placeholder={`Min. ${total.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}`}
                 className="input-field text-lg font-bold tabular-nums text-center"
                 autoFocus
@@ -100,7 +113,7 @@ export default function PaymentModal({ open, onClose, total, devise, isLoading =
             {/* Montants rapides */}
             {quickAmounts.length > 0 && (
               <div className="flex gap-2 flex-wrap">
-                {quickAmounts.map(amount => (
+                {quickAmounts.map((amount) => (
                   <button
                     key={`quick-${amount}`}
                     onClick={() => setMontantRecu(amount.toString())}
@@ -125,7 +138,9 @@ export default function PaymentModal({ open, onClose, total, devise, isLoading =
               <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex justify-between items-center">
                 <span className="text-xs font-semibold text-red-700">Montant insuffisant</span>
                 <span className="text-sm font-bold tabular-nums text-red-700">
-                  Manque {(total - montantRecuNum).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {devise}
+                  Manque{' '}
+                  {(total - montantRecuNum).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}{' '}
+                  {devise}
                 </span>
               </div>
             )}
@@ -136,7 +151,9 @@ export default function PaymentModal({ open, onClose, total, devise, isLoading =
         {mode === 'carte' && (
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center fade-in">
             <CreditCard size={24} className="text-blue-600 mx-auto mb-2" />
-            <p className="text-sm font-semibold text-blue-800">Présentez la carte sur le terminal</p>
+            <p className="text-sm font-semibold text-blue-800">
+              Présentez la carte sur le terminal
+            </p>
             <p className="text-xs text-blue-600 mt-1">Confirmez après validation du terminal</p>
           </div>
         )}
@@ -144,7 +161,9 @@ export default function PaymentModal({ open, onClose, total, devise, isLoading =
         {/* Référence chèque */}
         {mode === 'cheque' && (
           <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 fade-in">
-            <label className="block text-xs font-semibold text-purple-800 mb-1.5">N° de chèque</label>
+            <label className="block text-xs font-semibold text-purple-800 mb-1.5">
+              N° de chèque
+            </label>
             <input type="text" placeholder="Ex: 0012345678" className="input-field text-sm" />
           </div>
         )}
@@ -159,10 +178,15 @@ export default function PaymentModal({ open, onClose, total, devise, isLoading =
             disabled={!canPay || isLoading}
             className="btn-primary flex-1 flex items-center justify-center gap-2"
           >
-            {isLoading
-              ? <><Loader2 size={15} className="animate-spin" /> Enregistrement...</>
-              : <><CheckCircle size={15} /> Valider la vente</>
-            }
+            {isLoading ? (
+              <>
+                <Loader2 size={15} className="animate-spin" /> Enregistrement...
+              </>
+            ) : (
+              <>
+                <CheckCircle size={15} /> Valider la vente
+              </>
+            )}
           </button>
         </div>
       </div>

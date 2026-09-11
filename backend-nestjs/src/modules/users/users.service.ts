@@ -11,6 +11,7 @@ export const SYSTEM_PERMISSIONS = [
   { code_permission: 'VIEW_INVENTAIRE', module: 'Catalogue', libelle: 'Inventaires' },
   { code_permission: 'VIEW_ACHATS', module: 'Catalogue', libelle: 'Commandes d\'achats' },
   { code_permission: 'VIEW_FOURNISSEURS', module: 'Catalogue', libelle: 'Fournisseurs' },
+  { code_permission: 'VIEW_GESTION_CATALOGUE', module: 'Catalogue', libelle: 'Gestion Catalogue' },
   { code_permission: 'VIEW_FINANCES', module: 'Gestion', libelle: 'Finances & Clôtures' },
   { code_permission: 'VIEW_UTILISATEURS', module: 'Gestion', libelle: 'Utilisateurs & Rôles' },
   { code_permission: 'VIEW_RAPPORTS', module: 'Gestion', libelle: 'Rapports & Statistiques' },

@@ -36,7 +36,12 @@ export default function ProfilPage() {
         nom: user.name?.split(' ').slice(1).join(' ') || '',
         email: user.email || '',
         telephone: '', // Pas dans le cookie
-        poste: user.roleUi === 'super_admin' ? 'Super Administrateur' : user.roleUi === 'manager' ? 'Manager' : 'Caissier'
+        poste:
+          user.roleUi === 'super_admin'
+            ? 'Super Administrateur'
+            : user.roleUi === 'manager'
+              ? 'Manager'
+              : 'Caissier',
       });
     }
   }, []);
@@ -49,15 +54,15 @@ export default function ProfilPage() {
       setLoading(true);
       try {
         await utilisateursService.updateMyProfile(infos);
-        
+
         // Mettre à jour le cookie avec le nouveau nom et email
         authService.updateUserCookie({
           name: `${infos.prenom} ${infos.nom}`,
-          email: infos.email
+          email: infos.email,
         });
 
         toast.success('Profil mis à jour avec succès');
-        
+
         // Recharger la page pour mettre à jour la Sidebar et la Topbar
         setTimeout(() => {
           window.location.reload();
@@ -91,9 +96,9 @@ export default function ProfilPage() {
   };
 
   const TABS: { id: ProfileTab; label: string; icon: React.ElementType }[] = [
-    { id: 'infos', label: 'Informations', icon: User }, 
+    { id: 'infos', label: 'Informations', icon: User },
     { id: 'securite', label: 'Sécurité', icon: Lock },
-    { id: 'preferences', label: 'Préférences', icon: Settings2 }
+    { id: 'preferences', label: 'Préférences', icon: Settings2 },
   ];
 
   return (
@@ -104,28 +109,93 @@ export default function ProfilPage() {
           <div className="relative">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
               <span className="text-xl font-bold text-primary">
-                {infos.prenom.charAt(0)}{infos.nom.charAt(0)}
+                {infos.prenom.charAt(0)}
+                {infos.nom.charAt(0)}
               </span>
             </div>
           </div>
           <div>
-            <h2 className="text-base font-bold text-foreground">{infos.prenom} {infos.nom}</h2>
+            <h2 className="text-base font-bold text-foreground">
+              {infos.prenom} {infos.nom}
+            </h2>
             <p className="text-sm text-muted-foreground">{infos.email}</p>
-            <div className="flex items-center gap-2 mt-1.5"><span className="badge-draft flex items-center gap-1"><Shield size={10} /> {infos.poste}</span><span className="badge-active">Actif</span></div>
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className="badge-draft flex items-center gap-1">
+                <Shield size={10} /> {infos.poste}
+              </span>
+              <span className="badge-active">Actif</span>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-1 bg-muted rounded-lg p-1 w-fit">
-          {TABS.map((tab) => { const Icon = tab.icon; return (<button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}><Icon size={14} />{tab.label}</button>); })}
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <Icon size={14} />
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
         {activeTab === 'infos' && (
           <div className="card-base p-6 space-y-4">
             <h3 className="text-sm font-bold text-foreground">Informations personnelles</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div><label className="block text-xs font-semibold text-foreground mb-1.5">Prénom</label><input type="text" value={infos.prenom} onChange={(e) => setInfos({ ...infos, prenom: e.target.value })} className="input-field text-sm" /></div>
-              <div><label className="block text-xs font-semibold text-foreground mb-1.5">Nom</label><input type="text" value={infos.nom} onChange={(e) => setInfos({ ...infos, nom: e.target.value })} className="input-field text-sm" /></div>
-              <div><label className="block text-xs font-semibold text-foreground mb-1.5">Email</label><input type="email" value={infos.email} onChange={(e) => setInfos({ ...infos, email: e.target.value })} className="input-field text-sm" /></div>
-              <div><label className="block text-xs font-semibold text-foreground mb-1.5">Téléphone</label><input type="tel" value={infos.telephone} onChange={(e) => setInfos({ ...infos, telephone: e.target.value })} className="input-field text-sm" /></div>
-              <div className="sm:col-span-2"><label className="block text-xs font-semibold text-foreground mb-1.5">Poste</label><input type="text" value={infos.poste} readOnly className="input-field text-sm bg-muted cursor-not-allowed" /><p className="text-xs text-muted-foreground mt-1">Le poste est géré par l'administrateur système</p></div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5">Prénom</label>
+                <input
+                  type="text"
+                  value={infos.prenom}
+                  onChange={(e) => setInfos({ ...infos, prenom: e.target.value })}
+                  className="input-field text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5">Nom</label>
+                <input
+                  type="text"
+                  value={infos.nom}
+                  onChange={(e) => setInfos({ ...infos, nom: e.target.value })}
+                  className="input-field text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5">Email</label>
+                <input
+                  type="email"
+                  value={infos.email}
+                  onChange={(e) => setInfos({ ...infos, email: e.target.value })}
+                  className="input-field text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5">
+                  Téléphone
+                </label>
+                <input
+                  type="tel"
+                  value={infos.telephone}
+                  onChange={(e) => setInfos({ ...infos, telephone: e.target.value })}
+                  className="input-field text-sm"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-foreground mb-1.5">Poste</label>
+                <input
+                  type="text"
+                  value={infos.poste}
+                  readOnly
+                  className="input-field text-sm bg-muted cursor-not-allowed"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Le poste est géré par l'administrateur système
+                </p>
+              </div>
             </div>
           </div>
         )}
@@ -133,10 +203,47 @@ export default function ProfilPage() {
           <div className="card-base p-6 space-y-4">
             <h3 className="text-sm font-bold text-foreground">Changer le mot de passe</h3>
             <div className="space-y-4">
-              <div><label className="block text-xs font-semibold text-foreground mb-1.5">Mot de passe actuel</label><input type="password" value={passwords.actuel} onChange={(e) => setPasswords({ ...passwords, actuel: e.target.value })} placeholder="••••••••" className="input-field text-sm" /></div>
-              <div><label className="block text-xs font-semibold text-foreground mb-1.5">Nouveau mot de passe</label><input type="password" value={passwords.nouveau} onChange={(e) => setPasswords({ ...passwords, nouveau: e.target.value })} placeholder="••••••••" className="input-field text-sm" /></div>
-              <div><label className="block text-xs font-semibold text-foreground mb-1.5">Confirmer le nouveau mot de passe</label><input type="password" value={passwords.confirmation} onChange={(e) => setPasswords({ ...passwords, confirmation: e.target.value })} placeholder="••••••••" className="input-field text-sm" /></div>
-              {passwords.nouveau && passwords.confirmation && passwords.nouveau !== passwords.confirmation && <p className="text-xs text-negative">Les mots de passe ne correspondent pas</p>}
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5">
+                  Mot de passe actuel
+                </label>
+                <input
+                  type="password"
+                  value={passwords.actuel}
+                  onChange={(e) => setPasswords({ ...passwords, actuel: e.target.value })}
+                  placeholder="••••••••"
+                  className="input-field text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5">
+                  Nouveau mot de passe
+                </label>
+                <input
+                  type="password"
+                  value={passwords.nouveau}
+                  onChange={(e) => setPasswords({ ...passwords, nouveau: e.target.value })}
+                  placeholder="••••••••"
+                  className="input-field text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5">
+                  Confirmer le nouveau mot de passe
+                </label>
+                <input
+                  type="password"
+                  value={passwords.confirmation}
+                  onChange={(e) => setPasswords({ ...passwords, confirmation: e.target.value })}
+                  placeholder="••••••••"
+                  className="input-field text-sm"
+                />
+              </div>
+              {passwords.nouveau &&
+                passwords.confirmation &&
+                passwords.nouveau !== passwords.confirmation && (
+                  <p className="text-xs text-negative">Les mots de passe ne correspondent pas</p>
+                )}
             </div>
           </div>
         )}
@@ -146,13 +253,13 @@ export default function ProfilPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">Thème</label>
-                <select 
-                  value={localPrefs.theme} 
+                <select
+                  value={localPrefs.theme}
                   onChange={(e) => {
                     const newTheme = e.target.value as any;
                     setLocalPrefs({ ...localPrefs, theme: newTheme });
                     updatePreferences({ theme: newTheme }); // Applique et sauvegarde immédiatement
-                  }} 
+                  }}
                   className="input-field text-sm w-auto"
                 >
                   <option value="clair">Clair</option>
@@ -162,18 +269,23 @@ export default function ProfilPage() {
               </div>
               <div className="border-t border-border pt-4 space-y-3">
                 <h4 className="text-xs font-bold text-foreground">Notifications</h4>
-                {[{ key: 'notifEmail', label: 'Notifications par email' }, { key: 'notifSon', label: 'Sons de notification' }].map((item) => (
+                {[
+                  { key: 'notifEmail', label: 'Notifications par email' },
+                  { key: 'notifSon', label: 'Sons de notification' },
+                ].map((item) => (
                   <div key={item.key} className="flex items-center justify-between">
                     <p className="text-sm text-foreground">{item.label}</p>
-                    <button 
+                    <button
                       onClick={() => {
                         const newVal = !localPrefs[item.key as keyof UserPreferences];
                         setLocalPrefs({ ...localPrefs, [item.key]: newVal });
                         updatePreferences({ [item.key]: newVal });
-                      }} 
+                      }}
                       className={`relative w-10 h-5 rounded-full transition-colors flex items-center ${localPrefs[item.key as keyof UserPreferences] ? 'bg-primary' : 'bg-muted'}`}
                     >
-                      <span className={`absolute left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${localPrefs[item.key as keyof UserPreferences] ? 'translate-x-5' : 'translate-x-0'}`} />
+                      <span
+                        className={`absolute left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${localPrefs[item.key as keyof UserPreferences] ? 'translate-x-5' : 'translate-x-0'}`}
+                      />
                     </button>
                   </div>
                 ))}
@@ -182,7 +294,11 @@ export default function ProfilPage() {
           </div>
         )}
         <div className="flex items-center justify-end gap-3">
-          <button onClick={handleSave} disabled={loading} className="btn-primary flex items-center gap-1.5 text-sm py-2.5 px-5">
+          <button
+            onClick={handleSave}
+            disabled={loading}
+            className="btn-primary flex items-center gap-1.5 text-sm py-2.5 px-5"
+          >
             <Save size={14} /> {loading ? 'Enregistrement...' : 'Enregistrer'}
           </button>
         </div>

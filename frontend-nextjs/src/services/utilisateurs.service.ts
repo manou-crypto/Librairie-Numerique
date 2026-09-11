@@ -56,7 +56,9 @@ export const utilisateursService = {
    * Créer un nouveau compte utilisateur interne avec attribution de rôle (RG-06)
    * POST /api/v1/users
    */
-  async create(user: Omit<UserAccount, 'id' | 'libelleRole'> & { password: string }): Promise<UserAccount> {
+  async create(
+    user: Omit<UserAccount, 'id' | 'libelleRole'> & { password: string }
+  ): Promise<UserAccount> {
     const response = await fetch(`${API_BASE_URL}/v1/users`, {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -64,7 +66,7 @@ export const utilisateursService = {
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      throw new Error(err.message || "Échec de la création du compte utilisateur");
+      throw new Error(err.message || 'Échec de la création du compte utilisateur');
     }
     return response.json();
   },
@@ -148,7 +150,11 @@ export const utilisateursService = {
    * Créer un nouveau rôle
    * POST /api/v1/users/roles
    */
-  async createRole(data: { codeRole: string; libelle: string; permissions?: string[] }): Promise<RoleItem> {
+  async createRole(data: {
+    codeRole: string;
+    libelle: string;
+    permissions?: string[];
+  }): Promise<RoleItem> {
     const response = await fetch(`${API_BASE_URL}/v1/users/roles`, {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -165,7 +171,10 @@ export const utilisateursService = {
    * Mettre à jour un rôle
    * PUT /api/v1/users/roles/:id
    */
-  async updateRole(id: number, data: { libelle?: string; permissions?: string[] }): Promise<RoleItem> {
+  async updateRole(
+    id: number,
+    data: { libelle?: string; permissions?: string[] }
+  ): Promise<RoleItem> {
     const response = await fetch(`${API_BASE_URL}/v1/users/roles/${id}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
@@ -220,4 +229,3 @@ export const utilisateursService = {
     }
   },
 };
-

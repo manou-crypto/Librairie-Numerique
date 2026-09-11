@@ -99,9 +99,12 @@ export const produitsService = {
    * GET /api/v1/produits/code-barre/:code
    */
   async getByCodeBarre(code: string): Promise<Produit> {
-    const response = await fetch(`${API_BASE_URL}/v1/produits/code-barre/${encodeURIComponent(code)}`, {
-      headers: getAuthHeaders(),
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/v1/produits/code-barre/${encodeURIComponent(code)}`,
+      {
+        headers: getAuthHeaders(),
+      }
+    );
     if (!response.ok) throw new Error(`Produit non trouvé pour le code-barres : ${code}`);
     return response.json();
   },

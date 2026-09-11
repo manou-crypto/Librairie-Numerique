@@ -1,6 +1,17 @@
 'use client';
 import React, { useState, useMemo } from 'react';
-import { ChevronRight, ChevronDown, ChevronLeft, Package, Folder, FolderOpen, Tag, Plus, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import {
+  ChevronRight,
+  ChevronDown,
+  ChevronLeft,
+  Package,
+  Folder,
+  FolderOpen,
+  Tag,
+  Plus,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from 'lucide-react';
 import type { Product } from './ProductManagementClient';
 import type { CategorieItem } from '@/services/produits.service';
 
@@ -110,7 +121,9 @@ function CategoryNode({
           onSelectCategory(node.id);
         }}
         className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-150 group ${
-          isSelected ? 'nav-item-active font-semibold shadow-sm' : 'nav-item-inactive hover:bg-muted/60'
+          isSelected
+            ? 'nav-item-active font-semibold shadow-sm'
+            : 'nav-item-inactive hover:bg-muted/60'
         }`}
         style={{ paddingLeft: `${8 + depth * 14}px` }}
       >
@@ -195,7 +208,9 @@ export default function CategoryTreeSidebar({
         <button
           onClick={() => onSelectCategory('all')}
           className={`p-2 rounded-lg transition-colors mb-2 relative group ${
-            selectedCategory === 'all' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+            selectedCategory === 'all'
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:bg-muted'
           }`}
           title="Tous les produits"
         >
@@ -227,7 +242,9 @@ export default function CategoryTreeSidebar({
     <aside className="w-56 xl:w-60 2xl:w-64 shrink-0 bg-card border-r border-border flex flex-col overflow-hidden transition-all duration-300">
       <div className="px-4 py-3 border-b border-border shrink-0 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Catégories</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Catégories
+          </p>
           <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono">
             {categories.length}
           </span>
@@ -257,14 +274,18 @@ export default function CategoryTreeSidebar({
         <button
           onClick={() => onSelectCategory('all')}
           className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-150 mb-1 ${
-            selectedCategory === 'all' ? 'nav-item-active font-semibold shadow-sm' : 'nav-item-inactive hover:bg-muted/60'
+            selectedCategory === 'all'
+              ? 'nav-item-active font-semibold shadow-sm'
+              : 'nav-item-inactive hover:bg-muted/60'
           }`}
         >
           <Package size={14} className="shrink-0 text-primary" />
           <span className="flex-1 text-left text-xs font-medium">Tous les produits</span>
           <span
             className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-              selectedCategory === 'all' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground bg-muted'
+              selectedCategory === 'all'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground bg-muted'
             }`}
           >
             {products.length}
@@ -273,7 +294,9 @@ export default function CategoryTreeSidebar({
         <div className="h-px bg-border my-2" />
 
         {loading ? (
-          <div className="p-4 text-center text-xs text-muted-foreground">Chargement des catégories...</div>
+          <div className="p-4 text-center text-xs text-muted-foreground">
+            Chargement des catégories...
+          </div>
         ) : tree.length === 0 ? (
           <div className="p-4 text-center text-xs text-muted-foreground">
             <Tag size={18} className="mx-auto mb-1 opacity-50" />
@@ -295,4 +318,3 @@ export default function CategoryTreeSidebar({
     </aside>
   );
 }
-

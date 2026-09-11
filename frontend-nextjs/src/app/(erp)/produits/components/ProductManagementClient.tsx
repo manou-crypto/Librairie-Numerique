@@ -1,7 +1,10 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import CategoryTreeSidebar, { buildCategoryTree, getAllCategoryDescendantIds } from './CategoryTreeSidebar';
+import CategoryTreeSidebar, {
+  buildCategoryTree,
+  getAllCategoryDescendantIds,
+} from './CategoryTreeSidebar';
 import ProductTable from './ProductTable';
 import ProductFiltersBar from './ProductFiltersBar';
 import AddEditProductModal from './AddEditProductModal';
@@ -33,10 +36,18 @@ export type SortField = 'name' | 'prixVente' | 'prixAchat' | 'stock' | 'marge';
 export type SortDir = 'asc' | 'desc';
 
 export default function ProductManagementClient() {
-  const { data: resProducts, mutate: mutateProducts, isLoading: loadingProducts } = useSWR('/v1/produits?pageSize=500', fetcher, SWR_DEFAULT_CONFIG);
-  const { data: resCategories, mutate: mutateCategories, isLoading: loadingCats } = useSWR('/v1/categories', fetcher, SWR_DEFAULT_CONFIG);
+  const {
+    data: resProducts,
+    mutate: mutateProducts,
+    isLoading: loadingProducts,
+  } = useSWR('/v1/produits?pageSize=500', fetcher, SWR_DEFAULT_CONFIG);
+  const {
+    data: resCategories,
+    mutate: mutateCategories,
+    isLoading: loadingCats,
+  } = useSWR('/v1/categories', fetcher, SWR_DEFAULT_CONFIG);
 
-  const rawProducts = Array.isArray(resProducts) ? resProducts : (resProducts?.data || []);
+  const rawProducts = Array.isArray(resProducts) ? resProducts : resProducts?.data || [];
   const products: Product[] = useMemo(() => {
     return rawProducts.map((p: any) => ({
       ...p,
@@ -91,7 +102,8 @@ export default function ProductManagementClient() {
 
     // Category filter with hierarchy support
     if (selectedCategory !== 'all') {
-      const validCategoryIds = categoryDescendantsMap.get(selectedCategory) || new Set([selectedCategory]);
+      const validCategoryIds =
+        categoryDescendantsMap.get(selectedCategory) || new Set([selectedCategory]);
       result = result.filter((p) => {
         if (p.categoryIds && p.categoryIds.length > 0) {
           return p.categoryIds.some((id) => validCategoryIds.has(id));
@@ -118,7 +130,8 @@ export default function ProductManagementClient() {
 
     // Stock filter
     if (stockFilter === 'rupture') result = result.filter((p) => p.stock === 0);
-    if (stockFilter === 'alerte') result = result.filter((p) => p.stock > 0 && p.stock <= p.seuilAlerte);
+    if (stockFilter === 'alerte')
+      result = result.filter((p) => p.stock > 0 && p.stock <= p.seuilAlerte);
     if (stockFilter === 'ok') result = result.filter((p) => p.stock > p.seuilAlerte);
 
     // Sorting
@@ -135,14 +148,28 @@ export default function ProductManagementClient() {
       if (typeof valA === 'string' && typeof valB === 'string') {
         return sortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
       }
-      return sortDir === 'asc' ? (Number(valA) || 0) - (Number(valB) || 0) : (Number(valB) || 0) - (Number(valA) || 0);
+      return sortDir === 'asc'
+        ? (Number(valA) || 0) - (Number(valB) || 0)
+        : (Number(valB) || 0) - (Number(valA) || 0);
     });
 
     return result;
-  }, [products, selectedCategory, searchQuery, statusFilter, stockFilter, sortField, sortDir, categoryDescendantsMap]);
+  }, [
+    products,
+    selectedCategory,
+    searchQuery,
+    statusFilter,
+    stockFilter,
+    sortField,
+    sortDir,
+    categoryDescendantsMap,
+  ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
-  const paginatedProducts = filteredProducts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   const handleSort = (field: SortField) => {
     if (sortField === field) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
@@ -299,7 +326,9 @@ export default function ProductManagementClient() {
           selectedIds={selectedIds}
           onToggleSelect={toggleSelect}
           onToggleSelectAll={toggleSelectAll}
-          allSelected={selectedIds.size === paginatedProducts.length && paginatedProducts.length > 0}
+          allSelected={
+            selectedIds.size === paginatedProducts.length && paginatedProducts.length > 0
+          }
           sortField={sortField}
           sortDir={sortDir}
           onSort={handleSort}

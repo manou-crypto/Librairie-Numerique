@@ -16,6 +16,36 @@ export class VentesController {
     return this.ventesService.createVente(user.id, payload);
   }
 
+  @Get('retours')
+  @Roles('ADMIN', 'CAISSIER', 'GESTIONNAIRE_CATALOGUE')
+  async getRetours(@Query() query: any) {
+    return this.ventesService.getRetours(query);
+  }
+
+  @Get('retours/:id')
+  @Roles('ADMIN', 'CAISSIER', 'GESTIONNAIRE_CATALOGUE')
+  async getRetourById(@Param('id', ParseIntPipe) id: number) {
+    return this.ventesService.getRetourById(id);
+  }
+
+  @Get('kits')
+  @Roles('ADMIN', 'CAISSIER', 'GESTIONNAIRE_CATALOGUE')
+  async getKits() {
+    return this.ventesService.getKits();
+  }
+
+  @Post('kits')
+  @Roles('ADMIN', 'CAISSIER', 'GESTIONNAIRE_CATALOGUE')
+  async createKit(@Body() payload: any) {
+    return this.ventesService.createKit(payload);
+  }
+
+  @Patch('kits/:id/delete')
+  @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
+  async deleteKit(@Param('id', ParseIntPipe) id: number) {
+    return this.ventesService.deleteKit(id);
+  }
+
   @Get()
   @Roles('ADMIN', 'CAISSIER', 'GESTIONNAIRE_CATALOGUE')
   async getVentes(@Query() query: any) {
@@ -32,5 +62,25 @@ export class VentesController {
   @Roles('ADMIN')
   async annulerVente(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any, @Body('motif') motif?: string) {
     return this.ventesService.annulerVente(id, user.id, motif);
+  }
+
+  @Post(':id/retour-articles')
+  @Roles('ADMIN', 'CAISSIER')
+  async retourArticles(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+    @Body() payload: { lignes: Array<{ ligneVenteId: number; quantite: number }>; motif: string; modeRemboursement?: any },
+  ) {
+    return this.ventesService.retourArticles(id, user.id, payload);
+  }
+
+  @Post(':id/retour-vente')
+  @Roles('ADMIN', 'CAISSIER')
+  async retourVente(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+    @Body() payload: { motif: string; modeRemboursement?: any },
+  ) {
+    return this.ventesService.retourVenteComplete(id, user.id, payload);
   }
 }

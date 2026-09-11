@@ -2,7 +2,6 @@ import React from 'react';
 import { PackageSearch } from 'lucide-react';
 import Icon from '@/components/ui/AppIcon';
 
-
 interface EmptyStateProps {
   icon?: React.ElementType;
   title: string;

@@ -8,7 +8,7 @@ import { API_BASE_URL, getAuthHeaders } from '@/lib';
 export const fetcher = async (url: string) => {
   // S'assurer que l'URL est complète
   const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
-  
+
   const res = await fetch(fullUrl, {
     headers: getAuthHeaders(),
   });

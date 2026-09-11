@@ -59,7 +59,11 @@ export const caissesService = {
    * Créer une nouvelle caisse
    * POST /api/v1/caisses
    */
-  async createCaisse(data: { codeCaisse: string; emplacement?: string; utilisateurId: number }): Promise<CaisseItem> {
+  async createCaisse(data: {
+    codeCaisse: string;
+    emplacement?: string;
+    utilisateurId: number;
+  }): Promise<CaisseItem> {
     const response = await fetch(`${API_BASE_URL}/v1/caisses`, {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -94,7 +98,7 @@ export const caissesService = {
    */
   async updateCaisse(
     id: string,
-    data: { codeCaisse?: string; emplacement?: string; utilisateurId?: number | null },
+    data: { codeCaisse?: string; emplacement?: string; utilisateurId?: number | null }
   ): Promise<CaisseItem> {
     const response = await fetch(`${API_BASE_URL}/v1/caisses/${id}`, {
       method: 'PATCH',
@@ -107,7 +111,6 @@ export const caissesService = {
     }
     return response.json();
   },
-
 
   /**
    * Lister tous les utilisateurs (pour l'assignation caissier)
@@ -142,7 +145,11 @@ export const caissesService = {
    * Clôturer la session de caisse avec saisie du montant réel et détection d'écart
    * POST /api/v1/sessions-caisse/:id/cloturer
    */
-  async cloturerSession(sessionId: string, totalEncaisseReel: number, motifEcart?: string): Promise<SessionCaisseItem> {
+  async cloturerSession(
+    sessionId: string,
+    totalEncaisseReel: number,
+    motifEcart?: string
+  ): Promise<SessionCaisseItem> {
     const response = await fetch(`${API_BASE_URL}/v1/sessions-caisse/${sessionId}/cloturer`, {
       method: 'POST',
       headers: getAuthHeaders(),

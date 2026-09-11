@@ -38,15 +38,17 @@ export default function CataloguePage() {
     const newStatus = currentStatus === 'VISIBLE' ? 'MASQUE' : 'VISIBLE';
     try {
       // Optimistic update
-      setProduits(prods => prods.map(p => p.id === id ? { ...p, status: newStatus } : p));
-      
+      setProduits((prods) => prods.map((p) => (p.id === id ? { ...p, status: newStatus } : p)));
+
       // En réalité, on devrait avoir une route PUT pour mettre à jour le statut,
       // ou utiliser la méthode update existante:
       await produitsService.update(id, { status: newStatus });
       toast.success(`Visibilité du produit mise à jour`);
     } catch (error) {
       // Revert on error
-      setProduits(prods => prods.map(p => p.id === id ? { ...p, status: currentStatus as any } : p));
+      setProduits((prods) =>
+        prods.map((p) => (p.id === id ? { ...p, status: currentStatus as any } : p))
+      );
       toast.error('Erreur lors de la mise à jour de la visibilité');
     }
   };
@@ -59,7 +61,7 @@ export default function CataloguePage() {
       setSelectedProductId(null);
       fetchData(); // Reload to show new image
     } catch (error) {
-      toast.error('Erreur lors de l\'association de l\'image');
+      toast.error("Erreur lors de l'association de l'image");
     }
   };
 
@@ -68,23 +70,30 @@ export default function CataloguePage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Gestion du Catalogue</h1>
-          <p className="text-muted-foreground">Gérez vos produits, leurs visibilités et leurs images (Cloudinary).</p>
+          <p className="text-muted-foreground">
+            Gérez vos produits, leurs visibilités et leurs images (Cloudinary).
+          </p>
         </div>
-        <button onClick={fetchData} className="p-2 border rounded-md hover:bg-gray-100 flex items-center gap-2">
-           <RefreshCcw className="w-4 h-4" /> Rafraîchir
+        <button
+          onClick={fetchData}
+          className="p-2 border rounded-md hover:bg-gray-100 flex items-center gap-2"
+        >
+          <RefreshCcw className="w-4 h-4" /> Rafraîchir
         </button>
       </div>
 
       <div className="flex gap-4 items-center">
         <label className="font-medium text-sm">Filtrer par catégorie :</label>
-        <select 
-          value={selectedCategory} 
+        <select
+          value={selectedCategory}
           onChange={(e) => setSelectedCategory(e.target.value)}
           className="border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
         >
           <option value="">Toutes les catégories</option>
-          {categories.map(cat => (
-            <option key={cat.id} value={cat.id}>{cat.nom}</option>
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>
+              {cat.nom}
+            </option>
           ))}
         </select>
       </div>
@@ -114,11 +123,11 @@ export default function CataloguePage() {
                       <td className="px-6 py-4">
                         {produit.imageUrl ? (
                           <div className="relative w-12 h-12 rounded overflow-hidden border">
-                            <Image 
-                              src={produit.imageUrl} 
-                              alt={produit.libelle} 
-                              layout="fill" 
-                              objectFit="cover" 
+                            <Image
+                              src={produit.imageUrl}
+                              alt={produit.libelle}
+                              layout="fill"
+                              objectFit="cover"
                             />
                           </div>
                         ) : (
@@ -129,35 +138,38 @@ export default function CataloguePage() {
                       </td>
                       <td className="px-6 py-4 font-medium text-gray-900">
                         {produit.libelle}
-                        <div className="text-xs text-gray-500 font-normal">Ref: {produit.reference}</div>
+                        <div className="text-xs text-gray-500 font-normal">
+                          Ref: {produit.reference}
+                        </div>
                       </td>
-                      <td className="px-6 py-4 text-gray-500">
-                        {produit.categoryName}
-                      </td>
+                      <td className="px-6 py-4 text-gray-500">{produit.categoryName}</td>
                       <td className="px-6 py-4 font-semibold">
-                        {produit.prixVente} {produit.unite !== 'Pièce' ? `/ ${produit.unite}` : 'FCFA'}
+                        {produit.prixVente}{' '}
+                        {produit.unite !== 'Pièce' ? `/ ${produit.unite}` : 'FCFA'}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex justify-center items-center gap-2">
-                           <input 
-                             type="checkbox"
-                             checked={produit.status === 'VISIBLE'} 
-                             onChange={() => toggleVisibility(produit.id, produit.status)} 
-                             className="w-4 h-4 cursor-pointer"
-                           />
-                           <span className={`text-xs font-medium px-2 py-1 rounded-full ${produit.status === 'VISIBLE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                             {produit.status}
-                           </span>
+                          <input
+                            type="checkbox"
+                            checked={produit.status === 'VISIBLE'}
+                            onChange={() => toggleVisibility(produit.id, produit.status)}
+                            className="w-4 h-4 cursor-pointer"
+                          />
+                          <span
+                            className={`text-xs font-medium px-2 py-1 rounded-full ${produit.status === 'VISIBLE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}
+                          >
+                            {produit.status}
+                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
                         {selectedProductId === produit.id ? (
-                           <CloudinaryUploadWidget 
-                             folder={`librairie/produits/${produit.id}`} 
-                             onUploadSuccess={handleImageUpload} 
-                           />
+                          <CloudinaryUploadWidget
+                            folder={`librairie/produits/${produit.id}`}
+                            onUploadSuccess={handleImageUpload}
+                          />
                         ) : (
-                          <button 
+                          <button
                             onClick={() => setSelectedProductId(produit.id)}
                             className="text-primary hover:underline text-sm font-medium"
                           >
@@ -167,7 +179,7 @@ export default function CataloguePage() {
                       </td>
                     </tr>
                   ))}
-                  
+
                   {produits.length === 0 && (
                     <tr>
                       <td colSpan={6} className="px-6 py-8 text-center text-gray-500">

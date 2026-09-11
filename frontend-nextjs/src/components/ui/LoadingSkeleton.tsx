@@ -5,9 +5,7 @@ interface SkeletonProps {
 }
 
 export function Skeleton({ className = '' }: SkeletonProps) {
-  return (
-    <div className={`animate-pulse bg-muted rounded-md ${className}`} />
-  );
+  return <div className={`animate-pulse bg-muted rounded-md ${className}`} />;
 }
 
 export function KPICardSkeleton() {
@@ -36,7 +34,5 @@ export function TableRowSkeleton({ cols }: { cols: number }) {
 }
 
 export function ChartSkeleton({ height = 200 }: { height?: number }) {
-  return (
-    <div className="animate-pulse bg-muted rounded-xl w-full" style={{ height }} />
-  );
+  return <div className="animate-pulse bg-muted rounded-xl w-full" style={{ height }} />;
 }

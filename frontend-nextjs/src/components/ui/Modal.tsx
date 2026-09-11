@@ -40,7 +40,9 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
         className={`relative bg-card rounded-2xl shadow-modal w-full ${sizeClasses[size]} max-h-[90vh] overflow-y-auto scrollbar-thin fade-in`}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-card z-10">
-          <h2 id="modal-title" className="text-base font-bold text-foreground">{title}</h2>
+          <h2 id="modal-title" className="text-base font-bold text-foreground">
+            {title}
+          </h2>
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"

@@ -10,9 +10,10 @@ export default function DashboardChartsRow() {
   const [chartsData, setChartsData] = React.useState<DashboardChartsResponse | null>(null);
 
   React.useEffect(() => {
-    financesService.getDashboardCharts()
-      .then(data => setChartsData(data))
-      .catch(err => console.error("Erreur de chargement des graphiques", err));
+    financesService
+      .getDashboardCharts()
+      .then((data) => setChartsData(data))
+      .catch((err) => console.error('Erreur de chargement des graphiques', err));
   }, []);
 
   return (
@@ -20,7 +21,9 @@ export default function DashboardChartsRow() {
       <div className="lg:col-span-2 card-base p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-sm font-bold text-foreground">Chiffre d&apos;affaires — 7 derniers jours</h3>
+            <h3 className="text-sm font-bold text-foreground">
+              Chiffre d&apos;affaires — 7 derniers jours
+            </h3>
             <p className="text-xs text-muted-foreground">Comparaison avec la semaine précédente</p>
           </div>
           <select className="text-xs border border-border rounded-lg px-2 py-1 bg-card text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring">

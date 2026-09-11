@@ -19,7 +19,7 @@ import {
   AlertCircle,
   Sparkles,
   ChevronRight,
-  Filter
+  Filter,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { produitsService, Produit, CategorieItem } from '@/services/produits.service';
@@ -62,7 +62,9 @@ function CatalogueContent() {
 
   // Filtres et affichage — initialisés depuis les query params si présents
   const [search, setSearch] = useState(() => searchParams.get('search') || '');
-  const [selectedCategory, setSelectedCategory] = useState(() => searchParams.get('category') || 'all');
+  const [selectedCategory, setSelectedCategory] = useState(
+    () => searchParams.get('category') || 'all'
+  );
   const [selectedPriceRange, setSelectedPriceRange] = useState('all');
   const [inStockOnly, setInStockOnly] = useState(false);
   const [sortBy, setSortBy] = useState('newest');
@@ -100,15 +102,19 @@ function CatalogueContent() {
   }, [selectedCategory, selectedPriceRange, inStockOnly, search]);
 
   const filteredAndSorted = useMemo(() => {
-    const list = products.filter(p => {
+    const list = products.filter((p) => {
       if (p.status === 'MASQUE') return false;
 
-      const matchSearch = !search ||
+      const matchSearch =
+        !search ||
         p.libelle.toLowerCase().includes(search.toLowerCase()) ||
         (p.description || '').toLowerCase().includes(search.toLowerCase()) ||
         (p.reference || '').toLowerCase().includes(search.toLowerCase());
 
-      const matchCat = selectedCategory === 'all' || p.categoryId === selectedCategory || p.categoryName === selectedCategory;
+      const matchCat =
+        selectedCategory === 'all' ||
+        p.categoryId === selectedCategory ||
+        p.categoryName === selectedCategory;
       const matchPrice = priceInRange(p.prixVente, selectedPriceRange);
       const matchStock = !inStockOnly || p.stock > 0;
 
@@ -133,12 +139,10 @@ function CatalogueContent() {
 
   return (
     <div className="min-h-screen bg-[#FAFAF8] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
-      
       {/* ── HEADER BELLROY-STYLE ─────────────────────────────────────────── */}
       <header className="sticky top-0 z-30 bg-[#FAFAF8]/90 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="h-16 flex items-center justify-between gap-4">
-            
             {/* Brand / Logo */}
             <Link href="/catalogue" className="flex items-center gap-3 group focus:outline-none">
               <div className="w-9 h-9 rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 flex items-center justify-center shadow-xs transition-transform group-hover:scale-105">
@@ -156,11 +160,14 @@ function CatalogueContent() {
 
             {/* Search Bar - Center */}
             <div className="relative flex-1 max-w-md hidden md:block">
-              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+              <Search
+                size={15}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+              />
               <input
                 type="search"
                 value={search}
-                onChange={e => setSearch(e.target.value)}
+                onChange={(e) => setSearch(e.target.value)}
                 placeholder="Rechercher un titre, un auteur, une référence..."
                 className="w-full pl-9 pr-8 py-2 bg-slate-100/80 dark:bg-slate-900 border border-transparent focus:border-slate-300 dark:focus:border-slate-700 rounded-full text-xs sm:text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-900 transition-all shadow-2xs"
               />
@@ -199,11 +206,14 @@ function CatalogueContent() {
           {/* Search bar on mobile */}
           <div className="pb-3 md:hidden">
             <div className="relative">
-              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search
+                size={15}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              />
               <input
                 type="search"
                 value={search}
-                onChange={e => setSearch(e.target.value)}
+                onChange={(e) => setSearch(e.target.value)}
                 placeholder="Rechercher un livre, un auteur..."
                 className="w-full pl-9 pr-8 py-2 bg-slate-100 dark:bg-slate-900 border border-transparent focus:border-slate-300 dark:focus:border-slate-700 rounded-full text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:bg-white transition-all"
               />
@@ -242,7 +252,6 @@ function CatalogueContent() {
       <div className="sticky top-16 z-20 bg-[#FAFAF8]/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200/70 dark:border-slate-800/70 py-2.5 shadow-2xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-4">
-            
             {/* Scrollable category chips */}
             <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 pr-2">
               <button
@@ -256,8 +265,10 @@ function CatalogueContent() {
                 Tous les ouvrages ({products.length})
               </button>
 
-              {categories.map(cat => {
-                const count = products.filter(p => p.categoryId === cat.id || p.categoryName === cat.nom).length;
+              {categories.map((cat) => {
+                const count = products.filter(
+                  (p) => p.categoryId === cat.id || p.categoryName === cat.nom
+                ).length;
                 const isSelected = selectedCategory === cat.id || selectedCategory === cat.nom;
                 return (
                   <button
@@ -301,7 +312,6 @@ function CatalogueContent() {
       {/* ── TOOLBAR (COUNT, SORT, VIEW TOGGLE) ───────────────────────────── */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 pb-3 w-full">
         <div className="flex items-center justify-between gap-4 flex-wrap text-xs text-slate-500 dark:text-slate-400">
-          
           {/* Results count & Active filters pills */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-slate-700 dark:text-slate-300">
@@ -309,8 +319,11 @@ function CatalogueContent() {
             </span>
             {selectedPriceRange !== 'all' && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-[11px] text-slate-700 dark:text-slate-300">
-                Prix: {PRICE_RANGES.find(r => r.id === selectedPriceRange)?.label}
-                <button onClick={() => setSelectedPriceRange('all')} className="hover:text-slate-950 dark:hover:text-white">
+                Prix: {PRICE_RANGES.find((r) => r.id === selectedPriceRange)?.label}
+                <button
+                  onClick={() => setSelectedPriceRange('all')}
+                  className="hover:text-slate-950 dark:hover:text-white"
+                >
                   <X size={11} />
                 </button>
               </span>
@@ -318,7 +331,10 @@ function CatalogueContent() {
             {inStockOnly && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[11px]">
                 En stock seulement
-                <button onClick={() => setInStockOnly(false)} className="hover:text-emerald-950 dark:hover:text-white">
+                <button
+                  onClick={() => setInStockOnly(false)}
+                  className="hover:text-emerald-950 dark:hover:text-white"
+                >
                   <X size={11} />
                 </button>
               </span>
@@ -339,10 +355,10 @@ function CatalogueContent() {
               <ArrowUpDown size={13} className="text-slate-400" />
               <select
                 value={sortBy}
-                onChange={e => setSortBy(e.target.value)}
+                onChange={(e) => setSortBy(e.target.value)}
                 className="bg-transparent text-xs font-medium text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer pr-1"
               >
-                {SORT_OPTIONS.map(opt => (
+                {SORT_OPTIONS.map((opt) => (
                   <option key={opt.id} value={opt.id} className="bg-white dark:bg-slate-900">
                     {opt.label}
                   </option>
@@ -385,14 +401,18 @@ function CatalogueContent() {
         {loading ? (
           <div className="py-32 flex flex-col items-center justify-center text-center">
             <Loader2 className="animate-spin text-slate-400 dark:text-slate-500 mb-3" size={32} />
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Chargement des ouvrages...</p>
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+              Chargement des ouvrages...
+            </p>
           </div>
         ) : filteredAndSorted.length === 0 ? (
           <div className="py-24 text-center max-w-md mx-auto">
             <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3 text-slate-400">
               <Package size={22} />
             </div>
-            <h3 className="text-base font-semibold text-slate-900 dark:text-white">Aucun ouvrage trouvé</h3>
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+              Aucun ouvrage trouvé
+            </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Essayez d'ajuster vos critères de recherche ou réinitialisez les filtres.
             </p>
@@ -406,7 +426,7 @@ function CatalogueContent() {
         ) : viewMode === 'grid' ? (
           /* ── GRID VIEW (BELLROY TACTILE MINIMALISM) ── */
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-8 sm:gap-x-6 sm:gap-y-10">
-            {filteredAndSorted.map(product => {
+            {filteredAndSorted.map((product) => {
               const inStock = product.stock > 0;
               return (
                 <div
@@ -424,7 +444,11 @@ function CatalogueContent() {
                       />
                     ) : (
                       <div className="flex flex-col items-center justify-center p-4 text-center text-slate-400 dark:text-slate-600">
-                        <BookOpen size={36} strokeWidth={1.3} className="mb-2 opacity-50 transition-transform duration-300 group-hover:scale-110" />
+                        <BookOpen
+                          size={36}
+                          strokeWidth={1.3}
+                          className="mb-2 opacity-50 transition-transform duration-300 group-hover:scale-110"
+                        />
                         <span className="text-[10px] uppercase font-mono tracking-wider opacity-70">
                           {product.categoryName || 'Édition'}
                         </span>
@@ -452,7 +476,7 @@ function CatalogueContent() {
                     <span className="text-[10px] font-medium tracking-wider text-slate-400 dark:text-slate-500 uppercase truncate">
                       {product.categoryName || 'Livre'}
                     </span>
-                    
+
                     <h3 className="text-xs sm:text-sm font-medium text-slate-900 dark:text-slate-100 leading-snug line-clamp-2 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
                       {product.libelle}
                     </h3>
@@ -460,7 +484,9 @@ function CatalogueContent() {
                     <div className="pt-1 flex items-baseline justify-between gap-2">
                       <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
                         {product.prixVente.toLocaleString('fr-FR')}{' '}
-                        <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">{devise}</span>
+                        <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">
+                          {devise}
+                        </span>
                       </span>
 
                       {/* Discrete stock dot */}
@@ -481,7 +507,7 @@ function CatalogueContent() {
         ) : (
           /* ── LIST VIEW (REFINED ROWS) ── */
           <div className="space-y-2.5">
-            {filteredAndSorted.map(product => {
+            {filteredAndSorted.map((product) => {
               const inStock = product.stock > 0;
               return (
                 <div
@@ -491,7 +517,11 @@ function CatalogueContent() {
                 >
                   <div className="w-14 h-18 sm:w-16 sm:h-22 rounded-lg bg-[#F2F2EE] dark:bg-slate-800 flex items-center justify-center shrink-0 overflow-hidden">
                     {product.imageUrl ? (
-                      <img src={product.imageUrl} alt={product.libelle} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      <img
+                        src={product.imageUrl}
+                        alt={product.libelle}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
                     ) : (
                       <BookOpen size={20} className="text-slate-400 opacity-60" />
                     )}
@@ -518,14 +548,19 @@ function CatalogueContent() {
                           {product.prixVente.toLocaleString('fr-FR')} {devise}
                         </span>
                         <div className="flex items-center justify-end gap-1.5 mt-1 text-[11px] text-slate-500">
-                          <span className={`w-1.5 h-1.5 rounded-full ${inStock ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${inStock ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                          />
                           <span>{inStock ? `${product.stock} dispo` : 'Épuisé'}</span>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <ChevronRight size={16} className="text-slate-400 group-hover:translate-x-0.5 transition-transform hidden sm:block shrink-0" />
+                  <ChevronRight
+                    size={16}
+                    className="text-slate-400 group-hover:translate-x-0.5 transition-transform hidden sm:block shrink-0"
+                  />
                 </div>
               );
             })}
@@ -542,13 +577,14 @@ function CatalogueContent() {
           />
           <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
             <div className="w-screen max-w-sm bg-white dark:bg-slate-900 shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
-              
               <div className="space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
                   <div className="flex items-center gap-2">
                     <SlidersHorizontal size={16} className="text-slate-900 dark:text-white" />
-                    <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Filtres du catalogue</h2>
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                      Filtres du catalogue
+                    </h2>
                   </div>
                   <button
                     onClick={() => setShowFiltersDrawer(false)}
@@ -574,7 +610,7 @@ function CatalogueContent() {
                     >
                       Tous les articles ({products.length})
                     </button>
-                    {categories.map(cat => (
+                    {categories.map((cat) => (
                       <button
                         key={cat.id}
                         onClick={() => setSelectedCategory(cat.id)}
@@ -596,7 +632,7 @@ function CatalogueContent() {
                     Tranches de prix
                   </h3>
                   <div className="space-y-1">
-                    {PRICE_RANGES.map(range => (
+                    {PRICE_RANGES.map((range) => (
                       <button
                         key={range.id}
                         onClick={() => setSelectedPriceRange(range.id)}
@@ -618,7 +654,7 @@ function CatalogueContent() {
                     <input
                       type="checkbox"
                       checked={inStockOnly}
-                      onChange={e => setInStockOnly(e.target.checked)}
+                      onChange={(e) => setInStockOnly(e.target.checked)}
                       className="w-4 h-4 rounded text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-700 focus:ring-0"
                     />
                     <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
@@ -645,7 +681,6 @@ function CatalogueContent() {
                   </button>
                 )}
               </div>
-
             </div>
           </div>
         </div>
@@ -660,7 +695,6 @@ function CatalogueContent() {
           />
           <div className="flex min-h-full items-center justify-center p-4">
             <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden border border-slate-200/80 dark:border-slate-800">
-              
               {/* Close button */}
               <button
                 onClick={() => setQuickViewProduct(null)}
@@ -697,7 +731,7 @@ function CatalogueContent() {
                     <h2 className="text-lg font-semibold text-slate-900 dark:text-white mt-1 leading-snug">
                       {quickViewProduct.libelle}
                     </h2>
-                    
+
                     <div className="mt-3 text-xl font-bold text-slate-900 dark:text-white tabular-nums">
                       {quickViewProduct.prixVente.toLocaleString('fr-FR')}{' '}
                       <span className="text-xs font-normal text-slate-500">{devise}</span>
@@ -707,7 +741,11 @@ function CatalogueContent() {
                       {quickViewProduct.stock > 0 ? (
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-xs font-medium">
                           <CheckCircle2 size={13} />
-                          <span>{quickViewProduct.stock} exemplaire{quickViewProduct.stock > 1 ? 's' : ''} disponible{quickViewProduct.stock > 1 ? 's' : ''}</span>
+                          <span>
+                            {quickViewProduct.stock} exemplaire
+                            {quickViewProduct.stock > 1 ? 's' : ''} disponible
+                            {quickViewProduct.stock > 1 ? 's' : ''}
+                          </span>
                         </div>
                       ) : (
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 text-xs font-medium">
@@ -719,7 +757,9 @@ function CatalogueContent() {
 
                     {quickViewProduct.description && (
                       <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                        <h4 className="text-xs font-semibold text-slate-900 dark:text-white mb-1">Description</h4>
+                        <h4 className="text-xs font-semibold text-slate-900 dark:text-white mb-1">
+                          Description
+                        </h4>
                         <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-h-36 overflow-y-auto">
                           {quickViewProduct.description}
                         </p>
@@ -741,7 +781,6 @@ function CatalogueContent() {
                   </button>
                 </div>
               </div>
-
             </div>
           </div>
         </div>
@@ -749,14 +788,19 @@ function CatalogueContent() {
 
       {/* ── GRAND FOOTER NOIR LUXE BELLROY & NEWSLETTER ────────────────── */}
       <PublicFooter />
-
     </div>
   );
 }
 
 export default function CataloguePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+        </div>
+      }
+    >
       <CatalogueContent />
     </Suspense>
   );

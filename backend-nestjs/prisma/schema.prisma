@@ -59,6 +59,12 @@ enum StatutVente {
   VALIDEE
   ANNULEE
   REMBOURSEE
+  PARTIELLEMENT_REMBOURSEE
+}
+
+enum TypeRetour {
+  ARTICLE
+  VENTE
 }
 
 enum ModePaiement {
@@ -101,6 +107,7 @@ model Utilisateur {
   sessions_caisse    SessionCaisse[]
   clotures_validees  ClotureJournaliere[]
   caisses_assignees  Caisse[]             @relation("CaisseAssignee")
+  retours_effectues  RetourVente[]
 
   @@map("utilisateur")
 }
@@ -195,6 +202,8 @@ model Produit {
   mouvements_stock  MouvementStock[]
   lignes_inventaire LigneInventaire[]
   lignes_vente      LigneVente[]
+  lignes_retour     LigneRetour[]
+  lignes_modele_kit LigneModeleKit[]
 
   @@map("produit")
 }
@@ -286,6 +295,7 @@ model Achat {
   id_fournisseur             Int
   id_utilisateur             Int
   date_achat                 DateTime    @default(now())
+  date_prevue_reception      DateTime?
   date_reception             DateTime?
   montant_total_ht           Decimal     @default(0.00) @db.Decimal(10, 2)
   montant_total_ttc          Decimal     @default(0.00) @db.Decimal(10, 2)
@@ -354,6 +364,16 @@ model Inventaire {
   statut_inventaire    StatutInventaire @default(EN_COURS)
   observations         String?          @db.Text
 
+  // Traçabilité validation et invalidation
+  date_validation              DateTime?
+  validateur_nom               String?          @db.VarChar(100)
+  demande_invalidation         Boolean          @default(false)
+  motif_invalidation           String?          @db.Text
+  date_demande_invalidation    DateTime?
+  demandeur_invalidation_nom   String?          @db.VarChar(100)
+  date_invalidation            DateTime?
+  utilisateur_invalidation_nom String?          @db.VarChar(100)
+
   utilisateur Utilisateur       @relation(fields: [id_utilisateur], references: [id_utilisateur])
   lignes      LigneInventaire[]
 
@@ -409,6 +429,7 @@ model SessionCaisse {
   caisse      Caisse      @relation(fields: [id_caisse], references: [id_caisse])
   utilisateur Utilisateur @relation(fields: [id_utilisateur], references: [id_utilisateur])
   ventes      Vente[]
+  retours     RetourVente[]
 
   @@map("session_caisse")
 }
@@ -427,6 +448,7 @@ model Vente {
   session   SessionCaisse @relation(fields: [id_session], references: [id_session])
   lignes    LigneVente[]
   paiements Paiement[]
+  retours   RetourVente[]
 
   @@map("vente")
 }
@@ -436,16 +458,81 @@ model LigneVente {
   id_vente                       Int
   id_produit                     Int
   quantite                       Int
+  quantite_retournee             Int     @default(0)
+  nom_kit                        String? @db.VarChar(100)
+  id_kit_groupe                  String? @db.VarChar(50)
   prix_achat_unitaire_snapshot   Decimal @db.Decimal(10, 2)
   prix_vente_unitaire_ht_snapshot Decimal @db.Decimal(10, 2)
   taux_tva_snapshot              Decimal @db.Decimal(4, 2)
   marge_unitaire                 Decimal @db.Decimal(10, 2)
   total_ligne_ht                 Decimal @db.Decimal(10, 2)
 
-  vente   Vente   @relation(fields: [id_vente], references: [id_vente], onDelete: Cascade)
-  produit Produit @relation(fields: [id_produit], references: [id_produit])
+  vente   Vente         @relation(fields: [id_vente], references: [id_vente], onDelete: Cascade)
+  produit Produit       @relation(fields: [id_produit], references: [id_produit])
+  retours LigneRetour[]
 
   @@map("ligne_vente")
+}
+
+model RetourVente {
+  id_retour_vente    Int          @id @default(autoincrement())
+  reference_retour   String       @unique @db.VarChar(60)
+  id_vente           Int
+  id_utilisateur     Int
+  id_session_caisse  Int?
+  date_retour        DateTime     @default(now())
+  type_retour        TypeRetour
+  motif              String       @db.Text
+  montant_rembourse  Decimal      @db.Decimal(10, 2)
+  mode_remboursement ModePaiement @default(ESPECES)
+
+  vente          Vente          @relation(fields: [id_vente], references: [id_vente], onDelete: Cascade)
+  utilisateur    Utilisateur    @relation(fields: [id_utilisateur], references: [id_utilisateur])
+  session_caisse SessionCaisse? @relation(fields: [id_session_caisse], references: [id_session], onDelete: SetNull)
+  lignes         LigneRetour[]
+
+  @@map("retour_vente")
+}
+
+model LigneRetour {
+  id_ligne_retour         Int     @id @default(autoincrement())
+  id_retour_vente         Int
+  id_ligne_vente          Int
+  id_produit              Int
+  quantite_retournee      Int
+  prix_unitaire_rembourse Decimal @db.Decimal(10, 2)
+  total_ligne             Decimal @db.Decimal(10, 2)
+
+  retour      RetourVente @relation(fields: [id_retour_vente], references: [id_retour_vente], onDelete: Cascade)
+  ligne_vente LigneVente  @relation(fields: [id_ligne_vente], references: [id_ligne_vente], onDelete: Cascade)
+  produit     Produit     @relation(fields: [id_produit], references: [id_produit])
+
+  @@map("ligne_retour")
+}
+
+model ModeleKit {
+  id_modele_kit    Int              @id @default(autoincrement())
+  nom_kit          String           @db.VarChar(100)
+  description      String?          @db.Text
+  prix_forfaitaire Decimal          @db.Decimal(10, 2)
+  est_actif        Boolean          @default(true)
+  date_creation    DateTime         @default(now())
+
+  lignes           LigneModeleKit[]
+
+  @@map("modele_kit")
+}
+
+model LigneModeleKit {
+  id_ligne_modele_kit Int       @id @default(autoincrement())
+  id_modele_kit       Int
+  id_produit          Int
+  quantite            Int       @default(1)
+
+  modele_kit          ModeleKit @relation(fields: [id_modele_kit], references: [id_modele_kit], onDelete: Cascade)
+  produit             Produit   @relation(fields: [id_produit], references: [id_produit])
+
+  @@map("ligne_modele_kit")
 }
 
 model Paiement {

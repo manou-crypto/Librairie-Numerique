@@ -38,7 +38,10 @@ export const stockService = {
    * Consulter l'état des stocks
    * GET /api/v1/stock
    */
-  async getStocks(filters?: { search?: string; status?: 'all' | 'ok' | 'alerte' | 'rupture' }): Promise<StockItem[]> {
+  async getStocks(filters?: {
+    search?: string;
+    status?: 'all' | 'ok' | 'alerte' | 'rupture';
+  }): Promise<StockItem[]> {
     const params = new URLSearchParams();
     if (filters?.search) params.set('search', filters.search);
     if (filters?.status) params.set('status', filters.status);

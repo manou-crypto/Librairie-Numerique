@@ -39,7 +39,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
    * Écouter les mises à jour de configuration en temps réel.
    * On importe dynamiquement le SocketContext pour éviter une dépendance
    * circulaire (SocketProvider est enfant de ConfigProvider dans le layout).
-   * 
+   *
    * Pattern : polling de l'état du socket via window events custom.
    * Quand le SocketContext émet 'config_updated', il dispatche aussi un
    * CustomEvent pour que ConfigContext puisse se mettre à jour.

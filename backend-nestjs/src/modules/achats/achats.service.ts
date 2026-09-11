@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -17,6 +17,7 @@ export class AchatsService {
       fournisseurNom: a.fournisseur.nom_entreprise,
       utilisateurId: a.id_utilisateur,
       dateAchat: a.date_achat.toISOString(),
+      datePrevueReception: a.date_prevue_reception ? a.date_prevue_reception.toISOString() : undefined,
       dateReception: a.date_reception ? a.date_reception.toISOString() : undefined,
       montantTotalHt: Number(a.montant_total_ht),
       montantTotalTtc: Number(a.montant_total_ttc),
@@ -41,6 +42,7 @@ export class AchatsService {
       fournisseurNom: a.fournisseur.nom_entreprise,
       utilisateurId: a.id_utilisateur,
       dateAchat: a.date_achat.toISOString(),
+      datePrevueReception: a.date_prevue_reception ? a.date_prevue_reception.toISOString() : undefined,
       dateReception: a.date_reception ? a.date_reception.toISOString() : undefined,
       montantTotalHt: Number(a.montant_total_ht),
       montantTotalTtc: Number(a.montant_total_ttc),
@@ -56,7 +58,15 @@ export class AchatsService {
     };
   }
 
-  async create(userId: number, data: { fournisseurId: string; lignes: { produitId: string; quantiteCommandee: number; prixAchatUnitaireHt: number }[] }) {
+  async create(userId: number, data: { fournisseurId: string; datePrevueReception?: string; lignes: { produitId: string; quantiteCommandee: number; prixAchatUnitaireHt: number }[] }) {
+    if (data.datePrevueReception) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (new Date(data.datePrevueReception) < today) {
+        throw new BadRequestException('La date prévue de réception ne peut pas être dans le passé');
+      }
+    }
+
     const config = await this.prisma.configuration.findUnique({ where: { id_configuration: 1 } });
     const tauxTva = config ? Number(config.tva) / 100 : 0;
 
@@ -89,6 +99,7 @@ export class AchatsService {
         montant_total_ht: totalHt,
         montant_total_ttc: totalTtc,
         statut_achat: 'EN_ATTENTE',
+        date_prevue_reception: data.datePrevueReception ? new Date(data.datePrevueReception) : null,
         lignes: {
           create: data.lignes.map((l) => ({
             id_produit: Number(l.produitId),
@@ -108,29 +119,59 @@ export class AchatsService {
       fournisseurNom: achat.fournisseur.nom_entreprise,
       utilisateurId: achat.id_utilisateur,
       dateAchat: achat.date_achat.toISOString(),
+      datePrevueReception: achat.date_prevue_reception ? achat.date_prevue_reception.toISOString() : undefined,
       montantTotalHt: Number(achat.montant_total_ht),
       montantTotalTtc: Number(achat.montant_total_ttc),
       statutAchat: achat.statut_achat,
     };
   }
 
-  async validerReception(id: number, userId: number, data: { lignesRecues: { produitId: string; quantiteRecue: number }[] }) {
+  /**
+   * Valider la réception d'une commande avec saisie interactive des quantités reçues et prix
+   * Recalcule les totaux monétaires selon les nouvelles valeurs
+   */
+  async validerReception(
+    id: number,
+    userId: number,
+    data: { lignesRecues: { produitId: string; quantiteRecue: number; prixAchatUnitaireHt: number }[] },
+  ) {
     const achat = await this.prisma.achat.findUnique({
       where: { id_achat: id },
       include: { lignes: true },
     });
     if (!achat) throw new NotFoundException(`Achat #${id} introuvable`);
+    if (achat.statut_achat !== 'EN_ATTENTE') {
+      throw new BadRequestException('Seuls les bons en attente peuvent être réceptionnés');
+    }
+
+    // Récupérer le taux de TVA pour le recalcul
+    const config = await this.prisma.configuration.findUnique({ where: { id_configuration: 1 } });
+    const tauxTva = config ? Number(config.tva) / 100 : 0;
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.achat.update({
-        where: { id_achat: id },
-        data: { statut_achat: 'RECU', date_reception: new Date() },
-      });
+      let newTotalHt = 0;
 
       for (const item of data.lignesRecues) {
         const pId = Number(item.produitId);
         const qte = item.quantiteRecue;
+        const prix = item.prixAchatUnitaireHt;
 
+        // Calculer le sous-total de cette ligne
+        newTotalHt += qte * prix;
+
+        // Mettre à jour la ligne d'achat avec qté reçue et prix actualisé
+        const ligne = achat.lignes.find((l) => l.id_produit === pId);
+        if (ligne) {
+          await tx.ligneAchat.update({
+            where: { id_ligne_achat: ligne.id_ligne_achat },
+            data: {
+              quantite_recue: qte,
+              prix_achat_unitaire_ht: prix,
+            },
+          });
+        }
+
+        // Incrémenter le stock
         await tx.stock.update({
           where: { id_produit: pId },
           data: {
@@ -139,6 +180,7 @@ export class AchatsService {
           },
         });
 
+        // Créer le mouvement de stock
         await tx.mouvementStock.create({
           data: {
             id_produit: pId,
@@ -149,6 +191,19 @@ export class AchatsService {
           },
         });
       }
+
+      // Recalculer les totaux monétaires de l'achat
+      const newTotalTtc = newTotalHt * (1 + tauxTva);
+
+      await tx.achat.update({
+        where: { id_achat: id },
+        data: {
+          statut_achat: 'RECU',
+          date_reception: new Date(),
+          montant_total_ht: newTotalHt,
+          montant_total_ttc: newTotalTtc,
+        },
+      });
     });
 
     const updated = await this.prisma.achat.findUnique({
@@ -164,6 +219,63 @@ export class AchatsService {
       fournisseurNom: updated.fournisseur.nom_entreprise,
       statutAchat: updated.statut_achat,
       dateReception: updated.date_reception?.toISOString(),
+      montantTotalHt: Number(updated.montant_total_ht),
+      montantTotalTtc: Number(updated.montant_total_ttc),
     };
+  }
+
+  /**
+   * Annuler un bon d'achat en attente (« retour d'achat »)
+   * Aucun impact sur le stock — le bon passe simplement à ANNULE
+   */
+  async annuler(id: number) {
+    const achat = await this.prisma.achat.findUnique({
+      where: { id_achat: id },
+    });
+    if (!achat) throw new NotFoundException(`Achat #${id} introuvable`);
+    if (achat.statut_achat !== 'EN_ATTENTE') {
+      throw new BadRequestException('Seuls les bons en attente peuvent être annulés');
+    }
+
+    const updated = await this.prisma.achat.update({
+      where: { id_achat: id },
+      data: { statut_achat: 'ANNULE' },
+      include: { fournisseur: true },
+    });
+
+    return {
+      id: String(updated.id_achat),
+      numeroFactureFournisseur: updated.numero_facture_fournisseur,
+      fournisseurNom: updated.fournisseur.nom_entreprise,
+      statutAchat: updated.statut_achat,
+    };
+  }
+
+  /**
+   * Récupérer les achats en retard de livraison (EN_ATTENTE et date_prevue_reception dépassée)
+   */
+  async findEnRetard(seuilJours: number = 0) {
+    const today = new Date();
+    today.setDate(today.getDate() - seuilJours); // Allows adding a margin before considering it late, defaults to 0
+
+    const list = await this.prisma.achat.findMany({
+      where: {
+        statut_achat: 'EN_ATTENTE',
+        date_prevue_reception: { lt: today },
+      },
+      include: { fournisseur: true },
+      orderBy: { date_prevue_reception: 'asc' },
+    });
+
+    return list.map((a) => ({
+      id: String(a.id_achat),
+      numeroFactureFournisseur: a.numero_facture_fournisseur,
+      fournisseurId: String(a.id_fournisseur),
+      fournisseurNom: a.fournisseur.nom_entreprise,
+      dateAchat: a.date_achat.toISOString(),
+      datePrevueReception: a.date_prevue_reception?.toISOString(),
+      montantTotalHt: Number(a.montant_total_ht),
+      joursRetard: Math.floor((Date.now() - a.date_prevue_reception!.getTime()) / (1000 * 60 * 60 * 24)),
+    }));
   }
 }

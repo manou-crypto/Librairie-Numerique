@@ -89,7 +89,7 @@ export const financesService = {
    * GET /api/v1/dashboard/kpi
    */
   async getDashboardKpis(): Promise<KpiDataResponse> {
-        const response = await fetch(`${API_BASE_URL}/v1/dashboard/kpi`, {
+    const response = await fetch(`${API_BASE_URL}/v1/dashboard/kpi`, {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Échec du chargement des KPIs financiers');

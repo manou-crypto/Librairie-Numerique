@@ -12,15 +12,17 @@ export interface RapportsStats {
 }
 
 export const rapportsService = {
-  async getStats(period: 'semaine' | 'mois' | 'trimestre' | 'annee' = 'semaine'): Promise<RapportsStats> {
+  async getStats(
+    period: 'semaine' | 'mois' | 'trimestre' | 'annee' = 'semaine'
+  ): Promise<RapportsStats> {
     const res = await fetch(`${API_BASE_URL}/v1/rapports/stats?period=${period}`, {
       headers: getAuthHeaders(),
     });
-    
+
     if (!res.ok) {
       throw new Error('Erreur lors du chargement des statistiques des rapports');
     }
-    
+
     return res.json();
-  }
+  },
 };

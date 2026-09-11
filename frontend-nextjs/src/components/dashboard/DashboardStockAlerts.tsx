@@ -51,7 +51,14 @@ export default function DashboardStockAlerts() {
     if (!lastStockUpdate) return;
 
     setStockAlerts((prev) => {
-      const { produitId, produitLibelle, nouvelleQuantite, seuilAlerte, estEnAlerte, estEnRupture } = lastStockUpdate;
+      const {
+        produitId,
+        produitLibelle,
+        nouvelleQuantite,
+        seuilAlerte,
+        estEnAlerte,
+        estEnRupture,
+      } = lastStockUpdate;
 
       // Si le produit n'est plus en alerte ni en rupture, on le retire de la liste
       if (!estEnAlerte && !estEnRupture) {
@@ -126,22 +133,30 @@ export default function DashboardStockAlerts() {
               }`}
             >
               <div className="flex items-start gap-3">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                  alert.status === 'rupture' ? 'bg-red-100' : 'bg-amber-100'
-                }`}>
-                  {alert.status === 'rupture'
-                    ? <XCircle size={15} className="text-red-600" />
-                    : <AlertTriangle size={15} className="text-amber-600" />
-                  }
+                <div
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                    alert.status === 'rupture' ? 'bg-red-100' : 'bg-amber-100'
+                  }`}
+                >
+                  {alert.status === 'rupture' ? (
+                    <XCircle size={15} className="text-red-600" />
+                  ) : (
+                    <AlertTriangle size={15} className="text-amber-600" />
+                  )}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold text-foreground truncate leading-tight mb-1">{alert.name}</p>
+                  <p className="text-xs font-semibold text-foreground truncate leading-tight mb-1">
+                    {alert.name}
+                  </p>
                   <p className="text-[10px] text-muted-foreground mb-2">{alert.category}</p>
                   <div className="flex items-center gap-2">
-                    {alert.status === 'rupture'
-                      ? <Badge variant="rupture">Rupture totale</Badge>
-                      : <Badge variant="alert">Stock : {alert.stock} / {alert.seuil}</Badge>
-                    }
+                    {alert.status === 'rupture' ? (
+                      <Badge variant="rupture">Rupture totale</Badge>
+                    ) : (
+                      <Badge variant="alert">
+                        Stock : {alert.stock} / {alert.seuil}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </div>

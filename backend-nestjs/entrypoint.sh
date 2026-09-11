@@ -32,4 +32,4 @@ fi
 
 # Start the application
 echo "Starting NestJS application..."
-exec node dist/main
+node dist/src/main.js 2>&1

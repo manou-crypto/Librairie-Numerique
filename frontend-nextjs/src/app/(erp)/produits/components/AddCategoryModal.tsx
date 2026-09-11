@@ -18,7 +18,12 @@ function buildCategoryLabel(cat: CategorieItem, allCats: CategorieItem[]): strin
   return `${parent.nom} > ${cat.nom}`;
 }
 
-export default function AddCategoryModal({ open, onClose, onSave, categories }: AddCategoryModalProps) {
+export default function AddCategoryModal({
+  open,
+  onClose,
+  onSave,
+  categories,
+}: AddCategoryModalProps) {
   const [nom, setNom] = useState('');
   const [parentId, setParentId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,7 +57,10 @@ export default function AddCategoryModal({ open, onClose, onSave, categories }: 
       <form onSubmit={handleSubmit}>
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5" htmlFor="cat-name">
+            <label
+              className="block text-xs font-semibold text-foreground mb-1.5"
+              htmlFor="cat-name"
+            >
               Nom de la catégorie <span className="text-negative">*</span>
             </label>
             <input
@@ -67,7 +75,10 @@ export default function AddCategoryModal({ open, onClose, onSave, categories }: 
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5" htmlFor="cat-parent">
+            <label
+              className="block text-xs font-semibold text-foreground mb-1.5"
+              htmlFor="cat-parent"
+            >
               Catégorie parente (optionnel)
             </label>
             <select
@@ -93,7 +104,12 @@ export default function AddCategoryModal({ open, onClose, onSave, categories }: 
           )}
 
           <div className="flex gap-3 pt-4 border-t border-border">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1" disabled={isSubmitting}>
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-secondary flex-1"
+              disabled={isSubmitting}
+            >
               Annuler
             </button>
             <button

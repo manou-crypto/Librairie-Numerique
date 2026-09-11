@@ -25,12 +25,13 @@ export default function Topbar({ title, subtitle }: TopbarProps) {
 
   useEffect(() => {
     // Fetch notifications to get unread count
-    notificationsService.getAll()
-      .then(notifs => {
-        const unread = notifs.filter(n => !n.lue).length;
+    notificationsService
+      .getAll()
+      .then((notifs) => {
+        const unread = notifs.filter((n) => !n.lue).length;
         setUnreadCount(unread);
       })
-      .catch(err => console.error(err));
+      .catch((err) => console.error(err));
   }, []);
 
   return (
@@ -41,25 +42,35 @@ export default function Topbar({ title, subtitle }: TopbarProps) {
       </div>
       <div className="flex items-center gap-3">
         <div className="relative hidden sm:block">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Search
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+          />
           <input
             type="search"
             placeholder="Recherche rapide..."
             className="input-field pl-9 w-56 text-sm"
           />
         </div>
-        <Link href="/notifications" className="relative p-2 rounded-lg hover:bg-muted transition-colors" title="Notifications">
+        <Link
+          href="/notifications"
+          className="relative p-2 rounded-lg hover:bg-muted transition-colors"
+          title="Notifications"
+        >
           <Bell size={18} className="text-muted-foreground" />
           {unreadCount > 0 && (
             <span className="absolute top-1 right-1 w-2 h-2 bg-accent rounded-full" />
           )}
         </Link>
         {user && (
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center" title={displayName}>
+          <div
+            className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center"
+            title={displayName}
+          >
             <span className="text-xs font-bold text-primary">{displayInitials}</span>
           </div>
         )}
       </div>
-    </header> 
+    </header>
   );
 }

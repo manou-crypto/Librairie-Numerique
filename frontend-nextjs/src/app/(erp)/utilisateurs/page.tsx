@@ -55,9 +55,11 @@ export default function UtilisateursPage() {
     isLoading: loadingRoles,
   } = useSWR<RoleItem[]>('/v1/users/roles', fetcher, SWR_DEFAULT_CONFIG);
 
-  const {
-    data: permissionsRaw,
-  } = useSWR<PermissionItem[]>('/v1/users/permissions', fetcher, SWR_DEFAULT_CONFIG);
+  const { data: permissionsRaw } = useSWR<PermissionItem[]>(
+    '/v1/users/permissions',
+    fetcher,
+    SWR_DEFAULT_CONFIG
+  );
 
   const utilisateurs = utilisateursRaw || [];
   const roles = rolesRaw || [];
@@ -161,7 +163,12 @@ export default function UtilisateursPage() {
   };
 
   const handleTriggerSaveAdd = async () => {
-    if (!addForm.nom.trim() || !addForm.prenom.trim() || !addForm.email.trim() || !addForm.password) {
+    if (
+      !addForm.nom.trim() ||
+      !addForm.prenom.trim() ||
+      !addForm.email.trim() ||
+      !addForm.password
+    ) {
       toast.error('Veuillez renseigner tous les champs obligatoires.');
       return;
     }
@@ -242,7 +249,11 @@ export default function UtilisateursPage() {
   };
 
   // Role Save Handlers
-  const handleSaveRole = async (data: { codeRole: string; libelle: string; permissions: string[] }) => {
+  const handleSaveRole = async (data: {
+    codeRole: string;
+    libelle: string;
+    permissions: string[];
+  }) => {
     if (editingRole) {
       await utilisateursService.updateRole(editingRole.id, {
         libelle: data.libelle,
@@ -276,7 +287,8 @@ export default function UtilisateursPage() {
   const filteredUsers = utilisateurs.filter((u) => {
     const fullName = `${u.prenom} ${u.nom}`.toLowerCase();
     const matchSearch =
-      fullName.includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
+      fullName.includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase());
     const matchRole = filterRole === 'all' || u.codeRole === filterRole;
     return matchSearch && matchRole;
   });
@@ -284,7 +296,8 @@ export default function UtilisateursPage() {
   const getRoleBadgeStyle = (code: string) => {
     if (code === 'ADMIN') return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
     if (code === 'GESTIONNAIRE_CATALOGUE') return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
-    if (code === 'ACHETEUR_STOCK') return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
+    if (code === 'ACHETEUR_STOCK')
+      return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
     if (code === 'CAISSIER') return 'bg-purple-500/10 text-purple-600 border-purple-500/20';
     return 'bg-muted text-muted-foreground border-border';
   };
@@ -349,7 +362,9 @@ export default function UtilisateursPage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="kpi-card-info">
                 <p className="text-xs text-muted-foreground mb-1">Total utilisateurs</p>
-                <p className="text-xl font-bold text-foreground tabular-nums">{utilisateurs.length}</p>
+                <p className="text-xl font-bold text-foreground tabular-nums">
+                  {utilisateurs.length}
+                </p>
               </div>
               <div className="kpi-card-positive">
                 <p className="text-xs text-muted-foreground mb-1">Comptes actifs</p>
@@ -372,7 +387,10 @@ export default function UtilisateursPage() {
             <div className="card-base overflow-hidden">
               <div className="px-5 py-4 border-b border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="relative flex-1 max-w-sm">
-                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Search
+                    size={15}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  />
                   <input
                     type="search"
                     value={search}
@@ -401,10 +419,18 @@ export default function UtilisateursPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-muted/50">
-                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">Utilisateur</th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">Rôle</th>
-                      <th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">Statut</th>
-                      <th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">Actions</th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">
+                        Utilisateur
+                      </th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">
+                        Rôle
+                      </th>
+                      <th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">
+                        Statut
+                      </th>
+                      <th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -438,7 +464,12 @@ export default function UtilisateursPage() {
                                   <p className="font-semibold text-foreground text-sm flex items-center gap-1.5">
                                     {user.prenom} {user.nom}
                                     {isAdmin && (
-                                      <Shield size={12} className="text-amber-500" title="Super Administrateur" />
+                                      <span title="Super Administrateur">
+                                        <Shield
+                                          size={12}
+                                          className="text-amber-500"
+                                        />
+                                      </span>
                                     )}
                                   </p>
                                   <p className="text-xs text-muted-foreground">{user.email}</p>
@@ -455,7 +486,11 @@ export default function UtilisateursPage() {
                               </span>
                             </td>
                             <td className="px-5 py-3 text-center">
-                              <span className={user.statut === 'ACTIF' ? 'badge-active' : 'badge-hidden'}>
+                              <span
+                                className={
+                                  user.statut === 'ACTIF' ? 'badge-active' : 'badge-hidden'
+                                }
+                              >
                                 {user.statut === 'ACTIF' ? 'Actif' : 'Inactif'}
                               </span>
                             </td>
@@ -480,7 +515,11 @@ export default function UtilisateursPage() {
                                     }`}
                                     title={user.statut === 'ACTIF' ? 'Désactiver' : 'Activer'}
                                   >
-                                    {user.statut === 'ACTIF' ? <UserX size={14} /> : <UserCheck size={14} />}
+                                    {user.statut === 'ACTIF' ? (
+                                      <UserX size={14} />
+                                    ) : (
+                                      <UserCheck size={14} />
+                                    )}
                                   </button>
                                 ) : (
                                   <span
@@ -534,7 +573,9 @@ export default function UtilisateursPage() {
               </div>
               <div className="kpi-card-neutral">
                 <p className="text-xs text-muted-foreground mb-1">Total Utilisateurs assignés</p>
-                <p className="text-xl font-bold text-foreground tabular-nums">{utilisateurs.length}</p>
+                <p className="text-xl font-bold text-foreground tabular-nums">
+                  {utilisateurs.length}
+                </p>
               </div>
             </div>
 
@@ -565,7 +606,9 @@ export default function UtilisateursPage() {
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs font-mono text-muted-foreground mt-0.5">{r.codeRole}</p>
+                            <p className="text-xs font-mono text-muted-foreground mt-0.5">
+                              {r.codeRole}
+                            </p>
                           </div>
 
                           <div className="flex items-center gap-1.5">
@@ -604,7 +647,8 @@ export default function UtilisateursPage() {
 
                         <div className="pt-2 border-t border-border space-y-1.5">
                           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                            Pages & permissions accordées ({isAdmin ? 'Toutes' : `${rolePerms.length} / ${permissions.length}`})
+                            Pages & permissions accordées (
+                            {isAdmin ? 'Toutes' : `${rolePerms.length} / ${permissions.length}`})
                           </p>
                           <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto scrollbar-thin">
                             {isAdmin ? (
@@ -612,7 +656,9 @@ export default function UtilisateursPage() {
                                 <CheckCircle2 size={12} /> Accès universel illimité
                               </span>
                             ) : rolePerms.length === 0 ? (
-                              <span className="text-[11px] text-muted-foreground italic">Aucun accès configuré</span>
+                              <span className="text-[11px] text-muted-foreground italic">
+                                Aucun accès configuré
+                              </span>
                             ) : (
                               rolePerms.map((code) => {
                                 const permInfo = permissions.find((p) => p.codePermission === code);
@@ -644,7 +690,10 @@ export default function UtilisateursPage() {
           <div className="bg-card rounded-xl shadow-2xl w-full max-w-md fade-in">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <h3 className="text-base font-bold text-foreground">Nouvel utilisateur</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-muted-foreground hover:text-foreground">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
                 <X size={18} />
               </button>
             </div>
@@ -680,7 +729,9 @@ export default function UtilisateursPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-foreground mb-1.5">Rôle attribué</label>
+                <label className="block text-xs font-semibold text-foreground mb-1.5">
+                  Rôle attribué
+                </label>
                 <select
                   value={addForm.codeRole}
                   onChange={(e) => setAddForm({ ...addForm, codeRole: e.target.value })}
@@ -694,7 +745,9 @@ export default function UtilisateursPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-foreground mb-1.5">Mot de passe temporaire</label>
+                <label className="block text-xs font-semibold text-foreground mb-1.5">
+                  Mot de passe temporaire
+                </label>
                 <input
                   type="password"
                   value={addForm.password}
@@ -708,7 +761,8 @@ export default function UtilisateursPage() {
                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-start gap-2 text-amber-600 text-xs">
                   <Shield size={16} className="shrink-0 mt-0.5" />
                   <span>
-                    <strong>Avertissement :</strong> Le rôle Administrateur confère un contrôle total sur toutes les opérations et paramètres du système.
+                    <strong>Avertissement :</strong> Le rôle Administrateur confère un contrôle
+                    total sur toutes les opérations et paramètres du système.
                   </span>
                 </div>
               )}
@@ -731,7 +785,10 @@ export default function UtilisateursPage() {
           <div className="bg-card rounded-xl shadow-2xl w-full max-w-md fade-in">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <h3 className="text-base font-bold text-foreground">Modifier l'utilisateur</h3>
-              <button onClick={() => setEditUser(null)} className="text-muted-foreground hover:text-foreground">
+              <button
+                onClick={() => setEditUser(null)}
+                className="text-muted-foreground hover:text-foreground"
+              >
                 <X size={18} />
               </button>
             </div>
@@ -782,7 +839,10 @@ export default function UtilisateursPage() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">
-                  Nouveau mot de passe <span className="text-muted-foreground font-normal">(laisser vide pour ne pas changer)</span>
+                  Nouveau mot de passe{' '}
+                  <span className="text-muted-foreground font-normal">
+                    (laisser vide pour ne pas changer)
+                  </span>
                 </label>
                 <input
                   type="password"
@@ -821,7 +881,8 @@ export default function UtilisateursPage() {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Êtes-vous sûr de vouloir supprimer définitivement cet utilisateur ({deleteTarget.email}) ?
+              Êtes-vous sûr de vouloir supprimer définitivement cet utilisateur (
+              {deleteTarget.email}) ?
             </p>
             <div className="flex items-center justify-end gap-3 pt-2">
               <button onClick={() => setDeleteTarget(null)} className="btn-secondary text-sm py-2">
@@ -832,7 +893,8 @@ export default function UtilisateursPage() {
                 disabled={deleting}
                 className="btn-primary text-sm py-2 bg-negative border-negative hover:bg-negative/90 flex items-center gap-2"
               >
-                {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} Supprimer
+                {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}{' '}
+                Supprimer
               </button>
             </div>
           </div>
@@ -853,10 +915,14 @@ export default function UtilisateursPage() {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Êtes-vous sûr de vouloir supprimer le rôle <strong>{deleteRoleTarget.libelle}</strong> ({deleteRoleTarget.codeRole}) ?
+              Êtes-vous sûr de vouloir supprimer le rôle <strong>{deleteRoleTarget.libelle}</strong>{' '}
+              ({deleteRoleTarget.codeRole}) ?
             </p>
             <div className="flex items-center justify-end gap-3 pt-2">
-              <button onClick={() => setDeleteRoleTarget(null)} className="btn-secondary text-sm py-2">
+              <button
+                onClick={() => setDeleteRoleTarget(null)}
+                className="btn-secondary text-sm py-2"
+              >
                 Annuler
               </button>
               <button
@@ -864,7 +930,12 @@ export default function UtilisateursPage() {
                 disabled={deletingRole}
                 className="btn-primary text-sm py-2 bg-negative border-negative hover:bg-negative/90 flex items-center gap-2"
               >
-                {deletingRole ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} Supprimer
+                {deletingRole ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Trash2 size={14} />
+                )}{' '}
+                Supprimer
               </button>
             </div>
           </div>

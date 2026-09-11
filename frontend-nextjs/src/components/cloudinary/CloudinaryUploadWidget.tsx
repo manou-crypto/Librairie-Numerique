@@ -9,7 +9,10 @@ interface CloudinaryUploadWidgetProps {
   folder?: string;
 }
 
-export default function CloudinaryUploadWidget({ onUploadSuccess, folder = 'librairie' }: CloudinaryUploadWidgetProps) {
+export default function CloudinaryUploadWidget({
+  onUploadSuccess,
+  folder = 'librairie',
+}: CloudinaryUploadWidgetProps) {
   const [isUploading, setIsUploading] = useState(false);
 
   return (
@@ -24,7 +27,7 @@ export default function CloudinaryUploadWidget({ onUploadSuccess, folder = 'libr
       onSuccess={(result: any) => {
         if (result?.info?.secure_url) {
           onUploadSuccess(result.info.secure_url);
-          toast.success("Image téléchargée avec succès");
+          toast.success('Image téléchargée avec succès');
         }
       }}
       onError={(error) => {
@@ -36,13 +39,28 @@ export default function CloudinaryUploadWidget({ onUploadSuccess, folder = 'libr
     >
       {({ open }) => {
         return (
-          <button 
-            type="button" 
-            onClick={() => open()}
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof open === 'function') {
+                open();
+              } else {
+                console.error(
+                  'Cloudinary widget failed to load. Check NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_API_KEY env vars.'
+                );
+                toast.error(
+                  "Le widget d'upload n'a pas pu se charger. Vérifiez la configuration Cloudinary."
+                );
+              }
+            }}
             disabled={isUploading}
             className="flex items-center gap-2 border px-4 py-2 rounded-md hover:bg-gray-100 disabled:opacity-50"
           >
-            {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
+            {isUploading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <UploadCloud className="w-4 h-4" />
+            )}
             Ajouter des images
           </button>
         );

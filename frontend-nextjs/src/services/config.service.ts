@@ -26,7 +26,7 @@ export const configService = {
 
   async updateConfiguration(data: Partial<AppConfiguration>): Promise<AppConfiguration> {
     const token = getTokenFromCookie();
-    
+
     const res = await fetch(`${API_BASE_URL}/v1/configuration`, {
       method: 'PUT',
       headers: {

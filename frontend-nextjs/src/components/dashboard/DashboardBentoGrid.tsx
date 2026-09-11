@@ -1,6 +1,15 @@
 'use client';
 import React from 'react';
-import { TrendingUp, ShoppingBag, Euro, AlertTriangle, BarChart2, ArrowUpRight, ArrowDownRight, Wifi } from 'lucide-react';
+import {
+  TrendingUp,
+  ShoppingBag,
+  Euro,
+  AlertTriangle,
+  BarChart2,
+  ArrowUpRight,
+  ArrowDownRight,
+  Wifi,
+} from 'lucide-react';
 import Icon from '@/components/ui/AppIcon';
 import { useSocket } from '@/contexts/SocketContext';
 import { useAppConfig } from '@/contexts/ConfigContext';
@@ -44,7 +53,7 @@ export default function DashboardBentoGrid() {
     ventesJour: 0,
     panierMoyen: 0,
     caMois: 0,
-    ruptures: 0
+    ruptures: 0,
   });
   // Indicateur de "flash" pour animer la carte au moment d'une mise à jour
   const [flashSale, setFlashSale] = React.useState(false);
@@ -57,11 +66,11 @@ export default function DashboardBentoGrid() {
         setKpis({
           caJour: data.caJour ?? 0,
           beneficeJour: data.beneficeBrutJour ?? 0,
-            ventesJour: data.ventesJourCount ?? 0,
-            panierMoyen: data.panierMoyen ?? 0,
-            caMois: data.caMoisTotal ?? 0,
-            ruptures: data.rupturesStockCount ?? 0
-          });
+          ventesJour: data.ventesJourCount ?? 0,
+          panierMoyen: data.panierMoyen ?? 0,
+          caMois: data.caMoisTotal ?? 0,
+          ruptures: data.rupturesStockCount ?? 0,
+        });
       } catch (e) {
         console.error(e);
       }
@@ -100,7 +109,7 @@ export default function DashboardBentoGrid() {
       trendLabel: 'vs hier',
       icon: Euro,
       variant: 'positive',
-      span: 'col-span-2'
+      span: 'col-span-2',
     },
     {
       id: 'kpi-benefice',
@@ -110,7 +119,7 @@ export default function DashboardBentoGrid() {
       trend: 0,
       trendLabel: 'vs hier',
       icon: TrendingUp,
-      variant: 'positive'
+      variant: 'positive',
     },
     {
       id: 'kpi-ventes',
@@ -120,7 +129,7 @@ export default function DashboardBentoGrid() {
       trend: 0,
       trendLabel: 'vs hier',
       icon: ShoppingBag,
-      variant: 'neutral'
+      variant: 'neutral',
     },
     {
       id: 'kpi-panier',
@@ -130,7 +139,7 @@ export default function DashboardBentoGrid() {
       trend: 0,
       trendLabel: 'vs hier',
       icon: BarChart2,
-      variant: 'positive'
+      variant: 'positive',
     },
     {
       id: 'kpi-ca-mois',
@@ -140,7 +149,7 @@ export default function DashboardBentoGrid() {
       trend: 0,
       trendLabel: 'cumul',
       icon: TrendingUp,
-      variant: 'info'
+      variant: 'info',
     },
     {
       id: 'kpi-ruptures',
@@ -150,7 +159,7 @@ export default function DashboardBentoGrid() {
       trend: 0,
       trendLabel: 'actuel',
       icon: AlertTriangle,
-      variant: 'warning'
+      variant: 'warning',
     },
   ];
 
@@ -162,11 +171,11 @@ export default function DashboardBentoGrid() {
         </h2>
         <div className="flex items-center gap-2">
           {/* Indicateur de connexion temps réel */}
-          <div className={`flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md ${
-            isConnected 
-              ? 'bg-green-100 text-green-700' 
-              : 'bg-muted text-muted-foreground'
-          }`}>
+          <div
+            className={`flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md ${
+              isConnected ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'
+            }`}
+          >
             <Wifi size={11} />
             <span>{isConnected ? 'Temps réel' : 'Hors ligne'}</span>
           </div>
@@ -178,22 +187,33 @@ export default function DashboardBentoGrid() {
           )}
         </div>
       </div>
-      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-4 transition-all ${
-        flashSale ? 'ring-2 ring-green-400/30 rounded-xl' : ''
-      }`}>
+      <div
+        className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-4 transition-all ${
+          flashSale ? 'ring-2 ring-green-400/30 rounded-xl' : ''
+        }`}
+      >
         {dynamicKpis.map((kpi) => {
           const Icon = kpi.icon;
           const isPositiveTrend = kpi.trend >= 0;
           const TrendIcon = isPositiveTrend ? ArrowUpRight : ArrowDownRight;
-          const trendColor = kpi.variant === 'warning' ? 'text-amber-600' : isPositiveTrend ? 'text-green-600' : 'text-red-600';
+          const trendColor =
+            kpi.variant === 'warning'
+              ? 'text-amber-600'
+              : isPositiveTrend
+                ? 'text-green-600'
+                : 'text-red-600';
           return (
             <div
               key={kpi.id}
               className={`${variantStyles[kpi.variant]} ${kpi.span === 'col-span-2' ? 'md:col-span-2 xl:col-span-2 2xl:col-span-2' : ''} fade-in transition-all`}
             >
               <div className="flex items-start justify-between mb-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground leading-tight">{kpi.label}</p>
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${iconBgStyles[kpi.variant]}`}>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground leading-tight">
+                  {kpi.label}
+                </p>
+                <div
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${iconBgStyles[kpi.variant]}`}
+                >
                   <Icon size={18} />
                 </div>
               </div>
