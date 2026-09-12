@@ -14,16 +14,26 @@ const nextConfig = {
   },
 
   images: {
-    remotePatterns: imageHosts,
+    remotePatterns: [
+      ...imageHosts,
+      // Cloudinary — images produits
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+      },
+    ],
     minimumCacheTTL: 60,
     qualities: [75, 85, 100],
   },
 
   async rewrites() {
+    // En production (Vercel), BACKEND_URL pointe vers Railway.
+    // En local (Docker), on retombe sur http://backend:3000.
+    const backendUrl = process.env.BACKEND_URL || 'http://backend:3000';
     return [
       {
         source: '/api/:path*',
-        destination: 'http://backend:3000/api/:path*',
+        destination: `${backendUrl}/api/:path*`,
       },
     ];
   },

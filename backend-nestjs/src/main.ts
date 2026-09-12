@@ -5,10 +5,22 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Activer CORS pour les requêtes du Frontend Next.js (port 3001 ou 4028)
+  // CORS : autoriser le frontend Vercel en production, localhost en développement
+  const allowedOrigins = [
+    // Développement local
+    'http://localhost:3000',
+    'http://localhost:4028',
+    // Production Vercel — remplacer par l'URL réelle après déploiement
+    process.env.FRONTEND_URL,
+    // Accepte tous les sous-domaines vercel.app (previews incluses)
+    /\.vercel\.app$/,
+  ].filter(Boolean); // Retire les valeurs undefined si FRONTEND_URL n'est pas défini
+
   app.enableCors({
-    origin: true,
+    origin: allowedOrigins,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   // Activer la validation globale des DTOs
