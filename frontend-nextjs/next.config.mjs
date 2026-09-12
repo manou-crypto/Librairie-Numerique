@@ -29,7 +29,11 @@ const nextConfig = {
   async rewrites() {
     // En production (Vercel), BACKEND_URL pointe vers Railway.
     // En local (Docker), on retombe sur http://backend:3000.
-    const backendUrl = process.env.BACKEND_URL || 'http://backend:3000';
+    let rawUrl = (process.env.BACKEND_URL || 'http://backend:3000').trim();
+    if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
+      rawUrl = `https://${rawUrl}`;
+    }
+    const backendUrl = rawUrl.replace(/\/+$/, '');
     return [
       {
         source: '/api/:path*',
