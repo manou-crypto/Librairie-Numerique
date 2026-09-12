@@ -1,10 +1,13 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm install && npm run build && npx prisma migrate deploy"
+# npm run build = nest build + prisma generate
+# prisma migrate deploy est séparé pour éviter l'échec si DATABASE_URL non disponible au build
+buildCommand = "npm install && npm run build"
 
 [deploy]
-startCommand = "node dist/main"
+# prisma migrate deploy s'exécute au démarrage, quand DATABASE_URL est disponible
+startCommand = "npx prisma migrate deploy && node dist/main"
 healthcheckPath = "/api/v1/health"
-healthcheckTimeout = 30
+healthcheckTimeout = 60
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
