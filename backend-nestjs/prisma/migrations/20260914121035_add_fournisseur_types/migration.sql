@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE `fournisseur` ADD COLUMN `prenom` VARCHAR(100) NULL,
+    ADD COLUMN `type_fournisseur` ENUM('INDIVIDUEL', 'SOCIETE') NOT NULL DEFAULT 'SOCIETE';

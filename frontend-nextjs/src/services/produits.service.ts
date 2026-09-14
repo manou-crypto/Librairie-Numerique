@@ -10,6 +10,7 @@ export interface Produit {
   libelle: string;
   description?: string;
   marque?: string;
+  marqueId?: string;
   unite?: string;
   poids?: number;
   etat?: 'NEUF' | 'OCCASION' | 'RECONDITIONNE';
@@ -30,6 +31,11 @@ export interface CategorieItem {
   nom: string;
   slug: string;
   parentId: string | null;
+}
+
+export interface MarqueItem {
+  id: string;
+  nom: string;
 }
 
 export interface ProduitsFilters {
@@ -74,6 +80,73 @@ export const produitsService = {
     if (!response.ok) throw new Error('Échec de la création de la catégorie');
     return response.json();
   },
+
+  /**
+   * Modifier une catégorie
+   * PUT /api/v1/categories/:id
+   */
+  async updateCategory(id: string, data: { nom: string; parentId?: string | null }): Promise<CategorieItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/categories/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Échec de la modification de la catégorie');
+    return response.json();
+  },
+
+  /**
+   * Supprimer une catégorie
+   * DELETE /api/v1/categories/:id
+   */
+  async deleteCategory(id: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/v1/categories/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Échec de la suppression de la catégorie');
+  },
+
+  // ================= MARQUES ================= //
+
+  async getMarques(): Promise<MarqueItem[]> {
+    const response = await fetch(`${API_BASE_URL}/v1/marques`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Échec du chargement des marques');
+    return response.json();
+  },
+
+  async createMarque(data: { nom: string }): Promise<MarqueItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/marques`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Échec de la création de la marque');
+    return response.json();
+  },
+
+  async updateMarque(id: string, data: { nom: string }): Promise<MarqueItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/marques/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Échec de la modification de la marque');
+    return response.json();
+  },
+
+  async deleteMarque(id: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/v1/marques/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Échec de la suppression de la marque');
+  },
+
+  // =========================================== //
+
   /**
    * Liste paginée des produits avec filtres
    * GET /api/v1/produits

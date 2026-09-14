@@ -35,6 +35,46 @@ export class CatalogueController {
     return this.catalogueService.createCategory(data);
   }
 
+  @Put('categories/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
+  async updateCategory(@Param('id', ParseIntPipe) id: number, @Body() data: any) {
+    return this.catalogueService.updateCategory(id, data);
+  }
+
+  @Delete('categories/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
+  async deleteCategory(@Param('id', ParseIntPipe) id: number) {
+    return this.catalogueService.deleteCategory(id);
+  }
+
+  @Get('marques')
+  async getMarques() {
+    return this.catalogueService.getMarques();
+  }
+
+  @Post('marques')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
+  async createMarque(@Body() data: { nom: string }) {
+    return this.catalogueService.createMarque(data);
+  }
+
+  @Put('marques/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
+  async updateMarque(@Param('id', ParseIntPipe) id: number, @Body() data: { nom: string }) {
+    return this.catalogueService.updateMarque(id, data);
+  }
+
+  @Delete('marques/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
+  async deleteMarque(@Param('id', ParseIntPipe) id: number) {
+    return this.catalogueService.deleteMarque(id);
+  }
+
   @Post('produits')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')

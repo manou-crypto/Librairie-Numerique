@@ -9,6 +9,7 @@ interface AddCategoryModalProps {
   onClose: () => void;
   onSave: (data: { nom: string; parentId: string | null }) => Promise<void>;
   categories: CategorieItem[];
+  initialData?: CategorieItem | null;
 }
 
 function buildCategoryLabel(cat: CategorieItem, allCats: CategorieItem[]): string {
@@ -23,11 +24,25 @@ export default function AddCategoryModal({
   onClose,
   onSave,
   categories,
+  initialData,
 }: AddCategoryModalProps) {
   const [nom, setNom] = useState('');
   const [parentId, setParentId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  React.useEffect(() => {
+    if (open) {
+      if (initialData) {
+        setNom(initialData.nom);
+        setParentId(initialData.parentId || '');
+      } else {
+        setNom('');
+        setParentId('');
+      }
+      setError('');
+    }
+  }, [open, initialData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +68,7 @@ export default function AddCategoryModal({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Ajouter une nouvelle catégorie" size="sm">
+    <Modal open={open} onClose={onClose} title={initialData ? "Modifier la catégorie" : "Ajouter une nouvelle catégorie"} size="sm">
       <form onSubmit={handleSubmit}>
         <div className="space-y-4">
           <div>
@@ -119,10 +134,10 @@ export default function AddCategoryModal({
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 size={15} className="animate-spin" /> Enregistrement...
+                  <Loader2 size={18} className="animate-spin" /> Enregistrement...
                 </>
               ) : (
-                'Créer'
+                initialData ? 'Enregistrer' : 'Créer'
               )}
             </button>
           </div>

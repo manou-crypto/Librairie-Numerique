@@ -10,6 +10,7 @@ import {
   X,
   Eye,
   Building2,
+  User,
   Loader2,
   Pencil,
   Trash2,
@@ -19,7 +20,9 @@ import { fournisseursService, Fournisseur } from '@/services/fournisseurs.servic
 import { toast } from 'sonner';
 
 const EMPTY_FORM: Omit<Fournisseur, 'id'> = {
+  typeFournisseur: 'SOCIETE',
   nomEntreprise: '',
+  prenom: '',
   contactNom: '',
   telephone: '',
   email: '',
@@ -72,7 +75,9 @@ export default function FournisseursPage() {
   const openEdit = (f: Fournisseur) => {
     setEditTarget(f);
     setForm({
+      typeFournisseur: f.typeFournisseur || 'SOCIETE',
       nomEntreprise: f.nomEntreprise,
+      prenom: f.prenom || '',
       contactNom: f.contactNom || '',
       telephone: f.telephone || '',
       email: f.email || '',
@@ -87,7 +92,7 @@ export default function FournisseursPage() {
   };
 
   const handleSave = async () => {
-    if (!form.nomEntreprise.trim()) return toast.error('Le nom de la société est obligatoire');
+    if (!form.nomEntreprise.trim()) return toast.error('Le nom est obligatoire');
     setSaving(true);
     try {
       if (editTarget) {
@@ -125,6 +130,7 @@ export default function FournisseursPage() {
   const filtered = fournisseurs.filter(
     (f) =>
       f.nomEntreprise.toLowerCase().includes(search.toLowerCase()) ||
+      (f.prenom || '').toLowerCase().includes(search.toLowerCase()) ||
       (f.contactNom || '').toLowerCase().includes(search.toLowerCase()) ||
       (f.email || '').toLowerCase().includes(search.toLowerCase())
   );
@@ -244,11 +250,17 @@ export default function FournisseursPage() {
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                            <Building2 size={14} className="text-primary" />
+                            {f.typeFournisseur === 'INDIVIDUEL' ? (
+                              <User size={14} className="text-primary" />
+                            ) : (
+                              <Building2 size={14} className="text-primary" />
+                            )}
                           </div>
                           <div>
                             <p className="font-semibold text-foreground text-sm">
-                              {f.nomEntreprise}
+                              {f.typeFournisseur === 'INDIVIDUEL' && f.prenom 
+                                ? `${f.prenom} ${f.nomEntreprise}`
+                                : f.nomEntreprise}
                             </p>
                             <p className="text-xs text-muted-foreground flex items-center gap-1">
                               <MapPin size={10} /> {f.adresse || '—'}
@@ -257,7 +269,9 @@ export default function FournisseursPage() {
                         </div>
                       </td>
                       <td className="px-5 py-3">
-                        <p className="text-sm text-foreground">{f.contactNom || '—'}</p>
+                        <p className="text-sm text-foreground">
+                          {f.typeFournisseur === 'INDIVIDUEL' ? '—' : (f.contactNom || '—')}
+                        </p>
                         <a
                           href={`tel:${f.telephone}`}
                           className="text-xs text-muted-foreground flex items-center gap-1 hover:text-primary mt-0.5"
@@ -379,13 +393,49 @@ export default function FournisseursPage() {
               </button>
             </div>
             <div className="px-6 py-5 overflow-y-auto flex-1 space-y-4">
+              <div className="flex items-center gap-4 mb-4">
+                <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                  <input
+                    type="radio"
+                    name="typeFournisseur"
+                    value="SOCIETE"
+                    checked={form.typeFournisseur === 'SOCIETE'}
+                    onChange={() => setForm({ ...form, typeFournisseur: 'SOCIETE' })}
+                    className="accent-brand"
+                  />
+                  Société / Entreprise
+                </label>
+                <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                  <input
+                    type="radio"
+                    name="typeFournisseur"
+                    value="INDIVIDUEL"
+                    checked={form.typeFournisseur === 'INDIVIDUEL'}
+                    onChange={() => setForm({ ...form, typeFournisseur: 'INDIVIDUEL' })}
+                    className="accent-brand"
+                  />
+                  Individuel (Particulier)
+                </label>
+              </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  {field('Nom de la société *', 'nomEntreprise', 'text', 'Ex: Éditions Casbah')}
-                </div>
-                {field('Nom du contact', 'contactNom', 'text', 'Prénom Nom')}
-                {field('N° Contribuable', 'numeroContribuable', 'text', 'Ex: 000123456789')}
-                {field('Email', 'email', 'email', 'contact@societe.com')}
+                {form.typeFournisseur === 'SOCIETE' ? (
+                  <>
+                    <div className="col-span-2">
+                      {field("Nom de l'entreprise *", 'nomEntreprise', 'text', 'Ex: Éditions Casbah')}
+                    </div>
+                    {field('Nom du contact', 'contactNom', 'text', 'Prénom Nom')}
+                    {field('N° Contribuable', 'numeroContribuable', 'text', 'Ex: 000123456789')}
+                  </>
+                ) : (
+                  <>
+                    {field('Nom *', 'nomEntreprise', 'text', 'Nom de famille')}
+                    {field('Prénom', 'prenom', 'text', 'Prénom')}
+                    <div className="col-span-2 hidden">
+                      {/* Hidden N° Contribuable to keep alignment or just omit */}
+                    </div>
+                  </>
+                )}
+                {field('Email', 'email', 'email', 'contact@email.com')}
                 {field('Téléphone', 'telephone', 'tel', '+237 6XX XX XX XX')}
                 {field('Adresse', 'adresse', 'text', 'Rue, Quartier...')}
                 {field('Ville', 'ville', 'text', 'Yaoundé')}

@@ -10,7 +10,9 @@ import ProductFiltersBar from './ProductFiltersBar';
 import AddEditProductModal from './AddEditProductModal';
 import AddCategoryModal from './AddCategoryModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
-import { produitsService, CategorieItem } from '@/services/produits.service';
+import CategoriesTab from './CategoriesTab';
+import MarquesTab from './MarquesTab';
+import { produitsService, CategorieItem, MarqueItem } from '@/services/produits.service';
 import useSWR from 'swr';
 import { fetcher, SWR_DEFAULT_CONFIG } from '@/lib/swr-fetcher';
 
@@ -65,6 +67,7 @@ export default function ProductManagementClient() {
     await Promise.all([mutateProducts(), mutateCategories()]);
   };
 
+  const [activeTab, setActiveTab] = useState<'produits' | 'categories' | 'marques'>('produits');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -283,70 +286,118 @@ export default function ProductManagementClient() {
   };
 
   return (
-    <div className="flex flex-1 overflow-hidden">
-      <CategoryTreeSidebar
-        categories={categories}
-        selectedCategory={selectedCategory}
-        onSelectCategory={(id) => {
-          setSelectedCategory(id);
-          setCurrentPage(1);
-        }}
-        products={products}
-        loading={loadingCats}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        onAddCategory={() => setIsAddCategoryOpen(true)}
-      />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <ProductFiltersBar
-          searchQuery={searchQuery}
-          onSearchChange={(v) => {
-            setSearchQuery(v);
-            setCurrentPage(1);
-          }}
-          statusFilter={statusFilter}
-          onStatusChange={(v) => {
-            setStatusFilter(v);
-            setCurrentPage(1);
-          }}
-          stockFilter={stockFilter}
-          onStockChange={(v) => {
-            setStockFilter(v);
-            setCurrentPage(1);
-          }}
-          totalFiltered={filteredProducts.length}
-          totalAll={products.length}
-          onAddProduct={() => setIsAddModalOpen(true)}
-          selectedCount={selectedIds.size}
-          onBulkDelete={handleBulkDelete}
-          onBulkHide={handleBulkHide}
-        />
-        <ProductTable
-          products={paginatedProducts}
-          selectedIds={selectedIds}
-          onToggleSelect={toggleSelect}
-          onToggleSelectAll={toggleSelectAll}
-          allSelected={
-            selectedIds.size === paginatedProducts.length && paginatedProducts.length > 0
-          }
-          sortField={sortField}
-          sortDir={sortDir}
-          onSort={handleSort}
-          onEdit={(p) => setEditingProduct(p)}
-          onDelete={(p) => setDeleteTarget(p)}
-          onToggleVisible={handleToggleVisible}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={filteredProducts.length}
-          pageSize={pageSize}
-          onPageChange={setCurrentPage}
-          onPageSizeChange={(newSize) => {
-            setPageSize(newSize);
-            setCurrentPage(1);
-          }}
-          loading={loading}
-        />
+    <div className="flex flex-col w-full h-full bg-background relative">
+      <div className="flex border-b border-border px-4 pt-2">
+        <button
+          onClick={() => setActiveTab('produits')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 ${
+            activeTab === 'produits'
+              ? 'border-brand text-brand'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Produits
+        </button>
+        <button
+          onClick={() => setActiveTab('categories')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 ${
+            activeTab === 'categories'
+              ? 'border-brand text-brand'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Catégories
+        </button>
+        <button
+          onClick={() => setActiveTab('marques')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 ${
+            activeTab === 'marques'
+              ? 'border-brand text-brand'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Marques
+        </button>
       </div>
+
+      <div className="flex-1 flex overflow-hidden relative">
+        {activeTab === 'produits' && (
+          <div className="flex flex-1 overflow-hidden">
+            <CategoryTreeSidebar
+              categories={categories}
+              selectedCategory={selectedCategory}
+              onSelectCategory={(id) => {
+                setSelectedCategory(id);
+                setCurrentPage(1);
+              }}
+              products={products}
+              loading={loadingCats}
+              isCollapsed={isSidebarCollapsed}
+              onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              onAddCategory={() => setIsAddCategoryOpen(true)}
+            />
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <ProductFiltersBar
+                searchQuery={searchQuery}
+                onSearchChange={(v) => {
+                  setSearchQuery(v);
+                  setCurrentPage(1);
+                }}
+                statusFilter={statusFilter}
+                onStatusChange={(v) => {
+                  setStatusFilter(v);
+                  setCurrentPage(1);
+                }}
+                stockFilter={stockFilter}
+                onStockChange={(v) => {
+                  setStockFilter(v);
+                  setCurrentPage(1);
+                }}
+                totalFiltered={filteredProducts.length}
+                totalAll={products.length}
+                onAddProduct={() => setIsAddModalOpen(true)}
+                selectedCount={selectedIds.size}
+                onBulkDelete={handleBulkDelete}
+                onBulkHide={handleBulkHide}
+              />
+              <ProductTable
+                products={paginatedProducts}
+                selectedIds={selectedIds}
+                onToggleSelect={toggleSelect}
+                onToggleSelectAll={toggleSelectAll}
+                allSelected={
+                  selectedIds.size === paginatedProducts.length && paginatedProducts.length > 0
+                }
+                sortField={sortField}
+                sortDir={sortDir}
+                onSort={handleSort}
+                onEdit={(p) => setEditingProduct(p)}
+                onDelete={(p) => setDeleteTarget(p)}
+                onToggleVisible={handleToggleVisible}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredProducts.length}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={(newSize) => {
+                  setPageSize(newSize);
+                  setCurrentPage(1);
+                }}
+                loading={loading}
+              />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'categories' && (
+          <CategoriesTab categories={categories} onRefresh={mutateCategories} />
+        )}
+        
+        {activeTab === 'marques' && (
+          <MarquesTab />
+        )}
+      </div>
+
       <AddEditProductModal
         open={isAddModalOpen || editingProduct !== null}
         onClose={() => {

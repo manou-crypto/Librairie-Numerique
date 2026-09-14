@@ -4,9 +4,10 @@ import { useForm } from 'react-hook-form';
 import { Loader2, AlertCircle } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { useAppConfig } from '@/contexts/ConfigContext';
-import { produitsService, CategorieItem } from '@/services/produits.service';
+import { produitsService, CategorieItem, MarqueItem } from '@/services/produits.service';
 import type { Product } from './ProductManagementClient';
 import AddCategoryModal from './AddCategoryModal';
+import ModalForm from '@/components/ui/Modal';
 
 interface AddEditProductModalProps {
   open: boolean;
@@ -29,7 +30,7 @@ interface FormValues {
   status: 'actif' | 'masque' | 'brouillon';
   visible: boolean;
   description: string;
-  marque: string;
+  marqueId: string;
 }
 
 function buildCategoryLabel(cat: CategorieItem, allCats: CategorieItem[]): string {
@@ -55,6 +56,12 @@ export default function AddEditProductModal({
   const [loadingCats, setLoadingCats] = useState(false);
   const [isAddCatOpen, setIsAddCatOpen] = useState(false);
 
+  const [marques, setMarques] = useState<MarqueItem[]>([]);
+  const [loadingMarques, setLoadingMarques] = useState(false);
+  const [isAddMarqueOpen, setIsAddMarqueOpen] = useState(false);
+  const [newMarqueName, setNewMarqueName] = useState('');
+  const [savingMarque, setSavingMarque] = useState(false);
+
   const {
     register,
     handleSubmit,
@@ -75,7 +82,7 @@ export default function AddEditProductModal({
       status: 'actif',
       visible: true,
       description: '',
-      marque: '',
+      marqueId: '',
     },
   });
 
@@ -106,6 +113,18 @@ export default function AddEditProductModal({
   }, [open, initialCategories, product, setValue]);
 
   useEffect(() => {
+    if (!open) return;
+    setLoadingMarques(true);
+    produitsService
+      .getMarques()
+      .then((data) => {
+        setMarques(Array.isArray(data) ? data : []);
+      })
+      .catch(() => setMarques([]))
+      .finally(() => setLoadingMarques(false));
+  }, [open]);
+
+  useEffect(() => {
     if (open) {
       if (product) {
         reset({
@@ -120,7 +139,7 @@ export default function AddEditProductModal({
           status: product.status,
           visible: product.visible,
           description: product.description || '',
-          marque: product.marque || '',
+          marqueId: product.marqueId || '',
         });
       } else {
         reset({
@@ -135,7 +154,7 @@ export default function AddEditProductModal({
           status: 'actif',
           visible: true,
           description: '',
-          marque: '',
+          marqueId: '',
         });
       }
     }
@@ -161,7 +180,7 @@ export default function AddEditProductModal({
       status: data.status,
       visible: data.visible,
       description: data.description,
-      marque: data.marque,
+      marqueId: data.marqueId,
       imageUrl: product?.imageUrl ?? '',
     };
     onSave(saved);
@@ -173,6 +192,22 @@ export default function AddEditProductModal({
     setValue('categoryId', newCat.id);
     setValue('categoryName', newCat.nom);
     if (onCategoryAdded) onCategoryAdded();
+  };
+
+  const handleSaveMarque = async () => {
+    if (!newMarqueName.trim()) return;
+    setSavingMarque(true);
+    try {
+      const newM = await produitsService.createMarque({ nom: newMarqueName.trim() });
+      setMarques((prev) => [...prev, newM].sort((a, b) => a.nom.localeCompare(b.nom)));
+      setValue('marqueId', newM.id);
+      setIsAddMarqueOpen(false);
+      setNewMarqueName('');
+    } catch (e: any) {
+      alert(e.message || 'Erreur');
+    } finally {
+      setSavingMarque(false);
+    }
   };
 
   return (
@@ -289,13 +324,29 @@ export default function AddEditProductModal({
                   >
                     Marque
                   </label>
-                  <input
-                    id="marque"
-                    type="text"
-                    {...register('marque')}
-                    placeholder="Ex: Clairefontaine"
-                    className="input-field"
-                  />
+                  <div className="flex gap-2">
+                    <select
+                      id="marque"
+                      {...register('marqueId')}
+                      className="input-field flex-1"
+                      disabled={loadingMarques}
+                    >
+                      <option value="">Sélectionner une marque...</option>
+                      {marques.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.nom}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddMarqueOpen(true)}
+                      className="btn-secondary px-3 flex items-center justify-center border border-border"
+                      title="Nouvelle marque"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
                 <div className="sm:col-span-2">
                   <label
@@ -493,6 +544,33 @@ export default function AddEditProductModal({
         onSave={handleSaveCategory}
         categories={categories}
       />
+      {isAddMarqueOpen && (
+        <ModalForm open={isAddMarqueOpen} onClose={() => setIsAddMarqueOpen(false)} title="Ajouter une marque" size="sm">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">
+                Nom de la marque
+              </label>
+              <input
+                type="text"
+                value={newMarqueName}
+                onChange={(e) => setNewMarqueName(e.target.value)}
+                placeholder="Ex: Hachette"
+                className="input-field"
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <button type="button" onClick={() => setIsAddMarqueOpen(false)} className="btn-secondary">
+                Annuler
+              </button>
+              <button type="button" onClick={handleSaveMarque} disabled={savingMarque || !newMarqueName.trim()} className="btn-primary">
+                {savingMarque ? <Loader2 size={16} className="animate-spin" /> : 'Créer'}
+              </button>
+            </div>
+          </div>
+        </ModalForm>
+      )}
     </>
   );
 }

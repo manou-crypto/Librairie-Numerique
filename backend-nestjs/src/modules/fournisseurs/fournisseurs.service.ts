@@ -11,7 +11,9 @@ export class FournisseursService {
     });
     return list.map((f) => ({
       id: String(f.id_fournisseur),
+      typeFournisseur: f.type_fournisseur,
       nomEntreprise: f.nom_entreprise,
+      prenom: f.prenom || undefined,
       contactNom: f.contact_nom || undefined,
       telephone: f.telephone || undefined,
       email: f.email || undefined,
@@ -30,7 +32,9 @@ export class FournisseursService {
     if (!f) throw new NotFoundException(`Fournisseur #${id} introuvable`);
     return {
       id: String(f.id_fournisseur),
+      typeFournisseur: f.type_fournisseur,
       nomEntreprise: f.nom_entreprise,
+      prenom: f.prenom || undefined,
       contactNom: f.contact_nom || undefined,
       telephone: f.telephone || undefined,
       email: f.email || undefined,
@@ -45,7 +49,9 @@ export class FournisseursService {
   async create(data: any) {
     const f = await this.prisma.fournisseur.create({
       data: {
+        type_fournisseur: data.typeFournisseur || 'SOCIETE',
         nom_entreprise: data.nomEntreprise,
+        prenom: data.prenom || null,
         contact_nom: data.contactNom || null,
         telephone: data.telephone || null,
         email: data.email || null,
@@ -64,7 +70,9 @@ export class FournisseursService {
     await this.prisma.fournisseur.update({
       where: { id_fournisseur: id },
       data: {
+        ...(data.typeFournisseur ? { type_fournisseur: data.typeFournisseur } : {}),
         ...(data.nomEntreprise ? { nom_entreprise: data.nomEntreprise } : {}),
+        ...(data.prenom !== undefined ? { prenom: data.prenom } : {}),
         ...(data.contactNom !== undefined ? { contact_nom: data.contactNom } : {}),
         ...(data.telephone !== undefined ? { telephone: data.telephone } : {}),
         ...(data.email !== undefined ? { email: data.email } : {}),

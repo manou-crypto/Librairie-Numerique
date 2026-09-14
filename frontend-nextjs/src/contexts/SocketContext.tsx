@@ -94,8 +94,14 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [liveConfig, setLiveConfig] = useState<ConfigUpdatedPayload | null>(null);
 
   useEffect(() => {
-    // Connexion WebSocket via le proxy Nginx
-    const socketInstance = io({
+    // Target URL: en local on utilise le proxy Nginx /ws/socket.io, en cloud on vise l'URL backend si définie
+    const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_WS_URL;
+    let socketTarget: string | undefined = undefined;
+    if (rawApiUrl && rawApiUrl.startsWith('http')) {
+      socketTarget = rawApiUrl.replace(/\/api\/?$/, '');
+    }
+
+    const socketInstance = io(socketTarget || '', {
       path: '/ws/socket.io',
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,

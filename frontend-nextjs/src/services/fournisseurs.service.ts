@@ -5,7 +5,9 @@ import { API_BASE_URL, getAuthHeaders } from '@/lib';
 
 export interface Fournisseur {
   id: string;
+  typeFournisseur?: 'SOCIETE' | 'INDIVIDUEL';
   nomEntreprise: string;
+  prenom?: string;
   contactNom?: string;
   telephone?: string;
   email?: string;

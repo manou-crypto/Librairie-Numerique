@@ -37,6 +37,7 @@ export class CatalogueService {
           categories: { include: { categorie: true } },
           stock: true,
           images: true,
+          marque_rel: true,
         },
         skip,
         take: pageSize,
@@ -51,7 +52,8 @@ export class CatalogueService {
       codeBarre: p.code_barre || undefined,
       libelle: p.libelle,
       description: p.description || undefined,
-      marque: p.marque || undefined,
+      marque: p.marque_rel?.nom || undefined,
+      marqueId: p.id_marque ? String(p.id_marque) : undefined,
       unite: p.unite,
       poids: p.poids ? Number(p.poids) : undefined,
       etat: p.etat,
@@ -87,6 +89,7 @@ export class CatalogueService {
         categories: { include: { categorie: true } },
         stock: true,
         images: true,
+        marque_rel: true,
       },
     });
 
@@ -100,7 +103,8 @@ export class CatalogueService {
       codeBarre: p.code_barre || undefined,
       libelle: p.libelle,
       description: p.description || undefined,
-      marque: p.marque || undefined,
+      marque: p.marque_rel?.nom || undefined,
+      marqueId: p.id_marque ? String(p.id_marque) : undefined,
       unite: p.unite,
       prixAchat: Number(p.prix_achat),
       prixVente: Number(p.prix_vente),
@@ -123,6 +127,7 @@ export class CatalogueService {
         stock: true,
         images: true,
         valeurs_attribut: { include: { attribut: true } },
+        marque_rel: true,
       },
     });
 
@@ -134,7 +139,8 @@ export class CatalogueService {
       codeBarre: p.code_barre || undefined,
       libelle: p.libelle,
       description: p.description || undefined,
-      marque: p.marque || undefined,
+      marque: p.marque_rel?.nom || undefined,
+      marqueId: p.id_marque ? String(p.id_marque) : undefined,
       unite: p.unite,
       prixAchat: Number(p.prix_achat),
       prixVente: Number(p.prix_vente),
@@ -212,7 +218,7 @@ export class CatalogueService {
         code_barre: data.codeBarre || null,
         libelle: data.libelle || data.name,
         description: data.description || null,
-        marque: data.marque || null,
+        id_marque: data.marqueId ? Number(data.marqueId) : null,
         unite: data.unite || 'Pièce',
         prix_achat: Number(data.prixAchat) || 0,
         prix_vente: Number(data.prixVente) || 0,
@@ -240,7 +246,7 @@ export class CatalogueService {
       ...(data.reference ? { reference: data.reference } : {}),
       ...(data.codeBarre !== undefined ? { code_barre: data.codeBarre } : {}),
       ...(data.description !== undefined ? { description: data.description } : {}),
-      ...(data.marque !== undefined ? { marque: data.marque } : {}),
+      ...(data.marqueId !== undefined ? { id_marque: data.marqueId ? Number(data.marqueId) : null } : {}),
       ...(data.prixAchat !== undefined ? { prix_achat: Number(data.prixAchat) } : {}),
       ...(data.prixVente !== undefined ? { prix_vente: Number(data.prixVente) } : {}),
       ...(data.tauxTva !== undefined ? { taux_tva: Number(data.tauxTva) } : {}),
@@ -355,5 +361,59 @@ export class CatalogueService {
       slug: cat.slug,
       parentId: cat.id_categorie_parente ? String(cat.id_categorie_parente) : null,
     };
+  }
+
+  async updateCategory(id: number, data: any) {
+    const slug = data.nom ? data.nom.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') : undefined;
+    
+    if (slug) {
+      const existing = await this.prisma.categorie.findFirst({ where: { slug, id_categorie: { not: id } } });
+      if (existing) throw new ConflictException(`La catégorie '${data.nom}' existe déjà`);
+    }
+
+    const cat = await this.prisma.categorie.update({
+      where: { id_categorie: id },
+      data: {
+        ...(data.nom ? { nom: data.nom, slug } : {}),
+        ...(data.parentId !== undefined ? { id_categorie_parente: data.parentId ? Number(data.parentId) : null } : {}),
+      },
+    });
+    
+    return { id: String(cat.id_categorie), nom: cat.nom, slug: cat.slug, parentId: cat.id_categorie_parente ? String(cat.id_categorie_parente) : null };
+  }
+
+  async deleteCategory(id: number) {
+    await this.prisma.categorie.delete({ where: { id_categorie: id } });
+  }
+
+  // --- Marques ---
+  async getMarques() {
+    const marques = await this.prisma.marque.findMany({ orderBy: { nom: 'asc' } });
+    return marques.map((m) => ({ id: String(m.id_marque), nom: m.nom }));
+  }
+
+  async createMarque(data: { nom: string }) {
+    const existing = await this.prisma.marque.findUnique({ where: { nom: data.nom } });
+    if (existing) throw new ConflictException(`La marque '${data.nom}' existe déjà`);
+    
+    const m = await this.prisma.marque.create({ data: { nom: data.nom } });
+    return { id: String(m.id_marque), nom: m.nom };
+  }
+
+  async updateMarque(id: number, data: { nom: string }) {
+    if (data.nom) {
+      const existing = await this.prisma.marque.findFirst({ where: { nom: data.nom, id_marque: { not: id } } });
+      if (existing) throw new ConflictException(`La marque '${data.nom}' existe déjà`);
+    }
+    
+    const m = await this.prisma.marque.update({
+      where: { id_marque: id },
+      data: { ...(data.nom ? { nom: data.nom } : {}) },
+    });
+    return { id: String(m.id_marque), nom: m.nom };
+  }
+
+  async deleteMarque(id: number) {
+    await this.prisma.marque.delete({ where: { id_marque: id } });
   }
 }

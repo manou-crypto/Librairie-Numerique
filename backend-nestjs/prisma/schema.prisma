@@ -177,13 +177,22 @@ model Categorie {
   @@map("categorie")
 }
 
+model Marque {
+  id_marque Int       @id @default(autoincrement())
+  nom       String    @unique @db.VarChar(100)
+
+  produits  Produit[]
+
+  @@map("marque")
+}
+
 model Produit {
   id_produit        Int               @id @default(autoincrement())
   reference         String            @unique @db.VarChar(50)
   code_barre        String?           @unique @db.VarChar(100)
   libelle           String            @db.VarChar(255)
   description       String?           @db.Text
-  marque            String?           @db.VarChar(100)
+  id_marque         Int?
   unite             String            @default("Pièce") @db.VarChar(50)
   poids             Decimal?          @db.Decimal(8, 2)
   etat              EtatProduit       @default(NEUF)
@@ -204,6 +213,8 @@ model Produit {
   lignes_vente      LigneVente[]
   lignes_retour     LigneRetour[]
   lignes_modele_kit LigneModeleKit[]
+
+  marque_rel        Marque?           @relation(fields: [id_marque], references: [id_marque], onDelete: SetNull)
 
   @@map("produit")
 }
@@ -272,10 +283,17 @@ model HistoriquePrix {
 // 3. APPROVISIONNEMENT & FOURNISSEURS
 // ------------------------------------------------------
 
+enum TypeFournisseur {
+  INDIVIDUEL
+  SOCIETE
+}
+
 model Fournisseur {
-  id_fournisseur      Int     @id @default(autoincrement())
-  nom_entreprise      String  @db.VarChar(150)
-  contact_nom         String? @db.VarChar(100)
+  id_fournisseur      Int             @id @default(autoincrement())
+  type_fournisseur    TypeFournisseur @default(SOCIETE)
+  nom_entreprise      String          @db.VarChar(150)
+  prenom              String?         @db.VarChar(100)
+  contact_nom         String?         @db.VarChar(100)
   telephone           String? @db.VarChar(30)
   email               String? @db.VarChar(150)
   adresse             String? @db.VarChar(255)
