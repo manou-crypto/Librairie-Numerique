@@ -1,16 +1,15 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { RapportsService } from './rapports.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
+import { PermissionsGuard, RequirePermissions } from '../../common/guards/permissions.guard';
 
 @Controller('api/v1/rapports')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class RapportsController {
   constructor(private readonly rapportsService: RapportsService) {}
 
   @Get('stats')
-  @Roles('super_admin', 'manager')
+  @RequirePermissions('VIEW_RAPPORTS', 'VIEW_DASHBOARD')
   async getStats(@Query('period') period: string = 'semaine') {
     return this.rapportsService.getDashboardStats(period);
   }

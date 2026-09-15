@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  ChevronsUpDown,
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import { useAppConfig } from '@/contexts/ConfigContext';
