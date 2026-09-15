@@ -18,6 +18,8 @@ export const SYSTEM_PERMISSIONS = [
   { code_permission: 'VIEW_CAISSES', module: 'Gestion', libelle: 'Gestion des caisses' },
   { code_permission: 'VIEW_PARAMETRES', module: 'Système', libelle: 'Paramètres généraux' },
   { code_permission: 'VIEW_NOTIFICATIONS', module: 'Système', libelle: 'Notifications' },
+  { code_permission: 'CLOTURER_CAISSE', module: 'Ventes', libelle: 'Clôturer une session de caisse' },
+  { code_permission: 'GERER_TARIFS', module: 'Catalogue', libelle: 'Gérer les tarifs & types de vente' },
 ];
 
 @Injectable()

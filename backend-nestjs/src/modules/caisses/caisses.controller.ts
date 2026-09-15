@@ -2,11 +2,12 @@ import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, ParseIntP
 import { CaissesService } from './caisses.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { PermissionsGuard, RequirePermissions } from '../../common/guards/permissions.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @Controller('api/v1')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class CaissesController {
   constructor(private readonly caissesService: CaissesService) {}
 
@@ -61,7 +62,14 @@ export class CaissesController {
 
   @Post('sessions-caisse/:id/cloturer')
   @Roles('ADMIN', 'CAISSIER')
-  async cloturerSession(@Param('id', ParseIntPipe) id: number, @Body() data: any) {
-    return this.caissesService.cloturerSession(id, data);
+  @RequirePermissions('CLOTURER_CAISSE')
+  async cloturerSession(@Param('id', ParseIntPipe) id: number) {
+    return this.caissesService.cloturerSession(id);
+  }
+
+  @Get('sessions-caisse/:id/rapport')
+  @Roles('ADMIN', 'CAISSIER')
+  async getRapportSession(@Param('id', ParseIntPipe) id: number) {
+    return this.caissesService.getRapportSession(id);
   }
 }

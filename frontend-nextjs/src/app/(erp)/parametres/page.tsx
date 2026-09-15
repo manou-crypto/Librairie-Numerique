@@ -13,20 +13,28 @@ import {
   CheckCircle,
   Download,
   Camera,
+  Tag,
+  Trash2,
+  Plus,
 } from 'lucide-react';
 import Icon from '@/components/ui/AppIcon';
 import { useAppConfig } from '@/contexts/ConfigContext';
 import { configService } from '@/services/config.service';
+import { produitsService, TypeVenteItem } from '@/services/produits.service';
 import { toast } from 'sonner';
 import { usePreferences, UserPreferences } from '@/hooks/usePreferences';
+import { useAuth } from '@/hooks/useAuth';
 
-type SettingsTab = 'general' | 'notifications' | 'securite' | 'sauvegarde';
+type SettingsTab = 'general' | 'notifications' | 'ventes' | 'securite' | 'sauvegarde';
 
 export default function ParametresPage() {
   const { config, refreshConfig } = useAppConfig();
   const { preferences, updatePreferences } = usePreferences();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [loading, setLoading] = useState(false);
+
+  const hasGererTarifsPerm = user?.role === 'ADMIN' || user?.permissions?.includes('GERER_TARIFS');
 
   const [general, setGeneral] = useState({
     nom_librairie: '',
@@ -55,6 +63,36 @@ export default function ParametresPage() {
     emailNotifs: preferences.notifEmail ?? true,
   });
 
+  const [typesVente, setTypesVente] = useState<TypeVenteItem[]>([]);
+  const [newType, setNewType] = useState('');
+
+  React.useEffect(() => {
+    produitsService.getTypesVente().then(setTypesVente).catch(() => {});
+  }, []);
+
+  const handleAddTypeVente = async () => {
+    if (!newType.trim()) return;
+    try {
+      const res = await produitsService.createTypeVente({ libelle: newType });
+      setTypesVente([...typesVente, res]);
+      setNewType('');
+      toast.success('Type de vente ajouté');
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur lors de l\'ajout');
+    }
+  };
+
+  const handleDeleteTypeVente = async (id: string) => {
+    if (!confirm('Voulez-vous vraiment supprimer ce type de vente ?')) return;
+    try {
+      await produitsService.deleteTypeVente(id);
+      setTypesVente(typesVente.filter((t) => t.id !== id));
+      toast.success('Type de vente supprimé');
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur lors de la suppression');
+    }
+  };
+
   const handleSave = async () => {
     if (activeTab === 'general') {
       setLoading(true);
@@ -81,6 +119,7 @@ export default function ParametresPage() {
 
   const TABS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
     { id: 'general', label: 'Général', icon: Store },
+    ...(hasGererTarifsPerm ? [{ id: 'ventes' as SettingsTab, label: 'Ventes & Tarifs', icon: Tag }] : []),
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'securite', label: 'Sécurité', icon: Shield },
     { id: 'sauvegarde', label: 'Sauvegarde', icon: Database },
@@ -232,6 +271,53 @@ export default function ParametresPage() {
                   </button>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+        {activeTab === 'ventes' && hasGererTarifsPerm && (
+          <div className="card-base p-6 space-y-5">
+            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+              <Tag size={16} className="text-primary" /> Types de Ventes (Tarification)
+            </h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Gérez les différents types de ventes (ex: Détail, Gros, VIP) pour appliquer une tarification dynamique dans le catalogue et sur le point de vente.
+            </p>
+            <div className="space-y-4 max-w-md">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Nouveau type (ex: Gros)"
+                  value={newType}
+                  onChange={(e) => setNewType(e.target.value)}
+                  className="input-field text-sm flex-1"
+                />
+                <button
+                  onClick={handleAddTypeVente}
+                  disabled={!newType.trim()}
+                  className="btn-primary py-2 px-4 flex items-center gap-1 text-sm disabled:opacity-50"
+                >
+                  <Plus size={16} /> Ajouter
+                </button>
+              </div>
+              <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
+                {typesVente.map((t) => (
+                  <div key={t.id} className="flex items-center justify-between p-3 bg-card hover:bg-muted/50">
+                    <span className="text-sm font-medium">{t.libelle}</span>
+                    <button
+                      onClick={() => handleDeleteTypeVente(t.id)}
+                      className="text-muted-foreground hover:text-destructive p-1 transition-colors"
+                      title="Supprimer"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+                {typesVente.length === 0 && (
+                  <div className="p-4 text-center text-xs text-muted-foreground">
+                    Aucun type de vente configuré.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

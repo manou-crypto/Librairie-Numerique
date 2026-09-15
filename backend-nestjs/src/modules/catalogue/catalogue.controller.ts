@@ -2,6 +2,7 @@ import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuard
 import { CatalogueService } from './catalogue.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { PermissionsGuard, RequirePermissions } from '../../common/guards/permissions.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('api/v1')
@@ -115,5 +116,35 @@ export class CatalogueController {
   @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
   async removeImage(@Param('imageId', ParseIntPipe) imageId: number) {
     return this.catalogueService.removeImage(imageId);
+  }
+
+  // --- Types de Vente ---
+  @Get('types-vente')
+  async getTypesVente() {
+    return this.catalogueService.getTypesVente();
+  }
+
+  @Post('types-vente')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
+  @RequirePermissions('GERER_TARIFS')
+  async createTypeVente(@Body() data: { libelle: string }) {
+    return this.catalogueService.createTypeVente(data);
+  }
+
+  @Put('types-vente/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
+  @RequirePermissions('GERER_TARIFS')
+  async updateTypeVente(@Param('id', ParseIntPipe) id: number, @Body() data: { libelle: string }) {
+    return this.catalogueService.updateTypeVente(id, data);
+  }
+
+  @Delete('types-vente/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
+  @RequirePermissions('GERER_TARIFS')
+  async deleteTypeVente(@Param('id', ParseIntPipe) id: number) {
+    return this.catalogueService.deleteTypeVente(id);
   }
 }

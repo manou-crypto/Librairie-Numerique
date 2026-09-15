@@ -38,6 +38,8 @@ export class CatalogueService {
           stock: true,
           images: true,
           marque_rel: true,
+          tarifs: { include: { type_vente: true } },
+          conditionnements: true,
         },
         skip,
         take: pageSize,
@@ -67,6 +69,18 @@ export class CatalogueService {
       categoryName: p.categories[0]?.categorie?.nom || 'Général',
       categoryIds: p.categories.map((c) => String(c.id_categorie)),
       imageUrl: p.images.find((i) => i.est_principale)?.url_image || p.images[0]?.url_image || undefined,
+      tarifs: p.tarifs.map((t) => ({
+        typeVenteId: String(t.id_type_vente),
+        libelle: t.type_vente.libelle,
+        prix: Number(t.prix),
+      })),
+      conditionnements: p.conditionnements.map((c) => ({
+        id: String(c.id_conditionnement),
+        nom: c.nom,
+        quantiteUnitaire: c.quantite_unitaire,
+        codeBarre: c.code_barre,
+        prixVente: Number(c.prix_vente),
+      })),
     }));
 
     return {
@@ -83,6 +97,7 @@ export class CatalogueService {
         OR: [
           { code_barre: code },
           { reference: code },
+          { conditionnements: { some: { code_barre: code } } },
         ],
       },
       include: {
@@ -90,6 +105,8 @@ export class CatalogueService {
         stock: true,
         images: true,
         marque_rel: true,
+        tarifs: { include: { type_vente: true } },
+        conditionnements: true,
       },
     });
 
@@ -116,6 +133,18 @@ export class CatalogueService {
       categoryName: p.categories[0]?.categorie?.nom || 'Général',
       categoryIds: p.categories.map((c) => String(c.id_categorie)),
       imageUrl: p.images[0]?.url_image || undefined,
+      tarifs: p.tarifs.map((t) => ({
+        typeVenteId: String(t.id_type_vente),
+        libelle: t.type_vente.libelle,
+        prix: Number(t.prix),
+      })),
+      conditionnements: p.conditionnements.map((c) => ({
+        id: String(c.id_conditionnement),
+        nom: c.nom,
+        quantiteUnitaire: c.quantite_unitaire,
+        codeBarre: c.code_barre,
+        prixVente: Number(c.prix_vente),
+      })),
     };
   }
 
@@ -128,6 +157,8 @@ export class CatalogueService {
         images: true,
         valeurs_attribut: { include: { attribut: true } },
         marque_rel: true,
+        tarifs: { include: { type_vente: true } },
+        conditionnements: true,
       },
     });
 
@@ -156,6 +187,18 @@ export class CatalogueService {
         code: v.attribut.code_attribut,
         libelle: v.attribut.libelle,
         valeur: v.valeur,
+      })),
+      tarifs: p.tarifs.map((t) => ({
+        typeVenteId: String(t.id_type_vente),
+        libelle: t.type_vente.libelle,
+        prix: Number(t.prix),
+      })),
+      conditionnements: p.conditionnements.map((c) => ({
+        id: String(c.id_conditionnement),
+        nom: c.nom,
+        quantiteUnitaire: c.quantite_unitaire,
+        codeBarre: c.code_barre,
+        prixVente: Number(c.prix_vente),
       })),
     };
   }
@@ -235,6 +278,36 @@ export class CatalogueService {
       include: { stock: true },
     });
 
+    if (data.tarifs && Array.isArray(data.tarifs)) {
+      for (const tarif of data.tarifs) {
+        if (tarif.typeVenteId && tarif.prix !== undefined) {
+          await this.prisma.tarifArticle.create({
+            data: {
+              id_produit: produit.id_produit,
+              id_type_vente: Number(tarif.typeVenteId),
+              prix: Number(tarif.prix),
+            },
+          });
+        }
+      }
+    }
+
+    if (data.conditionnements && Array.isArray(data.conditionnements)) {
+      for (const cond of data.conditionnements) {
+        if (cond.nom && cond.quantiteUnitaire > 0) {
+          await this.prisma.conditionnement.create({
+            data: {
+              id_produit: produit.id_produit,
+              nom: cond.nom,
+              quantite_unitaire: Number(cond.quantiteUnitaire),
+              code_barre: cond.codeBarre || null,
+              prix_vente: Number(cond.prixVente) || 0,
+            },
+          });
+        }
+      }
+    }
+
     return this.findOne(produit.id_produit);
   }
 
@@ -279,6 +352,43 @@ export class CatalogueService {
       await this.prisma.categorieProduit.create({
         data: { id_produit: id, id_categorie: catId },
       });
+    }
+
+    if (data.tarifs !== undefined) {
+      // Pour faire simple, on supprime tout et on recrée
+      await this.prisma.tarifArticle.deleteMany({ where: { id_produit: id } });
+      if (Array.isArray(data.tarifs)) {
+        for (const tarif of data.tarifs) {
+          if (tarif.typeVenteId && tarif.prix !== undefined) {
+            await this.prisma.tarifArticle.create({
+              data: {
+                id_produit: id,
+                id_type_vente: Number(tarif.typeVenteId),
+                prix: Number(tarif.prix),
+              },
+            });
+          }
+        }
+      }
+    }
+
+    if (data.conditionnements !== undefined) {
+      await this.prisma.conditionnement.deleteMany({ where: { id_produit: id } });
+      if (Array.isArray(data.conditionnements)) {
+        for (const cond of data.conditionnements) {
+          if (cond.nom && cond.quantiteUnitaire > 0) {
+            await this.prisma.conditionnement.create({
+              data: {
+                id_produit: id,
+                nom: cond.nom,
+                quantite_unitaire: Number(cond.quantiteUnitaire),
+                code_barre: cond.codeBarre || null,
+                prix_vente: Number(cond.prixVente) || 0,
+              },
+            });
+          }
+        }
+      }
     }
 
     return this.findOne(id);
@@ -415,5 +525,36 @@ export class CatalogueService {
 
   async deleteMarque(id: number) {
     await this.prisma.marque.delete({ where: { id_marque: id } });
+  }
+
+  // --- Types de Vente ---
+  async getTypesVente() {
+    const types = await this.prisma.typeVente.findMany({ orderBy: { libelle: 'asc' } });
+    return types.map((t) => ({ id: String(t.id_type_vente), libelle: t.libelle }));
+  }
+
+  async createTypeVente(data: { libelle: string }) {
+    const existing = await this.prisma.typeVente.findUnique({ where: { libelle: data.libelle } });
+    if (existing) throw new ConflictException(`Le type de vente '${data.libelle}' existe déjà`);
+    
+    const t = await this.prisma.typeVente.create({ data: { libelle: data.libelle } });
+    return { id: String(t.id_type_vente), libelle: t.libelle };
+  }
+
+  async updateTypeVente(id: number, data: { libelle: string }) {
+    if (data.libelle) {
+      const existing = await this.prisma.typeVente.findFirst({ where: { libelle: data.libelle, id_type_vente: { not: id } } });
+      if (existing) throw new ConflictException(`Le type de vente '${data.libelle}' existe déjà`);
+    }
+    
+    const t = await this.prisma.typeVente.update({
+      where: { id_type_vente: id },
+      data: { ...(data.libelle ? { libelle: data.libelle } : {}) },
+    });
+    return { id: String(t.id_type_vente), libelle: t.libelle };
+  }
+
+  async deleteTypeVente(id: number) {
+    await this.prisma.typeVente.delete({ where: { id_type_vente: id } });
   }
 }

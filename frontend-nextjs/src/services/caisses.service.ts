@@ -142,22 +142,34 @@ export const caissesService = {
   },
 
   /**
-   * Clôturer la session de caisse avec saisie du montant réel et détection d'écart
+   * Clôturer la session de caisse (le montant réel est maintenant égal au calculé automatiquement)
    * POST /api/v1/sessions-caisse/:id/cloturer
    */
   async cloturerSession(
-    sessionId: string,
-    totalEncaisseReel: number,
-    motifEcart?: string
+    sessionId: string
   ): Promise<SessionCaisseItem> {
     const response = await fetch(`${API_BASE_URL}/v1/sessions-caisse/${sessionId}/cloturer`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ totalEncaisseReel, motifEcart }),
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       throw new Error(err.message || 'Échec de la clôture de la session de caisse');
+    }
+    return response.json();
+  },
+
+  /**
+   * Obtenir le rapport détaillé d'une session de caisse
+   * GET /api/v1/sessions-caisse/:id/rapport
+   */
+  async getRapportSession(sessionId: string): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/v1/sessions-caisse/${sessionId}/rapport`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || 'Échec de la récupération du rapport de caisse');
     }
     return response.json();
   },

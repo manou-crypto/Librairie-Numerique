@@ -24,6 +24,21 @@ export interface Produit {
   categoryName: string;
   categoryIds?: string[];
   imageUrl?: string;
+  tarifs?: { typeVenteId: string; libelle: string; prix: number }[];
+  conditionnements?: ConditionnementItem[];
+}
+
+export interface ConditionnementItem {
+  id?: string;
+  nom: string;
+  quantiteUnitaire: number;
+  codeBarre?: string;
+  prixVente?: number;
+}
+
+export interface TypeVenteItem {
+  id: string;
+  libelle: string;
 }
 
 export interface CategorieItem {
@@ -143,6 +158,43 @@ export const produitsService = {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Échec de la suppression de la marque');
+  },
+
+  // ================= TYPES DE VENTE ================= //
+  async getTypesVente(): Promise<TypeVenteItem[]> {
+    const response = await fetch(`${API_BASE_URL}/v1/types-vente`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Échec du chargement des types de vente');
+    return response.json();
+  },
+
+  async createTypeVente(data: { libelle: string }): Promise<TypeVenteItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/types-vente`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Échec de la création du type de vente');
+    return response.json();
+  },
+
+  async updateTypeVente(id: string, data: { libelle: string }): Promise<TypeVenteItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/types-vente/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Échec de la modification du type de vente');
+    return response.json();
+  },
+
+  async deleteTypeVente(id: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/v1/types-vente/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Échec de la suppression du type de vente');
   },
 
   // =========================================== //

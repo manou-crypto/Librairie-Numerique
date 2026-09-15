@@ -1,10 +1,10 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { Loader2, AlertCircle } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { useAppConfig } from '@/contexts/ConfigContext';
-import { produitsService, CategorieItem, MarqueItem } from '@/services/produits.service';
+import { produitsService, CategorieItem, MarqueItem, TypeVenteItem } from '@/services/produits.service';
 import type { Product } from './ProductManagementClient';
 import AddCategoryModal from './AddCategoryModal';
 import ModalForm from '@/components/ui/Modal';
@@ -31,6 +31,8 @@ interface FormValues {
   visible: boolean;
   description: string;
   marqueId: string;
+  tarifs: { typeVenteId: string; libelle: string; prix: number }[];
+  conditionnements: { nom: string; quantiteUnitaire: number; codeBarre: string; prixVente: number }[];
 }
 
 function buildCategoryLabel(cat: CategorieItem, allCats: CategorieItem[]): string {
@@ -62,12 +64,19 @@ export default function AddEditProductModal({
   const [newMarqueName, setNewMarqueName] = useState('');
   const [savingMarque, setSavingMarque] = useState(false);
 
+  const [typesVente, setTypesVente] = useState<TypeVenteItem[]>([]);
+
+  useEffect(() => {
+    produitsService.getTypesVente().then(setTypesVente).catch(() => {});
+  }, []);
+
   const {
     register,
     handleSubmit,
     reset,
     watch,
     setValue,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     defaultValues: {
@@ -83,7 +92,19 @@ export default function AddEditProductModal({
       visible: true,
       description: '',
       marqueId: '',
+      tarifs: [],
+      conditionnements: [],
     },
+  });
+
+  const { fields: tarifsFields } = useFieldArray({
+    control,
+    name: 'tarifs',
+  });
+
+  const { fields: conditionnementsFields, append: appendCond, remove: removeCond } = useFieldArray({
+    control,
+    name: 'conditionnements',
   });
 
   // Charger les catégories si non fournies
@@ -140,6 +161,13 @@ export default function AddEditProductModal({
           visible: product.visible,
           description: product.description || '',
           marqueId: product.marqueId || '',
+          tarifs: [],
+          conditionnements: product.conditionnements?.map(c => ({
+            nom: c.nom,
+            quantiteUnitaire: c.quantiteUnitaire,
+            codeBarre: c.codeBarre || '',
+            prixVente: c.prixVente || 0,
+          })) || [],
         });
       } else {
         reset({
@@ -155,10 +183,30 @@ export default function AddEditProductModal({
           visible: true,
           description: '',
           marqueId: '',
+          tarifs: [],
+          conditionnements: [],
         });
       }
     }
   }, [open, product, categories, reset]);
+
+  useEffect(() => {
+    if (open && typesVente.length > 0) {
+      if (product) {
+        const initialTarifs = typesVente.map(tv => {
+          const existing = product.tarifs?.find(t => t.typeVenteId === tv.id);
+          return {
+            typeVenteId: tv.id,
+            libelle: tv.libelle,
+            prix: existing ? existing.prix : (product.prixVente || 0),
+          };
+        });
+        setValue('tarifs', initialTarifs);
+      } else {
+        setValue('tarifs', typesVente.map(tv => ({ typeVenteId: tv.id, libelle: tv.libelle, prix: 0 })));
+      }
+    }
+  }, [open, product, typesVente, setValue, watch('prixVente')]);
 
   const prixAchat = watch('prixAchat');
   const prixVente = watch('prixVente');
@@ -182,6 +230,8 @@ export default function AddEditProductModal({
       description: data.description,
       marqueId: data.marqueId,
       imageUrl: product?.imageUrl ?? '',
+      tarifs: data.tarifs,
+      conditionnements: data.conditionnements,
     };
     onSave(saved);
   };
@@ -443,6 +493,24 @@ export default function AddEditProductModal({
                     </span>
                   </div>
                 </div>
+                {tarifsFields.map((field, index) => (
+                  <div key={field.id}>
+                    <label className="block text-xs font-semibold text-foreground mb-1.5 text-primary">
+                      Tarif : {field.libelle} ({devise})
+                    </label>
+                    <input
+                      type="number"
+                      step="1"
+                      min="0"
+                      {...register(`tarifs.${index}.prix` as const, {
+                        required: 'Obligatoire',
+                        min: 0,
+                        valueAsNumber: true,
+                      })}
+                      className="input-field tabular-nums border-primary/30 bg-primary/5"
+                    />
+                  </div>
+                ))}
                 <div>
                   <label
                     className="block text-xs font-semibold text-foreground mb-1.5"
@@ -460,6 +528,81 @@ export default function AddEditProductModal({
                 </div>
               </div>
             </div>
+
+            {/* Section Conditionnements (Unités Multiples) */}
+            <div>
+              <div className="flex justify-between items-end mb-4 pb-2 border-b border-border">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Conditionnements multiples
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => appendCond({ nom: '', quantiteUnitaire: 2, codeBarre: '', prixVente: 0 })}
+                  className="btn-secondary py-1 px-2 text-xs flex items-center gap-1"
+                >
+                  <Plus size={12} /> Ajouter une unité
+                </button>
+              </div>
+              
+              {conditionnementsFields.length === 0 && (
+                <p className="text-xs text-muted-foreground italic mb-2">
+                  Aucun conditionnement supplémentaire. Le produit sera vendu à l'unité.
+                </p>
+              )}
+
+              <div className="space-y-3">
+                {conditionnementsFields.map((field, index) => (
+                  <div key={field.id} className="grid grid-cols-12 gap-3 items-start bg-muted/20 p-3 rounded-lg border border-border">
+                    <div className="col-span-12 sm:col-span-3">
+                      <label className="block text-xs font-semibold text-foreground mb-1">Nom (ex: Carton)</label>
+                      <input
+                        {...register(`conditionnements.${index}.nom` as const, { required: 'Requis' })}
+                        className="input-field text-sm"
+                        placeholder="Carton de 12"
+                      />
+                    </div>
+                    <div className="col-span-6 sm:col-span-2">
+                      <label className="block text-xs font-semibold text-foreground mb-1">Qté Unitaire</label>
+                      <input
+                        type="number"
+                        min="2"
+                        {...register(`conditionnements.${index}.quantiteUnitaire` as const, { required: 'Requis', min: 2, valueAsNumber: true })}
+                        className="input-field tabular-nums text-sm"
+                      />
+                    </div>
+                    <div className="col-span-6 sm:col-span-3">
+                      <label className="block text-xs font-semibold text-foreground mb-1">Code-barres</label>
+                      <input
+                        {...register(`conditionnements.${index}.codeBarre` as const)}
+                        className="input-field text-sm font-mono"
+                        placeholder="Scan..."
+                      />
+                    </div>
+                    <div className="col-span-10 sm:col-span-3">
+                      <label className="block text-xs font-semibold text-foreground mb-1">Prix Vente</label>
+                      <input
+                        type="number"
+                        min="0"
+                        {...register(`conditionnements.${index}.prixVente` as const, { valueAsNumber: true })}
+                        className="input-field tabular-nums text-sm text-primary font-bold"
+                        placeholder={`Laissez à 0 pour auto`}
+                      />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1 flex items-end justify-end h-full pt-5">
+                      <button
+                        type="button"
+                        onClick={() => removeCond(index)}
+                        className="text-muted-foreground hover:text-negative p-2 rounded-md transition-colors"
+                        title="Supprimer"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4 pb-2 border-b border-border">
                 Stock & Statut

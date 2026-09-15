@@ -295,7 +295,7 @@ export class CaissesService {
   }
 
   // ─── Clôturer une session de caisse ────────────────────────────────────────
-  async cloturerSession(sessionId: number, data: { totalEncaisseReel: number; motifEcart?: string }) {
+  async cloturerSession(sessionId: number) {
     const session = await this.prisma.sessionCaisse.findUnique({
       where: { id_session: sessionId },
     });
@@ -305,8 +305,9 @@ export class CaissesService {
     }
 
     const totalCalcule = Number(session.total_encaisse_calcule);
-    const totalReel = Number(data.totalEncaisseReel);
-    const ecart = totalReel - totalCalcule;
+    // Plus de saisie manuelle requise, le réel = calculé
+    const totalReel = totalCalcule;
+    const ecart = 0;
 
     const updated = await this.prisma.sessionCaisse.update({
       where: { id_session: sessionId },
@@ -315,7 +316,7 @@ export class CaissesService {
         date_cloture: new Date(),
         total_encaisse_reel: totalReel,
         ecart_caisse: ecart,
-        motif_ecart: data.motifEcart || null,
+        motif_ecart: null,
       },
       include: { caisse: true, utilisateur: true },
     });
@@ -324,15 +325,6 @@ export class CaissesService {
       where: { id_caisse: session.id_caisse },
       data: { statut_caisse: 'FERMEE' },
     });
-
-    if (ecart !== 0) {
-      // Le système va envoyer un événement WebSocket "newNotification"
-      await this.notificationsService.createNotification(
-        'caisse',
-        'Écart de Caisse',
-        `La caisse "${updated.caisse.code_caisse}" a été clôturée par ${updated.utilisateur.prenom} ${updated.utilisateur.nom} avec un écart de ${ecart} FCFA.`
-      );
-    }
 
     return {
       id: String(updated.id_session),
@@ -343,8 +335,145 @@ export class CaissesService {
       totalEncaisseCalcule: Number(updated.total_encaisse_calcule),
       totalEncaisseReel: Number(updated.total_encaisse_reel),
       ecartCaisse: Number(updated.ecart_caisse),
-      motifEcart: updated.motif_ecart || undefined,
       statutSession: updated.statut_session,
+    };
+  }
+
+  // ─── Rapport détaillé de session de caisse ───────────────────────────────
+  async getRapportSession(sessionId: number) {
+    const session = await this.prisma.sessionCaisse.findUnique({
+      where: { id_session: sessionId },
+      include: {
+        caisse: true,
+        utilisateur: true,
+        ventes: {
+          include: {
+            lignes: {
+              include: { produit: { include: { marque_rel: true } } }
+            },
+            paiements: true,
+            retours: {
+              include: { lignes: true }
+            }
+          }
+        },
+        retours: {
+          include: { lignes: true }
+        }
+      }
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session de caisse introuvable');
+    }
+
+    // 1. Résumé du tiroir-caisse
+    let especesRecuesVentes = 0;
+    let especesRecuesPaiementDu = 0; // Si on gère le crédit
+    let remboursementsEspeces = 0;
+
+    // 2. Résumé des ventes
+    let ventesBrutesTotal = 0;
+    let totalRemboursements = 0;
+
+    // 3. Paiements encaissés
+    const paiementsParMode: Record<string, number> = {};
+
+    // 4. Créances
+    let totalEnCaisse = 0;
+    
+    // 5. Détails produits
+    const produitsVendus: Record<string, { sku: string, produit: string, quantite: number, montantTotal: number }> = {};
+    const produitsParMarque: Record<string, { marque: string, quantite: number, montantTotal: number }> = {};
+
+    // Parcourir les ventes de la session
+    session.ventes.forEach(vente => {
+      if (vente.statut_vente !== 'ANNULEE') {
+        const totalVente = Number(vente.total_ttc);
+        ventesBrutesTotal += totalVente;
+        
+        let totalPaiementsVente = 0;
+        
+        vente.paiements.forEach(paiement => {
+          const montant = Number(paiement.montant);
+          totalPaiementsVente += montant;
+          totalEnCaisse += montant;
+          
+          if (paiement.mode_paiement === 'ESPECES') {
+            especesRecuesVentes += montant;
+          }
+          
+          paiementsParMode[paiement.mode_paiement] = (paiementsParMode[paiement.mode_paiement] || 0) + montant;
+        });
+
+        // Produits vendus
+        vente.lignes.forEach(ligne => {
+          const sku = ligne.produit.reference;
+          const nom = ligne.nom_kit ? ligne.nom_kit : ligne.produit.libelle;
+          const marque = ligne.produit.marque_rel ? ligne.produit.marque_rel.nom : 'Sans Marque';
+          const qty = ligne.quantite;
+          // on utilise le total TTC ou HT ? Disons TTC pour le rapport client
+          const totalLigneTTC = Number(ligne.total_ligne_ht) * (1 + Number(ligne.taux_tva_snapshot)/100);
+
+          if (!produitsVendus[sku]) {
+            produitsVendus[sku] = { sku, produit: nom, quantite: 0, montantTotal: 0 };
+          }
+          produitsVendus[sku].quantite += qty;
+          produitsVendus[sku].montantTotal += totalLigneTTC;
+
+          if (!produitsParMarque[marque]) {
+            produitsParMarque[marque] = { marque, quantite: 0, montantTotal: 0 };
+          }
+          produitsParMarque[marque].quantite += qty;
+          produitsParMarque[marque].montantTotal += totalLigneTTC;
+        });
+      }
+    });
+
+    // Parcourir les retours
+    session.retours.forEach(retour => {
+      const montant = Number(retour.montant_rembourse);
+      totalRemboursements += montant;
+      if (retour.mode_remboursement === 'ESPECES') {
+        remboursementsEspeces += montant;
+      }
+    });
+
+    const ventesNettes = ventesBrutesTotal - totalRemboursements;
+    const especesAttendues = Number(session.fond_de_caisse_initial) + especesRecuesVentes + especesRecuesPaiementDu - remboursementsEspeces;
+    const enAttenteClients = ventesBrutesTotal - totalEnCaisse;
+
+    return {
+      session: {
+        id: session.id_session,
+        dateOuverture: session.date_ouverture.toISOString(),
+        dateCloture: session.date_cloture?.toISOString(),
+        utilisateur: `${session.utilisateur.prenom} ${session.utilisateur.nom}`,
+        email: session.utilisateur.email,
+        emplacement: session.caisse.emplacement || 'Non défini',
+      },
+      tiroirCaisse: {
+        soldeOuverture: Number(session.fond_de_caisse_initial),
+        especesRecuesVentes,
+        especesRecuesPaiementDu,
+        remboursementsEspeces,
+        depensesEspeces: 0, // A ajouter si géré plus tard
+        especesAttendues
+      },
+      resumeVentes: {
+        ventesBrutes: ventesBrutesTotal,
+        totalRemboursements,
+        ventesNettes
+      },
+      paiements: Object.keys(paiementsParMode).map(mode => ({ mode, montant: paiementsParMode[mode] })),
+      creances: {
+        ventesBrutes: ventesBrutesTotal,
+        totalEncaisse: totalEnCaisse,
+        dusEncaisses: especesRecuesPaiementDu, // Approximation
+        enAttenteClients: enAttenteClients > 0 ? enAttenteClients : 0
+      },
+      produits: Object.values(produitsVendus),
+      marques: Object.values(produitsParMarque)
     };
   }
 }

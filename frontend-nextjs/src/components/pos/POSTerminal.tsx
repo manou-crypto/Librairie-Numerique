@@ -22,7 +22,9 @@ import Badge from '@/components/ui/Badge';
 import PaymentModal from './PaymentModal';
 import ReceiptModal from './ReceiptModal';
 import KitComposerModal, { KitProductItem, KitCompositionItem } from './KitComposerModal';
-import { produitsService } from '@/services/produits.service';
+import RapportCaisseModal from './RapportCaisseModal';
+import UnitSelectionModal from './UnitSelectionModal';
+import { produitsService, ConditionnementItem } from '@/services/produits.service';
 import { ventesService, ModeleKit } from '@/services/ventes.service';
 import { caissesService } from '@/services/caisses.service';
 import { useAppConfig } from '@/contexts/ConfigContext';
@@ -39,6 +41,7 @@ interface Product {
   stock: number;
   reference: string;
   tva: number;
+  tarifs?: { typeVenteId: string; libelle: string; prix: number }[];
 }
 
 interface CartItem extends Product {
@@ -54,17 +57,23 @@ const categories = ['Tous', 'Kits & Bundles', 'Livres', 'Fournitures', 'Informat
 export default function POSTerminal() {
   const { config } = useAppConfig();
   const { lastStockUpdate } = useSocket();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const devise = config?.devise || 'FCFA';
   const tauxTva = config?.tva ?? 0;
+
+  const hasCloturerPerm = user?.role === 'ADMIN' || user?.permissions?.includes('CLOTURER_CAISSE');
 
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Tous');
+  const [typesVente, setTypesVente] = useState<{ id: string; libelle: string }[]>([]);
+  const [selectedTypeVente, setSelectedTypeVente] = useState<string>('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [kitModalOpen, setKitModalOpen] = useState(false);
+  const [rapportModalOpen, setRapportModalOpen] = useState(false);
+  const [unitModalProduct, setUnitModalProduct] = useState<Product | null>(null);
   const [savedKits, setSavedKits] = useState<ModeleKit[]>([]);
   const [loadingKits, setLoadingKits] = useState(false);
   const [lastSaleData, setLastSaleData] = useState<{
@@ -97,6 +106,8 @@ export default function POSTerminal() {
         stock: p.stock ?? 0,
         reference: p.reference,
         tva: p.tauxTva ?? tauxTva,
+        tarifs: p.tarifs || [],
+        conditionnements: p.conditionnements || [],
       }));
       setAllProducts(mappedProducts);
     } catch (err) {
@@ -128,6 +139,23 @@ export default function POSTerminal() {
       toast.error('Erreur lors du chargement de la session de caisse');
     }
   }, []);
+
+  const loadTypesVente = useCallback(async () => {
+    try {
+      const res = await produitsService.getTypesVente();
+      setTypesVente(res);
+      if (res.length > 0) {
+        const detail = res.find((t) => t.libelle.toLowerCase().includes('détail') || t.libelle.toLowerCase().includes('detail'));
+        setSelectedTypeVente(detail ? detail.id : res[0].id);
+      }
+    } catch (err) {}
+  }, []);
+
+  const handleClotureSuccess = () => {
+    setRapportModalOpen(false);
+    setSessionStatus('closed');
+    setActiveSessionId(null);
+  };
 
   const handleOpenSession = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,7 +194,8 @@ export default function POSTerminal() {
     loadProducts();
     loadSession();
     loadSavedKits();
-  }, [loadProducts, loadSession, loadSavedKits]);
+    loadTypesVente();
+  }, [loadProducts, loadSession, loadSavedKits, loadTypesVente]);
 
   // Mise à jour du stock en temps réel via WebSocket
   useEffect(() => {
@@ -202,31 +231,110 @@ export default function POSTerminal() {
     return matchSearch && matchCat;
   });
 
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchQuery) {
+      const lowerQuery = searchQuery.toLowerCase();
+      let foundCondProduct: Product | undefined;
+      let foundCond: ConditionnementItem | undefined;
+
+      // 1. Check Conditionnements barcodes
+      for (const p of allProducts) {
+        const cond = p.conditionnements?.find(c => c.codeBarre && c.codeBarre.toLowerCase() === lowerQuery);
+        if (cond) {
+          foundCondProduct = p;
+          foundCond = cond;
+          break;
+        }
+      }
+
+      if (foundCondProduct && foundCond) {
+        doAddToCart(foundCondProduct, foundCond);
+        setSearchQuery('');
+        return;
+      }
+
+      // 2. Check Product barcodes/reference
+      const foundProduct = allProducts.find(p => p.reference.toLowerCase() === lowerQuery);
+      if (foundProduct) {
+        if (foundProduct.conditionnements && foundProduct.conditionnements.length > 0) {
+          setUnitModalProduct(foundProduct);
+        } else {
+          doAddToCart(foundProduct, null);
+        }
+        setSearchQuery('');
+      } else {
+        toast.error('Aucun produit trouvé pour ce code.');
+      }
+    }
+  };
+
   const addToCart = (product: Product) => {
+    if (product.conditionnements && product.conditionnements.length > 0) {
+      setUnitModalProduct(product);
+    } else {
+      doAddToCart(product, null);
+    }
+  };
+
+  const doAddToCart = (product: Product, conditionnement: ConditionnementItem | null) => {
     if (product.stock === 0) {
       toast.error(`"${product.name}" est en rupture de stock.`);
       return;
     }
+
+    let finalPrice = product.prixVente;
+    let qtyToAdd = 1;
+    let displayName = product.name;
+    let cartItemId = `item-${product.id}`;
+
+    if (conditionnement) {
+      qtyToAdd = conditionnement.quantiteUnitaire;
+      displayName = `${product.name} (${conditionnement.nom})`;
+      cartItemId = `item-${product.id}-cond-${conditionnement.id || conditionnement.nom}`;
+      
+      if (conditionnement.prixVente && conditionnement.prixVente > 0) {
+        finalPrice = conditionnement.prixVente / qtyToAdd;
+      } else {
+        if (selectedTypeVente) {
+          const tarif = product.tarifs?.find((t) => t.typeVenteId === selectedTypeVente);
+          if (tarif) finalPrice = tarif.prix;
+        }
+      }
+    } else {
+      if (selectedTypeVente) {
+        const tarif = product.tarifs?.find((t) => t.typeVenteId === selectedTypeVente);
+        if (tarif) finalPrice = tarif.prix;
+      }
+    }
+
+    if (qtyToAdd > product.stock) {
+      toast.error(`Stock insuffisant pour ce conditionnement. Disponible: ${product.stock}, Requis: ${qtyToAdd}`);
+      return;
+    }
+
     setCart((prev) => {
-      const existing = prev.find((i) => i.id === product.id && !i.idKitGroupe);
+      const existing = prev.find((i) => i.cartItemId === cartItemId && i.prixVente === finalPrice);
       if (existing) {
-        if (existing.qty >= product.stock) {
+        if (existing.qty + qtyToAdd > product.stock) {
           toast.warning(`Stock insuffisant — seulement ${product.stock} disponible(s).`);
           return prev;
         }
         return prev.map((i) =>
-          i.cartItemId === existing.cartItemId ? { ...i, qty: i.qty + 1 } : i
+          i.cartItemId === existing.cartItemId ? { ...i, qty: i.qty + qtyToAdd } : i
         );
       }
       return [
         ...prev,
         {
           ...product,
-          cartItemId: `item-${product.id}`,
-          qty: 1,
+          cartItemId,
+          name: displayName,
+          qty: qtyToAdd,
+          prixVente: finalPrice,
         },
       ];
     });
+    setUnitModalProduct(null);
   };
 
   /**
@@ -551,7 +659,8 @@ export default function POSTerminal() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Rechercher un produit ou référence..."
+                onKeyDown={handleSearchKeyDown}
+                placeholder="Rechercher ou scanner..."
                 className="input-field pl-9 text-sm"
                 autoFocus
               />
@@ -576,9 +685,34 @@ export default function POSTerminal() {
             </button>
 
             {sessionStatus === 'open' && (
-              <div className="flex items-center gap-1.5 text-xs text-green-600 bg-green-50 px-2.5 py-1.5 rounded-lg border border-green-200">
-                <CheckCircle size={12} />
-                <span className="font-semibold">Session ouverte</span>
+              <div className="flex items-center gap-2">
+                {typesVente.length > 0 && (
+                  <select
+                    value={selectedTypeVente}
+                    onChange={(e) => setSelectedTypeVente(e.target.value)}
+                    className="input-field text-xs py-1.5 h-auto bg-card"
+                    title="Type de Vente (Tarification)"
+                  >
+                    {typesVente.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.libelle}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <div className="flex items-center gap-1.5 text-xs text-green-600 bg-green-50 px-2.5 py-1.5 rounded-lg border border-green-200">
+                  <CheckCircle size={12} />
+                  <span className="font-semibold">Session ouverte</span>
+                </div>
+                {hasCloturerPerm && (
+                  <button
+                    onClick={() => setRapportModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-negative/10 text-negative hover:bg-negative hover:text-white transition-colors text-xs font-semibold"
+                  >
+                    <FileText size={14} />
+                    <span>Clôturer</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -1022,6 +1156,24 @@ export default function POSTerminal() {
         devise={devise}
         onAddKitToCart={handleAddKitToCart}
         onKitSaved={loadSavedKits}
+      />
+      {activeSessionId && (
+        <RapportCaisseModal
+          open={rapportModalOpen}
+          onClose={() => setRapportModalOpen(false)}
+          sessionId={activeSessionId}
+          devise={devise}
+          onCloturer={handleClotureSuccess}
+        />
+      )}
+      <UnitSelectionModal
+        open={!!unitModalProduct}
+        onClose={() => setUnitModalProduct(null)}
+        product={unitModalProduct}
+        devise={devise}
+        onSelectUnit={(cond) => {
+          if (unitModalProduct) doAddToCart(unitModalProduct, cond);
+        }}
       />
     </div>
   );

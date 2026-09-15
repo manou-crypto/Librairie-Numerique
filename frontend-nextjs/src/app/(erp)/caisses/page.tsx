@@ -49,9 +49,6 @@ export default function CaissesPage() {
 
   // ── Modal Clôture ──────────────────────────────────────────────────────────
   const [clotureModal, setClotureModal] = useState<ClotureModal>({ caisse: null, open: false });
-  const [clotureMontant, setClotureMontant] = useState('');
-  const [clotureObservations, setClotureObservations] = useState('');
-
   // ── Modal Ouverture ────────────────────────────────────────────────────────
   const [ouvertureModal, setOuvertureModal] = useState<OuvertureModal>({
     caisse: null,
@@ -156,18 +153,13 @@ export default function CaissesPage() {
       toast.error('Session de caisse introuvable');
       return;
     }
-    const montant = Number(clotureMontant) || 0;
     setActionLoading(true);
     try {
       await caissesService.cloturerSession(
-        clotureModal.caisse.sessionId,
-        montant,
-        clotureObservations.trim() || undefined
+        clotureModal.caisse.sessionId
       );
       toast.success(`${clotureModal.caisse.codeCaisse} clôturée avec succès`);
       setClotureModal({ caisse: null, open: false });
-      setClotureMontant('');
-      setClotureObservations('');
       await loadCaisses();
     } catch (err: any) {
       toast.error(err.message || 'Erreur lors de la clôture de la caisse');
@@ -363,8 +355,6 @@ export default function CaissesPage() {
                     <button
                       onClick={() => {
                         setClotureModal({ caisse, open: true });
-                        setClotureMontant('');
-                        setClotureObservations('');
                       }}
                       className="flex-1 btn-secondary text-sm py-2 text-negative border-negative/30 hover:bg-negative/5"
                     >
@@ -514,30 +504,6 @@ export default function CaissesPage() {
                       : '—'}
                   </p>
                 </div>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-foreground mb-1.5">
-                  Montant physique compté (FCFA)
-                </label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={clotureMontant}
-                  onChange={(e) => setClotureMontant(e.target.value)}
-                  className="input-field text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-foreground mb-1.5">
-                  Observations
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Remarques éventuelles..."
-                  value={clotureObservations}
-                  onChange={(e) => setClotureObservations(e.target.value)}
-                  className="input-field text-sm resize-none"
-                />
               </div>
             </div>
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border">
