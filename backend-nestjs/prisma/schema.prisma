@@ -625,15 +625,27 @@ model TarifArticle {
 // 7. CONDITIONNEMENTS (Unités multiples)
 // ------------------------------------------------------
 
+model Unite {
+  id_unite    Int     @id @default(autoincrement())
+  nom         String  @unique @db.VarChar(100) // ex: "Carton", "Paquet_5"
+  description String? @db.Text
+  multiple    Int     @default(1) // Number of base items
+
+  conditionnements Conditionnement[]
+
+  @@map("unite")
+}
+
 model Conditionnement {
   id_conditionnement Int     @id @default(autoincrement())
   id_produit         Int
-  nom                String  @db.VarChar(100) // ex: "Carton de 12", "Paquet de 5"
-  quantite_unitaire  Int     @default(1)      // ex: 12
+  id_unite           Int
   code_barre         String? @unique @db.VarChar(100)
   prix_vente         Decimal @db.Decimal(10, 2)
 
   produit Produit @relation(fields: [id_produit], references: [id_produit], onDelete: Cascade)
+  unite   Unite   @relation(fields: [id_unite], references: [id_unite], onDelete: Cascade)
 
   @@map("conditionnement")
 }
+

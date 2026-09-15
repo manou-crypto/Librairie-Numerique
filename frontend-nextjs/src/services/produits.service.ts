@@ -30,6 +30,7 @@ export interface Produit {
 
 export interface ConditionnementItem {
   id?: string;
+  uniteId?: string;
   nom: string;
   quantiteUnitaire: number;
   codeBarre?: string;

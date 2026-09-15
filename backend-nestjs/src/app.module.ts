@@ -18,6 +18,7 @@ import { EventsModule } from './modules/events/events.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { RapportsModule } from './modules/rapports/rapports.module';
 import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
+import { UnitesModule } from './modules/unites/unites.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
     NotificationsModule,
     RapportsModule,
     CloudinaryModule,
+    UnitesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

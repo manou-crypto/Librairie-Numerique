@@ -31,8 +31,7 @@ interface FormValues {
   visible: boolean;
   description: string;
   marqueId: string;
-  tarifs: { typeVenteId: string; libelle: string; prix: number }[];
-  conditionnements: { nom: string; quantiteUnitaire: number; codeBarre: string; prixVente: number }[];
+  conditionnements: { uniteId: string; codeBarre: string; prixVente: number }[];
 }
 
 function buildCategoryLabel(cat: CategorieItem, allCats: CategorieItem[]): string {
@@ -64,10 +63,10 @@ export default function AddEditProductModal({
   const [newMarqueName, setNewMarqueName] = useState('');
   const [savingMarque, setSavingMarque] = useState(false);
 
-  const [typesVente, setTypesVente] = useState<TypeVenteItem[]>([]);
+  const [unites, setUnites] = useState<{ id_unite: number; nom: string; multiple: number }[]>([]);
 
   useEffect(() => {
-    produitsService.getTypesVente().then(setTypesVente).catch(() => {});
+    import('@/services/unites.service').then(m => m.unitesService.getUnites().then(setUnites).catch(() => {}));
   }, []);
 
   const {
@@ -92,14 +91,8 @@ export default function AddEditProductModal({
       visible: true,
       description: '',
       marqueId: '',
-      tarifs: [],
       conditionnements: [],
     },
-  });
-
-  const { fields: tarifsFields } = useFieldArray({
-    control,
-    name: 'tarifs',
   });
 
   const { fields: conditionnementsFields, append: appendCond, remove: removeCond } = useFieldArray({
@@ -161,10 +154,8 @@ export default function AddEditProductModal({
           visible: product.visible,
           description: product.description || '',
           marqueId: product.marqueId || '',
-          tarifs: [],
           conditionnements: product.conditionnements?.map(c => ({
-            nom: c.nom,
-            quantiteUnitaire: c.quantiteUnitaire,
+            uniteId: String(c.uniteId || ''),
             codeBarre: c.codeBarre || '',
             prixVente: c.prixVente || 0,
           })) || [],
@@ -183,30 +174,11 @@ export default function AddEditProductModal({
           visible: true,
           description: '',
           marqueId: '',
-          tarifs: [],
           conditionnements: [],
         });
       }
     }
   }, [open, product, categories, reset]);
-
-  useEffect(() => {
-    if (open && typesVente.length > 0) {
-      if (product) {
-        const initialTarifs = typesVente.map(tv => {
-          const existing = product.tarifs?.find(t => t.typeVenteId === tv.id);
-          return {
-            typeVenteId: tv.id,
-            libelle: tv.libelle,
-            prix: existing ? existing.prix : (product.prixVente || 0),
-          };
-        });
-        setValue('tarifs', initialTarifs);
-      } else {
-        setValue('tarifs', typesVente.map(tv => ({ typeVenteId: tv.id, libelle: tv.libelle, prix: 0 })));
-      }
-    }
-  }, [open, product, typesVente, setValue, watch('prixVente')]);
 
   const prixAchat = watch('prixAchat');
   const prixVente = watch('prixVente');
@@ -230,7 +202,6 @@ export default function AddEditProductModal({
       description: data.description,
       marqueId: data.marqueId,
       imageUrl: product?.imageUrl ?? '',
-      tarifs: data.tarifs,
       conditionnements: data.conditionnements,
     };
     onSave(saved);
@@ -493,24 +464,6 @@ export default function AddEditProductModal({
                     </span>
                   </div>
                 </div>
-                {tarifsFields.map((field, index) => (
-                  <div key={field.id}>
-                    <label className="block text-xs font-semibold text-foreground mb-1.5 text-primary">
-                      Tarif : {field.libelle} ({devise})
-                    </label>
-                    <input
-                      type="number"
-                      step="1"
-                      min="0"
-                      {...register(`tarifs.${index}.prix` as const, {
-                        required: 'Obligatoire',
-                        min: 0,
-                        valueAsNumber: true,
-                      })}
-                      className="input-field tabular-nums border-primary/30 bg-primary/5"
-                    />
-                  </div>
-                ))}
                 <div>
                   <label
                     className="block text-xs font-semibold text-foreground mb-1.5"
@@ -537,7 +490,7 @@ export default function AddEditProductModal({
                 </h3>
                 <button
                   type="button"
-                  onClick={() => appendCond({ nom: '', quantiteUnitaire: 2, codeBarre: '', prixVente: 0 })}
+                  onClick={() => appendCond({ uniteId: '', codeBarre: '', prixVente: 0 })}
                   className="btn-secondary py-1 px-2 text-xs flex items-center gap-1"
                 >
                   <Plus size={12} /> Ajouter une unité
@@ -553,22 +506,17 @@ export default function AddEditProductModal({
               <div className="space-y-3">
                 {conditionnementsFields.map((field, index) => (
                   <div key={field.id} className="grid grid-cols-12 gap-3 items-start bg-muted/20 p-3 rounded-lg border border-border">
-                    <div className="col-span-12 sm:col-span-3">
-                      <label className="block text-xs font-semibold text-foreground mb-1">Nom (ex: Carton)</label>
-                      <input
-                        {...register(`conditionnements.${index}.nom` as const, { required: 'Requis' })}
+                    <div className="col-span-12 sm:col-span-5">
+                      <label className="block text-xs font-semibold text-foreground mb-1">Unité</label>
+                      <select
+                        {...register(`conditionnements.${index}.uniteId` as const, { required: 'Requis' })}
                         className="input-field text-sm"
-                        placeholder="Carton de 12"
-                      />
-                    </div>
-                    <div className="col-span-6 sm:col-span-2">
-                      <label className="block text-xs font-semibold text-foreground mb-1">Qté Unitaire</label>
-                      <input
-                        type="number"
-                        min="2"
-                        {...register(`conditionnements.${index}.quantiteUnitaire` as const, { required: 'Requis', min: 2, valueAsNumber: true })}
-                        className="input-field tabular-nums text-sm"
-                      />
+                      >
+                        <option value="">Sélectionner...</option>
+                        {unites.map(u => (
+                          <option key={u.id_unite} value={u.id_unite}>{u.nom} (x{u.multiple})</option>
+                        ))}
+                      </select>
                     </div>
                     <div className="col-span-6 sm:col-span-3">
                       <label className="block text-xs font-semibold text-foreground mb-1">Code-barres</label>

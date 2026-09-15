@@ -3,11 +3,9 @@ import React from 'react';
 import {
   ChevronUp,
   ChevronDown,
-  ChevronsUpDown,
   Edit2,
   Trash2,
-  Eye,
-  EyeOff,
+  Tag,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -27,7 +25,7 @@ interface ProductTableProps {
   onSort: (field: SortField) => void;
   onEdit: (p: Product) => void;
   onDelete: (p: Product) => void;
-  onToggleVisible: (id: string) => void;
+  onTarification: (p: Product) => void;
   currentPage: number;
   totalPages: number;
   totalItems: number;
@@ -113,7 +111,7 @@ export default function ProductTable({
   onSort,
   onEdit,
   onDelete,
-  onToggleVisible,
+  onTarification,
   currentPage,
   totalPages,
   totalItems,
@@ -220,9 +218,6 @@ export default function ProductTable({
               <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">
                 Statut
               </th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">
-                Visible
-              </th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Actions
               </th>
@@ -316,20 +311,6 @@ export default function ProductTable({
                   </td>
                   <td className="px-4 py-3 text-right">{getStockDisplay(stock, seuilAlerte)}</td>
                   <td className="px-4 py-3 text-center">{getStatusBadge(product.status)}</td>
-                  <td className="px-4 py-3 text-center">
-                    <button
-                      onClick={() => onToggleVisible(product.id)}
-                      className={`p-1.5 rounded-lg transition-colors ${
-                        product.visible
-                          ? 'text-green-600 hover:bg-green-50'
-                          : 'text-muted-foreground hover:bg-muted'
-                      }`}
-                      title={product.visible ? 'Masquer ce produit' : 'Rendre ce produit visible'}
-                      aria-label={product.visible ? 'Masquer le produit' : 'Afficher le produit'}
-                    >
-                      {product.visible ? <Eye size={15} /> : <EyeOff size={15} />}
-                    </button>
-                  </td> */
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-1">
                       <button
@@ -339,6 +320,14 @@ export default function ProductTable({
                         aria-label={`Modifier ${product.name}`}
                       >
                         <Edit2 size={14} />
+                      </button>
+                      <button
+                        onClick={() => onTarification(product)}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-purple-600 hover:bg-purple-50 transition-colors"
+                        title={`Tarification ${product.name}`}
+                        aria-label={`Tarification ${product.name}`}
+                      >
+                        <Tag size={14} />
                       </button>
                       <button
                         onClick={() => onDelete(product)}

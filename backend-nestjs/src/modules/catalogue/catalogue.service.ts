@@ -39,7 +39,7 @@ export class CatalogueService {
           images: true,
           marque_rel: true,
           tarifs: { include: { type_vente: true } },
-          conditionnements: true,
+          conditionnements: { include: { unite: true } },
         },
         skip,
         take: pageSize,
@@ -76,8 +76,9 @@ export class CatalogueService {
       })),
       conditionnements: p.conditionnements.map((c) => ({
         id: String(c.id_conditionnement),
-        nom: c.nom,
-        quantiteUnitaire: c.quantite_unitaire,
+        uniteId: String(c.id_unite),
+        nom: c.unite?.nom,
+        quantiteUnitaire: c.unite?.multiple || 1,
         codeBarre: c.code_barre,
         prixVente: Number(c.prix_vente),
       })),
@@ -106,7 +107,7 @@ export class CatalogueService {
         images: true,
         marque_rel: true,
         tarifs: { include: { type_vente: true } },
-        conditionnements: true,
+        conditionnements: { include: { unite: true } },
       },
     });
 
@@ -140,8 +141,9 @@ export class CatalogueService {
       })),
       conditionnements: p.conditionnements.map((c) => ({
         id: String(c.id_conditionnement),
-        nom: c.nom,
-        quantiteUnitaire: c.quantite_unitaire,
+        uniteId: String(c.id_unite),
+        nom: c.unite?.nom,
+        quantiteUnitaire: c.unite?.multiple || 1,
         codeBarre: c.code_barre,
         prixVente: Number(c.prix_vente),
       })),
@@ -158,7 +160,7 @@ export class CatalogueService {
         valeurs_attribut: { include: { attribut: true } },
         marque_rel: true,
         tarifs: { include: { type_vente: true } },
-        conditionnements: true,
+        conditionnements: { include: { unite: true } },
       },
     });
 
@@ -195,8 +197,9 @@ export class CatalogueService {
       })),
       conditionnements: p.conditionnements.map((c) => ({
         id: String(c.id_conditionnement),
-        nom: c.nom,
-        quantiteUnitaire: c.quantite_unitaire,
+        uniteId: String(c.id_unite),
+        nom: c.unite?.nom,
+        quantiteUnitaire: c.unite?.multiple || 1,
         codeBarre: c.code_barre,
         prixVente: Number(c.prix_vente),
       })),
@@ -294,12 +297,11 @@ export class CatalogueService {
 
     if (data.conditionnements && Array.isArray(data.conditionnements)) {
       for (const cond of data.conditionnements) {
-        if (cond.nom && cond.quantiteUnitaire > 0) {
+        if (cond.uniteId) {
           await this.prisma.conditionnement.create({
             data: {
               id_produit: produit.id_produit,
-              nom: cond.nom,
-              quantite_unitaire: Number(cond.quantiteUnitaire),
+              id_unite: Number(cond.uniteId),
               code_barre: cond.codeBarre || null,
               prix_vente: Number(cond.prixVente) || 0,
             },
@@ -376,12 +378,11 @@ export class CatalogueService {
       await this.prisma.conditionnement.deleteMany({ where: { id_produit: id } });
       if (Array.isArray(data.conditionnements)) {
         for (const cond of data.conditionnements) {
-          if (cond.nom && cond.quantiteUnitaire > 0) {
+          if (cond.uniteId) {
             await this.prisma.conditionnement.create({
               data: {
                 id_produit: id,
-                nom: cond.nom,
-                quantite_unitaire: Number(cond.quantiteUnitaire),
+                id_unite: Number(cond.uniteId),
                 code_barre: cond.codeBarre || null,
                 prix_vente: Number(cond.prixVente) || 0,
               },

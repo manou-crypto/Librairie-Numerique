@@ -8,6 +8,7 @@ import CategoryTreeSidebar, {
 import ProductTable from './ProductTable';
 import ProductFiltersBar from './ProductFiltersBar';
 import AddEditProductModal from './AddEditProductModal';
+import TarificationProductModal from './TarificationProductModal';
 import AddCategoryModal from './AddCategoryModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import CategoriesTab from './CategoriesTab';
@@ -77,6 +78,7 @@ export default function ProductManagementClient() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [tarificationTarget, setTarificationTarget] = useState<Product | null>(null);
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
@@ -195,17 +197,6 @@ export default function ProductManagementClient() {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(paginatedProducts.map((p) => p.id)));
-    }
-  };
-
-  const handleToggleVisible = async (id: string) => {
-    try {
-      await produitsService.masquer(id);
-      toast.success('Visibilité du produit mise à jour.');
-      await loadData();
-    } catch (e) {
-      console.error(e);
-      toast.error('Erreur lors de la mise à jour de la visibilité');
     }
   };
 
@@ -373,7 +364,7 @@ export default function ProductManagementClient() {
                 onSort={handleSort}
                 onEdit={(p) => setEditingProduct(p)}
                 onDelete={(p) => setDeleteTarget(p)}
-                onToggleVisible={handleToggleVisible}
+                onTarification={(p) => setTarificationTarget(p)}
                 currentPage={currentPage}
                 totalPages={totalPages}
                 totalItems={filteredProducts.length}
@@ -409,6 +400,16 @@ export default function ProductManagementClient() {
         onSave={handleSaveProduct}
         onCategoryAdded={mutateCategories}
       />
+      {tarificationTarget && (
+        <TarificationProductModal
+          open={!!tarificationTarget}
+          onClose={() => setTarificationTarget(null)}
+          product={tarificationTarget}
+          onSave={(p) => {
+            mutateProducts();
+          }}
+        />
+      )}
       <DeleteConfirmModal
         open={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}

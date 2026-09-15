@@ -80,6 +80,12 @@ export default function RapportCaisseModal({ open, onClose, sessionId, devise, o
               <Printer size={18} />
             </button>
             <button
+              onClick={() => alert('Détails de la caisse à implémenter')}
+              className="px-3 py-1.5 text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors"
+            >
+              Détails Caisse
+            </button>
+            <button
               onClick={onClose}
               className="p-2 text-muted-foreground hover:bg-negative/10 hover:text-negative rounded-lg transition-colors"
             >
