@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Plus, Trash2 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import { useAppConfig } from '@/contexts/ConfigContext';
 import { produitsService, CategorieItem, MarqueItem, TypeVenteItem } from '@/services/produits.service';
