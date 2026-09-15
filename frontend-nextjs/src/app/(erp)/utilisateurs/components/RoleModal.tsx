@@ -4,6 +4,73 @@ import Modal from '@/components/ui/Modal';
 import { Loader2, Shield, CheckSquare, Square, AlertCircle } from 'lucide-react';
 import type { RoleItem, PermissionItem } from '@/services/utilisateurs.service';
 
+function PermissionGroup({ 
+  moduleName, 
+  modulePerms, 
+  selectedPerms, 
+  isProtectedAdmin, 
+  toggleModule, 
+  togglePerm 
+}: { 
+  moduleName: string;
+  modulePerms: PermissionItem[];
+  selectedPerms: Set<string>;
+  isProtectedAdmin: boolean;
+  toggleModule: (perms: PermissionItem[]) => void;
+  togglePerm: (code: string) => void;
+}) {
+  const allModuleSelected = modulePerms.every((p) => selectedPerms.has(p.codePermission));
+
+  return (
+    <div className="p-3 bg-muted/40 border border-border rounded-xl space-y-2.5">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-primary" />
+          Section : {moduleName}
+        </span>
+        {!isProtectedAdmin && (
+          <button
+            type="button"
+            onClick={() => toggleModule(modulePerms)}
+            className="text-[11px] text-muted-foreground hover:text-foreground font-medium"
+          >
+            {allModuleSelected ? 'Désélectionner le module' : 'Sélectionner tout le module'}
+          </button>
+        )}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+        {modulePerms.map((p) => {
+          const isChecked = isProtectedAdmin || selectedPerms.has(p.codePermission);
+          return (
+            <label
+              key={p.codePermission}
+              className={`flex items-center gap-2.5 p-2 rounded-lg border text-xs transition-colors cursor-pointer select-none ${
+                isChecked
+                  ? 'bg-card border-primary/40 text-foreground font-medium shadow-xs'
+                  : 'bg-card/50 border-border/60 text-muted-foreground hover:border-border hover:text-foreground'
+              } ${isProtectedAdmin ? 'opacity-80 cursor-not-allowed' : ''}`}
+            >
+              <input
+                type="checkbox"
+                checked={isChecked}
+                onChange={() => togglePerm(p.codePermission)}
+                disabled={isProtectedAdmin}
+                className="sr-only"
+              />
+              {isChecked ? (
+                <CheckSquare size={16} className="text-primary shrink-0" />
+              ) : (
+                <Square size={16} className="text-muted-foreground/50 shrink-0" />
+              )}
+              <span className="truncate">{p.libelle}</span>
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 interface RoleModalProps {
   open: boolean;
   onClose: () => void;
@@ -37,14 +104,18 @@ export default function RoleModal({ open, onClose, role, permissions, onSave }: 
     }
   }, [open, role]);
 
-  // Group permissions by module
-  const permsByModule = permissions.reduce<Record<string, PermissionItem[]>>((acc, p) => {
+  const pagePermissions = permissions.filter(p => p.type === 'PAGE' || !p.type || p.codePermission.startsWith('VIEW_'));
+  const actionPermissions = permissions.filter(p => p.type === 'ACTION' && !p.codePermission.startsWith('VIEW_'));
+
+  const groupPermsByModule = (perms: PermissionItem[]) => perms.reduce<Record<string, PermissionItem[]>>((acc, p) => {
     const mod = p.module || 'Général';
     if (!acc[mod]) acc[mod] = [];
     acc[mod].push(p);
     return acc;
   }, {});
 
+  const pagePermsByModule = groupPermsByModule(pagePermissions);
+  const actionPermsByModule = groupPermsByModule(actionPermissions);
   const togglePerm = (code: string) => {
     if (isProtectedAdmin) return;
     setSelectedPerms((prev) => {
@@ -195,71 +266,52 @@ export default function RoleModal({ open, onClose, role, permissions, onSave }: 
             </div>
           )}
 
-          <div className="space-y-4 max-h-80 overflow-y-auto scrollbar-thin pr-1">
-            {Object.entries(permsByModule).map(([moduleName, modulePerms]) => {
-              const allModuleSelected = modulePerms.every((p) =>
-                selectedPerms.has(p.codePermission)
-              );
-              const someModuleSelected = modulePerms.some((p) =>
-                selectedPerms.has(p.codePermission)
-              );
+          <div className="space-y-6 max-h-[50vh] overflow-y-auto scrollbar-thin pr-1">
+            {/* ACCES AUX PAGES */}
+            <div>
+              <h5 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+                <span className="w-4 h-px bg-border flex-1" />
+                1. Accès aux pages
+                <span className="w-4 h-px bg-border flex-1" />
+              </h5>
+              <div className="space-y-4">
+                {Object.entries(pagePermsByModule).map(([moduleName, modulePerms]) => (
+                  <PermissionGroup 
+                    key={`page-${moduleName}`}
+                    moduleName={moduleName}
+                    modulePerms={modulePerms}
+                    selectedPerms={selectedPerms}
+                    isProtectedAdmin={isProtectedAdmin}
+                    toggleModule={toggleModule}
+                    togglePerm={togglePerm}
+                  />
+                ))}
+              </div>
+            </div>
 
-              return (
-                <div
-                  key={moduleName}
-                  className="p-3 bg-muted/40 border border-border rounded-xl space-y-2.5"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-primary" />
-                      Section : {moduleName}
-                    </span>
-                    {!isProtectedAdmin && (
-                      <button
-                        type="button"
-                        onClick={() => toggleModule(modulePerms)}
-                        className="text-[11px] text-muted-foreground hover:text-foreground font-medium"
-                      >
-                        {allModuleSelected
-                          ? 'Désélectionner le module'
-                          : 'Sélectionner tout le module'}
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                    {modulePerms.map((p) => {
-                      const isChecked = isProtectedAdmin || selectedPerms.has(p.codePermission);
-
-                      return (
-                        <label
-                          key={p.codePermission}
-                          className={`flex items-center gap-2.5 p-2 rounded-lg border text-xs transition-colors cursor-pointer select-none ${
-                            isChecked
-                              ? 'bg-card border-primary/40 text-foreground font-medium shadow-xs'
-                              : 'bg-card/50 border-border/60 text-muted-foreground hover:border-border hover:text-foreground'
-                          } ${isProtectedAdmin ? 'opacity-80 cursor-not-allowed' : ''}`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => togglePerm(p.codePermission)}
-                            disabled={isProtectedAdmin}
-                            className="sr-only"
-                          />
-                          {isChecked ? (
-                            <CheckSquare size={16} className="text-primary shrink-0" />
-                          ) : (
-                            <Square size={16} className="text-muted-foreground/50 shrink-0" />
-                          )}
-                          <span className="truncate">{p.libelle}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
+            {/* FONCTIONNALITES */}
+            {Object.keys(actionPermsByModule).length > 0 && (
+              <div>
+                <h5 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+                  <span className="w-4 h-px bg-border flex-1" />
+                  2. Fonctionnalités spécifiques
+                  <span className="w-4 h-px bg-border flex-1" />
+                </h5>
+                <div className="space-y-4">
+                  {Object.entries(actionPermsByModule).map(([moduleName, modulePerms]) => (
+                    <PermissionGroup 
+                      key={`action-${moduleName}`}
+                      moduleName={moduleName}
+                      modulePerms={modulePerms}
+                      selectedPerms={selectedPerms}
+                      isProtectedAdmin={isProtectedAdmin}
+                      toggleModule={toggleModule}
+                      togglePerm={togglePerm}
+                    />
+                  ))}
                 </div>
-              );
-            })}
+              </div>
+            )}
           </div>
         </div>
 

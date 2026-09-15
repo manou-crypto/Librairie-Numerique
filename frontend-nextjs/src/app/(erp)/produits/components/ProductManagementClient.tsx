@@ -13,6 +13,8 @@ import AddCategoryModal from './AddCategoryModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import CategoriesTab from './CategoriesTab';
 import MarquesTab from './MarquesTab';
+import UnitesTab from './UnitesTab';
+import TarificationTab from './TarificationTab';
 import { produitsService, CategorieItem, MarqueItem } from '@/services/produits.service';
 import useSWR from 'swr';
 import { fetcher, SWR_DEFAULT_CONFIG } from '@/lib/swr-fetcher';
@@ -68,7 +70,7 @@ export default function ProductManagementClient() {
     await Promise.all([mutateProducts(), mutateCategories()]);
   };
 
-  const [activeTab, setActiveTab] = useState<'produits' | 'categories' | 'marques'>('produits');
+  const [activeTab, setActiveTab] = useState<'produits' | 'categories' | 'marques' | 'unites' | 'tarifs'>('produits');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -301,13 +303,33 @@ export default function ProductManagementClient() {
         </button>
         <button
           onClick={() => setActiveTab('marques')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 ${
+          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
             activeTab === 'marques'
-              ? 'border-brand text-brand'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
           }`}
         >
           Marques
+        </button>
+        <button
+          onClick={() => setActiveTab('unites')}
+          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
+            activeTab === 'unites'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+          }`}
+        >
+          Unités
+        </button>
+        <button
+          onClick={() => setActiveTab('tarifs')}
+          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
+            activeTab === 'tarifs'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+          }`}
+        >
+          Tarification
         </button>
       </div>
 
@@ -380,13 +402,10 @@ export default function ProductManagementClient() {
           </div>
         )}
 
-        {activeTab === 'categories' && (
-          <CategoriesTab categories={categories} onRefresh={mutateCategories} />
-        )}
-        
-        {activeTab === 'marques' && (
-          <MarquesTab />
-        )}
+        {activeTab === 'categories' && <CategoriesTab categories={categories} onRefresh={loadData} />}
+        {activeTab === 'marques' && <MarquesTab />}
+        {activeTab === 'unites' && <UnitesTab />}
+        {activeTab === 'tarifs' && <TarificationTab products={products} onUpdate={loadData} />}
       </div>
 
       <AddEditProductModal

@@ -3,23 +3,30 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export const SYSTEM_PERMISSIONS = [
-  { code_permission: 'VIEW_DASHBOARD', module: 'Principal', libelle: 'Tableau de bord' },
-  { code_permission: 'VIEW_POS', module: 'Ventes', libelle: 'Point de vente (Caisse)' },
-  { code_permission: 'VIEW_VENTES', module: 'Ventes', libelle: 'Historique des ventes' },
-  { code_permission: 'VIEW_CATALOGUE', module: 'Catalogue', libelle: 'Produits & Catalogue' },
-  { code_permission: 'VIEW_STOCK', module: 'Catalogue', libelle: 'Gestion des stocks' },
-  { code_permission: 'VIEW_INVENTAIRE', module: 'Catalogue', libelle: 'Inventaires' },
-  { code_permission: 'VIEW_ACHATS', module: 'Catalogue', libelle: 'Commandes d\'achats' },
-  { code_permission: 'VIEW_FOURNISSEURS', module: 'Catalogue', libelle: 'Fournisseurs' },
-  { code_permission: 'VIEW_GESTION_CATALOGUE', module: 'Catalogue', libelle: 'Gestion Catalogue' },
-  { code_permission: 'VIEW_FINANCES', module: 'Gestion', libelle: 'Finances & Clôtures' },
-  { code_permission: 'VIEW_UTILISATEURS', module: 'Gestion', libelle: 'Utilisateurs & Rôles' },
-  { code_permission: 'VIEW_RAPPORTS', module: 'Gestion', libelle: 'Rapports & Statistiques' },
-  { code_permission: 'VIEW_CAISSES', module: 'Gestion', libelle: 'Gestion des caisses' },
-  { code_permission: 'VIEW_PARAMETRES', module: 'Système', libelle: 'Paramètres généraux' },
-  { code_permission: 'VIEW_NOTIFICATIONS', module: 'Système', libelle: 'Notifications' },
-  { code_permission: 'CLOTURER_CAISSE', module: 'Ventes', libelle: 'Clôturer une session de caisse' },
-  { code_permission: 'GERER_TARIFS', module: 'Catalogue', libelle: 'Gérer les tarifs & types de vente' },
+  // PAGES
+  { code_permission: 'VIEW_DASHBOARD', module: 'Principal', libelle: 'Tableau de bord', type: 'PAGE' },
+  { code_permission: 'VIEW_POS', module: 'Ventes', libelle: 'Point de vente (Caisse)', type: 'PAGE' },
+  { code_permission: 'VIEW_VENTES', module: 'Ventes', libelle: 'Historique des ventes', type: 'PAGE' },
+  { code_permission: 'VIEW_CATALOGUE', module: 'Catalogue', libelle: 'Produits & Catalogue', type: 'PAGE' },
+  { code_permission: 'VIEW_STOCK', module: 'Catalogue', libelle: 'Gestion des stocks', type: 'PAGE' },
+  { code_permission: 'VIEW_INVENTAIRE', module: 'Catalogue', libelle: 'Inventaires', type: 'PAGE' },
+  { code_permission: 'VIEW_ACHATS', module: 'Catalogue', libelle: 'Commandes d\'achats', type: 'PAGE' },
+  { code_permission: 'VIEW_FOURNISSEURS', module: 'Catalogue', libelle: 'Fournisseurs', type: 'PAGE' },
+  { code_permission: 'VIEW_GESTION_CATALOGUE', module: 'Catalogue', libelle: 'Gestion Catalogue', type: 'PAGE' },
+  { code_permission: 'VIEW_FINANCES', module: 'Gestion', libelle: 'Finances & Clôtures', type: 'PAGE' },
+  { code_permission: 'VIEW_UTILISATEURS', module: 'Gestion', libelle: 'Utilisateurs & Rôles', type: 'PAGE' },
+  { code_permission: 'VIEW_RAPPORTS', module: 'Gestion', libelle: 'Rapports & Statistiques', type: 'PAGE' },
+  { code_permission: 'VIEW_CAISSES', module: 'Gestion', libelle: 'Gestion des caisses', type: 'PAGE' },
+  { code_permission: 'VIEW_PARAMETRES', module: 'Système', libelle: 'Paramètres généraux', type: 'PAGE' },
+  { code_permission: 'VIEW_NOTIFICATIONS', module: 'Système', libelle: 'Notifications', type: 'PAGE' },
+  
+  // ACTIONS / FONCTIONNALITES
+  { code_permission: 'CLOTURER_CAISSE', module: 'Ventes', libelle: 'Clôturer une session de caisse', type: 'ACTION' },
+  { code_permission: 'VIEW_CAISSE_DETAILS', module: 'Ventes', libelle: 'Voir détails de la caisse', type: 'ACTION' },
+  { code_permission: 'GERER_TARIFS', module: 'Catalogue', libelle: 'Gérer les tarifs & types de vente', type: 'ACTION' },
+  { code_permission: 'CREATE_PRODUCT', module: 'Catalogue', libelle: 'Ajouter un produit', type: 'ACTION' },
+  { code_permission: 'EDIT_PRODUCT', module: 'Catalogue', libelle: 'Modifier un produit', type: 'ACTION' },
+  { code_permission: 'DELETE_PRODUCT', module: 'Catalogue', libelle: 'Supprimer un produit', type: 'ACTION' },
 ];
 
 @Injectable()
@@ -192,12 +199,16 @@ export class UsersService {
     });
 
     const permMap = new Map(SYSTEM_PERMISSIONS.map(sp => [sp.code_permission, sp]));
-    return perms.map(p => ({
-      id: p.id_permission,
-      codePermission: p.code_permission,
-      module: p.module,
-      libelle: permMap.get(p.code_permission)?.libelle || p.code_permission,
-    }));
+    return perms.map(p => {
+      const sp = permMap.get(p.code_permission);
+      return {
+        id: p.id_permission,
+        codePermission: p.code_permission,
+        module: p.module,
+        libelle: sp?.libelle || p.code_permission,
+        type: sp?.type || (p.code_permission.startsWith('VIEW_') ? 'PAGE' : 'ACTION')
+      };
+    });
   }
 
   async getRoles() {

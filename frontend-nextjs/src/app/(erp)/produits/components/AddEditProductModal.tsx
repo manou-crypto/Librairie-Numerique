@@ -32,6 +32,7 @@ interface FormValues {
   description: string;
   marqueId: string;
   conditionnements: { uniteId: string; codeBarre: string; prixVente: number }[];
+  tarifs: { typeVenteId: string; libelle: string; prix: number }[];
 }
 
 function buildCategoryLabel(cat: CategorieItem, allCats: CategorieItem[]): string {
@@ -64,9 +65,11 @@ export default function AddEditProductModal({
   const [savingMarque, setSavingMarque] = useState(false);
 
   const [unites, setUnites] = useState<{ id_unite: number; nom: string; multiple: number }[]>([]);
+  const [typesVente, setTypesVente] = useState<TypeVenteItem[]>([]);
 
   useEffect(() => {
     import('@/services/unites.service').then(m => m.unitesService.getUnites().then(setUnites).catch(() => {}));
+    produitsService.getTypesVente().then(setTypesVente).catch(() => {});
   }, []);
 
   const {
@@ -92,12 +95,18 @@ export default function AddEditProductModal({
       description: '',
       marqueId: '',
       conditionnements: [],
+      tarifs: [],
     },
   });
 
   const { fields: conditionnementsFields, append: appendCond, remove: removeCond } = useFieldArray({
     control,
     name: 'conditionnements',
+  });
+
+  const { fields: tarifsFields } = useFieldArray({
+    control,
+    name: 'tarifs',
   });
 
   // Charger les catégories si non fournies
@@ -159,6 +168,14 @@ export default function AddEditProductModal({
             codeBarre: c.codeBarre || '',
             prixVente: c.prixVente || 0,
           })) || [],
+          tarifs: typesVente.map(tv => {
+            const existing = product.tarifs?.find(t => t.typeVenteId === tv.id);
+            return {
+              typeVenteId: tv.id,
+              libelle: tv.libelle,
+              prix: existing ? existing.prix : product.prixVente,
+            };
+          }),
         });
       } else {
         reset({
@@ -175,10 +192,15 @@ export default function AddEditProductModal({
           description: '',
           marqueId: '',
           conditionnements: [],
+          tarifs: typesVente.map(tv => ({
+            typeVenteId: tv.id,
+            libelle: tv.libelle,
+            prix: 0,
+          })),
         });
       }
     }
-  }, [open, product, categories, reset]);
+  }, [open, product, categories, typesVente, reset]);
 
   const prixAchat = watch('prixAchat');
   const prixVente = watch('prixVente');
@@ -203,6 +225,7 @@ export default function AddEditProductModal({
       marqueId: data.marqueId,
       imageUrl: product?.imageUrl ?? '',
       conditionnements: data.conditionnements,
+      tarifs: data.tarifs,
     };
     onSave(saved);
   };
@@ -550,6 +573,31 @@ export default function AddEditProductModal({
                 ))}
               </div>
             </div>
+
+            {/* Section Tarification Spécifique */}
+            {tarifsFields.length > 0 && (
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4 pb-2 border-b border-border">
+                  Tarification Spécifique
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {tarifsFields.map((field, index) => (
+                    <div key={field.id}>
+                      <label className="block text-xs font-semibold text-foreground mb-1.5">
+                        Prix: {field.libelle}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        {...register(`tarifs.${index}.prix` as const, { valueAsNumber: true })}
+                        className="input-field tabular-nums text-sm text-primary"
+                        placeholder="Laisser à 0 si non défini"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4 pb-2 border-b border-border">

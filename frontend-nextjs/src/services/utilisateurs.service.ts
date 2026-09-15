@@ -19,6 +19,7 @@ export interface PermissionItem {
   codePermission: string;
   module: string;
   libelle: string;
+  type?: 'PAGE' | 'ACTION';
 }
 
 export interface RoleItem {

@@ -18,7 +18,6 @@ import {
   Plus,
   Box,
 } from 'lucide-react';
-import UnitesManager from './components/UnitesManager';
 import Icon from '@/components/ui/AppIcon';
 import { useAppConfig } from '@/contexts/ConfigContext';
 import { configService } from '@/services/config.service';
@@ -27,7 +26,7 @@ import { toast } from 'sonner';
 import { usePreferences, UserPreferences } from '@/hooks/usePreferences';
 import { useAuth } from '@/hooks/useAuth';
 
-type SettingsTab = 'general' | 'unites' | 'notifications' | 'ventes' | 'securite' | 'sauvegarde';
+type SettingsTab = 'general' | 'notifications' | 'ventes' | 'securite' | 'sauvegarde';
 
 export default function ParametresPage() {
   const { config, refreshConfig } = useAppConfig();
