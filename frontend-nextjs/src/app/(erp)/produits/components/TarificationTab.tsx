@@ -70,7 +70,6 @@ export default function TarificationTab({ products, onUpdate }: TarificationTabP
         }));
 
         return produitsService.update(p.id, {
-          ...p,
           tarifs: updatedTarifs
         });
       });
