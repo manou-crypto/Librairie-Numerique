@@ -16,6 +16,7 @@ import {
   Loader2,
   AlertTriangle,
   LogOut,
+  BarChart3,
 } from 'lucide-react';
 
 import Badge from '@/components/ui/Badge';
