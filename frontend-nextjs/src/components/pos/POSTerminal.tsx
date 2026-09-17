@@ -76,6 +76,7 @@ export default function POSTerminal() {
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [kitModalOpen, setKitModalOpen] = useState(false);
   const [rapportModalOpen, setRapportModalOpen] = useState(false);
+  const [rapportMode, setRapportMode] = useState<'details' | 'cloture'>('cloture');
   const [savedKits, setSavedKits] = useState<ModeleKit[]>([]);
   const [loadingKits, setLoadingKits] = useState(false);
   const [lastSaleData, setLastSaleData] = useState<{
@@ -722,9 +723,22 @@ export default function POSTerminal() {
                   <CheckCircle size={12} />
                   <span className="font-semibold">Session ouverte</span>
                 </div>
+                <button
+                  onClick={() => {
+                    setRapportMode('details');
+                    setRapportModalOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-colors text-xs font-semibold"
+                >
+                  <BarChart3 size={14} />
+                  <span>Détails Caisse</span>
+                </button>
                 {hasCloturerPerm && (
                   <button
-                    onClick={() => setRapportModalOpen(true)}
+                    onClick={() => {
+                      setRapportMode('cloture');
+                      setRapportModalOpen(true);
+                    }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-negative/10 text-negative hover:bg-negative hover:text-white transition-colors text-xs font-semibold"
                   >
                     <FileText size={14} />
@@ -1196,6 +1210,7 @@ export default function POSTerminal() {
           sessionId={activeSessionId}
           devise={devise}
           onCloturer={handleClotureSuccess}
+          mode={rapportMode}
         />
       )}
     </div>

@@ -10,9 +10,10 @@ interface RapportCaisseModalProps {
   sessionId: string;
   devise: string;
   onCloturer: () => void;
+  mode?: 'details' | 'cloture';
 }
 
-export default function RapportCaisseModal({ open, onClose, sessionId, devise, onCloturer }: RapportCaisseModalProps) {
+export default function RapportCaisseModal({ open, onClose, sessionId, devise, onCloturer, mode = 'cloture' }: RapportCaisseModalProps) {
   const [loading, setLoading] = useState(true);
   const [rapport, setRapport] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +69,7 @@ export default function RapportCaisseModal({ open, onClose, sessionId, devise, o
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30 print:hidden shrink-0">
           <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
             <BarChart3 size={20} className="text-primary" />
-            Rapport de caisse (Session #{sessionId})
+            {mode === 'cloture' ? `Clôture de caisse (#${sessionId})` : `Détails de caisse (#${sessionId})`}
           </h3>
           <div className="flex items-center gap-2">
             <button
@@ -78,12 +79,6 @@ export default function RapportCaisseModal({ open, onClose, sessionId, devise, o
               title="Imprimer le rapport"
             >
               <Printer size={18} />
-            </button>
-            <button
-              onClick={() => alert('Détails de la caisse à implémenter')}
-              className="px-3 py-1.5 text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors"
-            >
-              Détails Caisse
             </button>
             <button
               onClick={onClose}
@@ -239,10 +234,14 @@ export default function RapportCaisseModal({ open, onClose, sessionId, devise, o
         {/* PIED DE MODAL (Non imprimé) */}
         {!rapport?.session?.dateCloture && !loading && rapport && (
           <div className="px-6 py-4 border-t border-border bg-muted/10 flex justify-end gap-3 print:hidden shrink-0">
-            <button onClick={onClose} className="btn-secondary text-sm">Annuler</button>
-            <button onClick={handleConfirmCloture} className="btn-primary bg-negative hover:bg-negative/90 text-sm">
-              Valider la clôture
+            <button onClick={onClose} className="btn-secondary text-sm">
+              {mode === 'cloture' ? 'Annuler' : 'Fermer'}
             </button>
+            {mode === 'cloture' && (
+              <button onClick={handleConfirmCloture} className="btn-primary bg-negative hover:bg-negative/90 text-sm">
+                Valider la clôture
+              </button>
+            )}
           </div>
         )}
       </div>
