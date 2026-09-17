@@ -669,7 +669,7 @@ export default function POSTerminal() {
               <Barcode size={16} className="text-muted-foreground" />
               <span className="text-xs font-medium text-muted-foreground">Scanner</span>
             </div>
-            <div className="relative flex-1 max-w-md">
+            <div className="relative flex-1 max-w-xl">
               <Search
                 size={15}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -710,7 +710,7 @@ export default function POSTerminal() {
                   <select
                     value={selectedTypeVente}
                     onChange={(e) => setSelectedTypeVente(e.target.value)}
-                    className="input-field text-xs py-1.5 h-auto bg-card"
+                    className="input-field text-xs py-1.5 h-auto bg-card max-w-[140px] truncate pr-8"
                     title="Type de Vente (Tarification)"
                   >
                     {typesVente.map((t) => (
@@ -732,7 +732,7 @@ export default function POSTerminal() {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-colors text-xs font-semibold"
                 >
                   <BarChart3 size={14} />
-                  <span>Détails Caisse</span>
+                  <span>Détail</span>
                 </button>
                 {hasCloturerPerm && (
                   <button
