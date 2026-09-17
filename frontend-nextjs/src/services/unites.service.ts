@@ -11,7 +11,10 @@ export interface UniteItem {
 export const unitesService = {
   getUnites: async (): Promise<UniteItem[]> => {
     const response = await fetch(`${API_BASE_URL}/v1/unites`, { headers: getAuthHeaders() });
-    if (!response.ok) throw new Error('Erreur de chargement');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.message || 'Erreur de chargement');
+    }
     return response.json();
   },
 

@@ -26,8 +26,8 @@ export default function UnitesManager() {
     try {
       const data = await unitesService.getUnites();
       setUnites(data);
-    } catch (err) {
-      toast.error('Erreur lors du chargement des unités');
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur lors du chargement des unités');
     }
   };
 

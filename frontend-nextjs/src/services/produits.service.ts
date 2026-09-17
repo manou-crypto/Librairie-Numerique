@@ -271,7 +271,10 @@ export const produitsService = {
       headers: getAuthHeaders(),
       body: JSON.stringify(produit),
     });
-    if (!response.ok) throw new Error(`Échec de la mise à jour du produit #${id}`);
+    if (!response.ok) {
+      const errData = await response.json().catch(() => null);
+      throw new Error(errData?.message || 'Échec de la mise à jour du produit');
+    }
     return response.json();
   },
 

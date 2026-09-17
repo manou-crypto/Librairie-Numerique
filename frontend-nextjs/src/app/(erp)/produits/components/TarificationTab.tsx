@@ -78,8 +78,8 @@ export default function TarificationTab({ products, onUpdate }: TarificationTabP
       await Promise.all(promises);
       toast.success('Tous les prix ont été enregistrés');
       onUpdate();
-    } catch (err) {
-      toast.error('Erreur lors de la sauvegarde');
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur lors de la sauvegarde');
     } finally {
       setSaving(false);
     }
