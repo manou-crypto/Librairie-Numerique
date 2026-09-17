@@ -889,7 +889,7 @@ export default function POSTerminal() {
                 return (
                   <button
                     key={product.id}
-                    onClick={() => addToCart(product)}
+                    onClick={() => doAddToCart(product, null)}
                     disabled={outOfStock}
                     className={`card-base p-3.5 text-left transition-all duration-150 active:scale-95 ${
                       outOfStock
