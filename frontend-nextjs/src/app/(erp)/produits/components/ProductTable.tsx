@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import { useAppConfig } from '@/contexts/ConfigContext';
+import { useAuth } from '@/hooks/useAuth';
 import type { Product, SortField, SortDir } from './ProductManagementClient';
 
 interface ProductTableProps {
@@ -122,6 +123,7 @@ export default function ProductTable({
   loading = false,
 }: ProductTableProps) {
   const { config } = useAppConfig();
+  const { user } = useAuth();
   const devise = config?.devise || 'FCFA';
 
   const start = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
@@ -322,14 +324,16 @@ export default function ProductTable({
                       >
                         <Edit2 size={14} />
                       </button>
-                      <button
-                        onClick={() => onTarification(product)}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-purple-600 hover:bg-purple-50 transition-colors"
-                        title={`Tarification ${product.name}`}
-                        aria-label={`Tarification ${product.name}`}
-                      >
-                        <Tag size={14} />
-                      </button>
+                      {(!user || user.role === 'ADMIN' || (user.permissions && user.permissions.includes('VOIR_TARIFICATION'))) && (
+                        <button
+                          onClick={() => onTarification(product)}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-purple-600 hover:bg-purple-50 transition-colors"
+                          title={`Tarification ${product.name}`}
+                          aria-label={`Tarification ${product.name}`}
+                        >
+                          <Tag size={14} />
+                        </button>
+                      )}
                       <button
                         onClick={() => onDelete(product)}
                         className="p-1.5 rounded-lg text-muted-foreground hover:text-negative hover:bg-red-50 transition-colors"

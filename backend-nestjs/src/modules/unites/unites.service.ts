@@ -11,6 +11,7 @@ export class UnitesService {
         nom: createUniteDto.nom,
         description: createUniteDto.description,
         multiple: createUniteDto.multiple,
+        id_unite_base: createUniteDto.id_unite_base || null,
       },
     });
   }
@@ -31,6 +32,7 @@ export class UnitesService {
         nom: updateUniteDto.nom,
         description: updateUniteDto.description,
         multiple: updateUniteDto.multiple,
+        id_unite_base: updateUniteDto.id_unite_base !== undefined ? updateUniteDto.id_unite_base : existing.id_unite_base,
       },
     });
   }

@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { Search, Plus, Trash2, EyeOff, X } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ProductFiltersBarProps {
   searchQuery: string;
@@ -31,6 +32,7 @@ export default function ProductFiltersBar({
   onBulkDelete,
   onBulkHide,
 }: ProductFiltersBarProps) {
+  const { user } = useAuth();
   return (
     <div className="bg-card border-b border-border px-5 py-3 shrink-0">
       <div className="flex items-center gap-3 flex-wrap">
@@ -102,13 +104,15 @@ export default function ProductFiltersBar({
             </button>
           </div>
         )}
-        <button
-          onClick={onAddProduct}
-          className="btn-primary flex items-center gap-2 text-sm whitespace-nowrap"
-        >
-          <Plus size={15} />
-          Ajouter un produit
-        </button>
+        {(!user || user.role === 'ADMIN' || (user.permissions && user.permissions.includes('CREER_PRODUIT'))) && (
+          <button
+            onClick={onAddProduct}
+            className="btn-primary flex items-center gap-2 text-sm whitespace-nowrap"
+          >
+            <Plus size={15} />
+            Ajouter un produit
+          </button>
+        )}
       </div>
     </div>
   );

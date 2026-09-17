@@ -31,7 +31,6 @@ interface FormValues {
   visible: boolean;
   description: string;
   marqueId: string;
-  conditionnements: { uniteId: string; codeBarre: string; prixVente: number }[];
   tarifs: { typeVenteId: string; libelle: string; prix: number }[];
 }
 
@@ -94,14 +93,8 @@ export default function AddEditProductModal({
       visible: true,
       description: '',
       marqueId: '',
-      conditionnements: [],
       tarifs: [],
     },
-  });
-
-  const { fields: conditionnementsFields, append: appendCond, remove: removeCond } = useFieldArray({
-    control,
-    name: 'conditionnements',
   });
 
   const { fields: tarifsFields } = useFieldArray({
@@ -163,11 +156,6 @@ export default function AddEditProductModal({
           visible: product.visible,
           description: product.description || '',
           marqueId: product.marqueId || '',
-          conditionnements: product.conditionnements?.map(c => ({
-            uniteId: String(c.uniteId || ''),
-            codeBarre: c.codeBarre || '',
-            prixVente: c.prixVente || 0,
-          })) || [],
           tarifs: typesVente.map(tv => {
             const existing = product.tarifs?.find(t => t.typeVenteId === tv.id);
             return {
@@ -191,7 +179,6 @@ export default function AddEditProductModal({
           visible: true,
           description: '',
           marqueId: '',
-          conditionnements: [],
           tarifs: typesVente.map(tv => ({
             typeVenteId: tv.id,
             libelle: tv.libelle,
@@ -224,7 +211,6 @@ export default function AddEditProductModal({
       description: data.description,
       marqueId: data.marqueId,
       imageUrl: product?.imageUrl ?? '',
-      conditionnements: data.conditionnements,
       tarifs: data.tarifs,
     };
     onSave(saved);
@@ -502,75 +488,6 @@ export default function AddEditProductModal({
                     className="input-field tabular-nums"
                   />
                 </div>
-              </div>
-            </div>
-
-            {/* Section Conditionnements (Unités Multiples) */}
-            <div>
-              <div className="flex justify-between items-end mb-4 pb-2 border-b border-border">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Conditionnements multiples
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => appendCond({ uniteId: '', codeBarre: '', prixVente: 0 })}
-                  className="btn-secondary py-1 px-2 text-xs flex items-center gap-1"
-                >
-                  <Plus size={12} /> Ajouter une unité
-                </button>
-              </div>
-              
-              {conditionnementsFields.length === 0 && (
-                <p className="text-xs text-muted-foreground italic mb-2">
-                  Aucun conditionnement supplémentaire. Le produit sera vendu à l'unité.
-                </p>
-              )}
-
-              <div className="space-y-3">
-                {conditionnementsFields.map((field, index) => (
-                  <div key={field.id} className="grid grid-cols-12 gap-3 items-start bg-muted/20 p-3 rounded-lg border border-border">
-                    <div className="col-span-12 sm:col-span-5">
-                      <label className="block text-xs font-semibold text-foreground mb-1">Unité</label>
-                      <select
-                        {...register(`conditionnements.${index}.uniteId` as const, { required: 'Requis' })}
-                        className="input-field text-sm"
-                      >
-                        <option value="">Sélectionner...</option>
-                        {unites.map(u => (
-                          <option key={u.id_unite} value={u.id_unite}>{u.nom} (x{u.multiple})</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-span-6 sm:col-span-3">
-                      <label className="block text-xs font-semibold text-foreground mb-1">Code-barres</label>
-                      <input
-                        {...register(`conditionnements.${index}.codeBarre` as const)}
-                        className="input-field text-sm font-mono"
-                        placeholder="Scan..."
-                      />
-                    </div>
-                    <div className="col-span-10 sm:col-span-3">
-                      <label className="block text-xs font-semibold text-foreground mb-1">Prix Vente</label>
-                      <input
-                        type="number"
-                        min="0"
-                        {...register(`conditionnements.${index}.prixVente` as const, { valueAsNumber: true })}
-                        className="input-field tabular-nums text-sm text-primary font-bold"
-                        placeholder={`Laissez à 0 pour auto`}
-                      />
-                    </div>
-                    <div className="col-span-2 sm:col-span-1 flex items-end justify-end h-full pt-5">
-                      <button
-                        type="button"
-                        onClick={() => removeCond(index)}
-                        className="text-muted-foreground hover:text-negative p-2 rounded-md transition-colors"
-                        title="Supprimer"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
 

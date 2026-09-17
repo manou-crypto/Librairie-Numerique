@@ -15,9 +15,11 @@ import CategoriesTab from './CategoriesTab';
 import MarquesTab from './MarquesTab';
 import UnitesTab from './UnitesTab';
 import TarificationTab from './TarificationTab';
+import ConditionnementsTab from './ConditionnementsTab';
 import { produitsService, CategorieItem, MarqueItem } from '@/services/produits.service';
 import useSWR from 'swr';
 import { fetcher, SWR_DEFAULT_CONFIG } from '@/lib/swr-fetcher';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface Product {
   id: string;
@@ -41,6 +43,7 @@ export type SortField = 'name' | 'prixVente' | 'prixAchat' | 'stock' | 'marge';
 export type SortDir = 'asc' | 'desc';
 
 export default function ProductManagementClient() {
+  const { user } = useAuth();
   const {
     data: resProducts,
     mutate: mutateProducts,
@@ -278,6 +281,11 @@ export default function ProductManagementClient() {
     }
   };
 
+  const canVoirCategories = !user || user.role === 'ADMIN' || (user.permissions && user.permissions.includes('VOIR_CATEGORIES'));
+  const canVoirMarques = !user || user.role === 'ADMIN' || (user.permissions && user.permissions.includes('VOIR_MARQUES'));
+  const canVoirUnites = !user || user.role === 'ADMIN' || (user.permissions && user.permissions.includes('VOIR_UNITES'));
+  const canVoirTarification = !user || user.role === 'ADMIN' || (user.permissions && user.permissions.includes('VOIR_TARIFICATION'));
+
   return (
     <div className="flex flex-col w-full h-full bg-background relative">
       <div className="flex border-b border-border px-4 pt-2">
@@ -291,46 +299,66 @@ export default function ProductManagementClient() {
         >
           Produits
         </button>
-        <button
-          onClick={() => setActiveTab('categories')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 ${
-            activeTab === 'categories'
-              ? 'border-brand text-brand'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Catégories
-        </button>
-        <button
-          onClick={() => setActiveTab('marques')}
-          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
-            activeTab === 'marques'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-          }`}
-        >
-          Marques
-        </button>
-        <button
-          onClick={() => setActiveTab('unites')}
-          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
-            activeTab === 'unites'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-          }`}
-        >
-          Unités
-        </button>
-        <button
-          onClick={() => setActiveTab('tarifs')}
-          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
-            activeTab === 'tarifs'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-          }`}
-        >
-          Tarification
-        </button>
+        {canVoirCategories && (
+          <button
+            onClick={() => setActiveTab('categories')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 ${
+              activeTab === 'categories'
+                ? 'border-brand text-brand'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Catégories
+          </button>
+        )}
+        {canVoirMarques && (
+          <button
+            onClick={() => setActiveTab('marques')}
+            className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'marques'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+            }`}
+          >
+            Marques
+          </button>
+        )}
+        {canVoirUnites && (
+          <button
+            onClick={() => setActiveTab('unites')}
+            className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'unites'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+            }`}
+          >
+            Unités
+          </button>
+        )}
+        {canVoirTarification && (
+          <button
+            onClick={() => setActiveTab('conditionnements')}
+            className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'conditionnements'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+            }`}
+          >
+            Conditionnements
+          </button>
+        )}
+        {canVoirTarification && (
+          <button
+            onClick={() => setActiveTab('tarifs')}
+            className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'tarifs'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+            }`}
+          >
+            Tarification
+          </button>
+        )}
       </div>
 
       <div className="flex-1 flex overflow-hidden relative">
@@ -405,6 +433,7 @@ export default function ProductManagementClient() {
         {activeTab === 'categories' && <CategoriesTab categories={categories} onRefresh={loadData} />}
         {activeTab === 'marques' && <MarquesTab />}
         {activeTab === 'unites' && <UnitesTab />}
+        {activeTab === 'conditionnements' && <ConditionnementsTab products={products} onUpdate={loadData} />}
         {activeTab === 'tarifs' && <TarificationTab products={products} onUpdate={loadData} />}
       </div>
 

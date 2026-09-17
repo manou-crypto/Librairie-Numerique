@@ -52,7 +52,7 @@ export default function TarificationProductModal({ open, onClose, product, onSav
     setLoading(true);
     try {
       const updatedProduct = { ...product, tarifs: data.tarifs };
-      await produitsService.updateProduct(updatedProduct.id, updatedProduct);
+      await produitsService.update(updatedProduct.id, updatedProduct);
       toast.success('Tarification mise à jour');
       onSave(updatedProduct);
       onClose();

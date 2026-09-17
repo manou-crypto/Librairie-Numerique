@@ -626,10 +626,14 @@ model TarifArticle {
 // ------------------------------------------------------
 
 model Unite {
-  id_unite    Int     @id @default(autoincrement())
-  nom         String  @unique @db.VarChar(100) // ex: "Carton", "Paquet_5"
-  description String? @db.Text
-  multiple    Int     @default(1) // Number of base items
+  id_unite      Int     @id @default(autoincrement())
+  nom           String  @unique @db.VarChar(100) // ex: "Carton", "Paquet_5"
+  description   String? @db.Text
+  multiple      Int     @default(1) // Number of base items
+  id_unite_base Int?
+
+  unite_base    Unite?  @relation("BaseUnite", fields: [id_unite_base], references: [id_unite])
+  unites_enfant Unite[] @relation("BaseUnite")
 
   conditionnements Conditionnement[]
 

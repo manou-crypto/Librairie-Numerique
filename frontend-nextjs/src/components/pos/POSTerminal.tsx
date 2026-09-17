@@ -23,10 +23,10 @@ import PaymentModal from './PaymentModal';
 import ReceiptModal from './ReceiptModal';
 import KitComposerModal, { KitProductItem, KitCompositionItem } from './KitComposerModal';
 import RapportCaisseModal from './RapportCaisseModal';
-import UnitSelectionModal from './UnitSelectionModal';
 import { produitsService, ConditionnementItem } from '@/services/produits.service';
 import { ventesService, ModeleKit } from '@/services/ventes.service';
 import { caissesService } from '@/services/caisses.service';
+import { unitesService, UniteItem } from '@/services/unites.service';
 import { useAppConfig } from '@/contexts/ConfigContext';
 import { useSocket } from '@/contexts/SocketContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -50,6 +50,8 @@ interface CartItem extends Product {
   nomKit?: string;
   idKitGroupe?: string;
   prixForfaitaireKit?: number;
+  selectedUnitId?: number | null;
+  selectedUnitMultiple?: number;
 }
 
 const categories = ['Tous', 'Kits & Bundles', 'Livres', 'Fournitures', 'Informatique', 'Bureautique'];
@@ -64,6 +66,7 @@ export default function POSTerminal() {
   const hasCloturerPerm = user?.role === 'ADMIN' || user?.permissions?.includes('CLOTURER_CAISSE');
 
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [allUnites, setAllUnites] = useState<UniteItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Tous');
   const [typesVente, setTypesVente] = useState<{ id: string; libelle: string }[]>([]);
@@ -73,7 +76,6 @@ export default function POSTerminal() {
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [kitModalOpen, setKitModalOpen] = useState(false);
   const [rapportModalOpen, setRapportModalOpen] = useState(false);
-  const [unitModalProduct, setUnitModalProduct] = useState<Product | null>(null);
   const [savedKits, setSavedKits] = useState<ModeleKit[]>([]);
   const [loadingKits, setLoadingKits] = useState(false);
   const [lastSaleData, setLastSaleData] = useState<{
@@ -151,6 +153,13 @@ export default function POSTerminal() {
     } catch (err) {}
   }, []);
 
+  const loadUnites = useCallback(async () => {
+    try {
+      const res = await unitesService.getUnites();
+      setAllUnites(res || []);
+    } catch (err) {}
+  }, []);
+
   const handleClotureSuccess = () => {
     setRapportModalOpen(false);
     setSessionStatus('closed');
@@ -195,7 +204,8 @@ export default function POSTerminal() {
     loadSession();
     loadSavedKits();
     loadTypesVente();
-  }, [loadProducts, loadSession, loadSavedKits, loadTypesVente]);
+    loadUnites();
+  }, [loadProducts, loadSession, loadSavedKits, loadTypesVente, loadUnites]);
 
   // Mise à jour du stock en temps réel via WebSocket
   useEffect(() => {
@@ -237,7 +247,6 @@ export default function POSTerminal() {
       let foundCondProduct: Product | undefined;
       let foundCond: ConditionnementItem | undefined;
 
-      // 1. Check Conditionnements barcodes
       for (const p of allProducts) {
         const cond = p.conditionnements?.find(c => c.codeBarre && c.codeBarre.toLowerCase() === lowerQuery);
         if (cond) {
@@ -248,19 +257,15 @@ export default function POSTerminal() {
       }
 
       if (foundCondProduct && foundCond) {
-        doAddToCart(foundCondProduct, foundCond);
+        const matchingUnite = allUnites.find((u) => u.id_unite === Number(foundCond?.uniteId));
+        doAddToCart(foundCondProduct, matchingUnite || null);
         setSearchQuery('');
         return;
       }
 
-      // 2. Check Product barcodes/reference
       const foundProduct = allProducts.find(p => p.reference.toLowerCase() === lowerQuery);
       if (foundProduct) {
-        if (foundProduct.conditionnements && foundProduct.conditionnements.length > 0) {
-          setUnitModalProduct(foundProduct);
-        } else {
-          doAddToCart(foundProduct, null);
-        }
+        doAddToCart(foundProduct, null);
         setSearchQuery('');
       } else {
         toast.error('Aucun produit trouvé pour ce code.');
@@ -268,55 +273,47 @@ export default function POSTerminal() {
     }
   };
 
-  const addToCart = (product: Product) => {
-    if (product.conditionnements && product.conditionnements.length > 0) {
-      setUnitModalProduct(product);
-    } else {
-      doAddToCart(product, null);
-    }
-  };
-
-  const doAddToCart = (product: Product, conditionnement: ConditionnementItem | null) => {
+  const doAddToCart = (product: Product, unite: UniteItem | null, qty: number = 1) => {
     if (product.stock === 0) {
       toast.error(`"${product.name}" est en rupture de stock.`);
       return;
     }
 
-    let finalPrice = product.prixVente;
-    let qtyToAdd = 1;
+    let qtyToAdd = qty;
+    let selectedUnitId = unite?.id_unite || null;
+    let selectedUnitMultiple = unite?.multiple || 1;
     let displayName = product.name;
-    let cartItemId = `item-${product.id}`;
+    let cartItemId = `item-${product.id}-${selectedUnitId || 'base'}`;
 
-    if (conditionnement) {
-      qtyToAdd = conditionnement.quantiteUnitaire;
-      displayName = `${product.name} (${conditionnement.nom})`;
-      cartItemId = `item-${product.id}-cond-${conditionnement.id || conditionnement.nom}`;
-      
-      if (conditionnement.prixVente && conditionnement.prixVente > 0) {
-        finalPrice = conditionnement.prixVente / qtyToAdd;
-      } else {
-        if (selectedTypeVente) {
-          const tarif = product.tarifs?.find((t) => t.typeVenteId === selectedTypeVente);
-          if (tarif) finalPrice = tarif.prix;
-        }
-      }
-    } else {
-      if (selectedTypeVente) {
-        const tarif = product.tarifs?.find((t) => t.typeVenteId === selectedTypeVente);
-        if (tarif) finalPrice = tarif.prix;
+    // Calcul du prix
+    let basePrice = product.prixVente;
+    if (selectedTypeVente) {
+      const tarif = product.tarifs?.find((t) => t.typeVenteId === selectedTypeVente);
+      if (tarif) basePrice = tarif.prix;
+    }
+
+    let finalPrice = basePrice * selectedUnitMultiple;
+
+    // Vérifier si un conditionnement spécifique existe pour cette unité (prix forfaitaire)
+    if (selectedUnitId) {
+      const specificCond = product.conditionnements?.find((c) => Number(c.uniteId) === selectedUnitId);
+      if (specificCond && specificCond.prixVente && specificCond.prixVente > 0) {
+        finalPrice = specificCond.prixVente;
       }
     }
 
-    if (qtyToAdd > product.stock) {
-      toast.error(`Stock insuffisant pour ce conditionnement. Disponible: ${product.stock}, Requis: ${qtyToAdd}`);
+    if (selectedUnitMultiple * qtyToAdd > product.stock) {
+      toast.error(`Stock insuffisant pour cette unité. Disponible: ${product.stock}`);
       return;
     }
 
     setCart((prev) => {
+      // Remove old item if it's an update scenario where we change unit and it merges with an existing one?
+      // Actually doAddToCart doesn't remove, it just adds or increments.
       const existing = prev.find((i) => i.cartItemId === cartItemId && i.prixVente === finalPrice);
       if (existing) {
-        if (existing.qty + qtyToAdd > product.stock) {
-          toast.warning(`Stock insuffisant — seulement ${product.stock} disponible(s).`);
+        if ((existing.qty + qtyToAdd) * selectedUnitMultiple > product.stock) {
+          toast.warning(`Stock insuffisant.`);
           return prev;
         }
         return prev.map((i) =>
@@ -331,10 +328,27 @@ export default function POSTerminal() {
           name: displayName,
           qty: qtyToAdd,
           prixVente: finalPrice,
+          selectedUnitId,
+          selectedUnitMultiple,
         },
       ];
     });
-    setUnitModalProduct(null);
+  };
+
+  const updateCartItemUnit = (cartItemId: string, uniteId: number | null) => {
+    const item = cart.find(i => i.cartItemId === cartItemId);
+    if (!item) return;
+
+    const originalProduct = allProducts.find(p => p.id === item.id);
+    if (!originalProduct) return;
+
+    const unit = uniteId ? allUnites.find(u => u.id_unite === uniteId) : null;
+
+    // Remove the old item and add the new one
+    setCart(prev => prev.filter(i => i.cartItemId !== cartItemId));
+    setTimeout(() => {
+      doAddToCart(originalProduct, unit || null, item.qty);
+    }, 0);
   };
 
   /**
@@ -482,13 +496,17 @@ export default function POSTerminal() {
         sessionId: activeSessionId,
         lignes: cart.map((item) => {
           const tva = item.tva ?? tauxTva;
+          const multiple = item.selectedUnitMultiple || 1;
+          const trueQty = item.qty * multiple;
+          const trueUnitPrice = item.prixVente / multiple;
+
           return {
             produitId: item.id,
-            quantite: item.qty,
+            quantite: trueQty,
             prixAchatUnitaireSnapshot: item.prixAchat,
-            prixVenteUnitaireHtSnapshot: item.prixVente,
+            prixVenteUnitaireHtSnapshot: trueUnitPrice,
             tauxTvaSnapshot: tva,
-            margeUnitaire: item.prixVente - item.prixAchat,
+            margeUnitaire: trueUnitPrice - item.prixAchat,
             totalLigneHt: item.prixVente * item.qty,
             nomKit: item.nomKit,
             idKitGroupe: item.idKitGroupe,
@@ -1000,25 +1018,39 @@ export default function POSTerminal() {
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex items-center gap-1.5">
                           {!item.nomKit ? (
-                            <>
-                              <button
-                                onClick={() => updateQty(item.cartItemId, -1)}
-                                className="w-6 h-6 rounded-md bg-muted hover:bg-border flex items-center justify-center transition-colors"
-                                aria-label="Diminuer quantité"
+                            <div className="flex flex-col gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => updateQty(item.cartItemId, -1)}
+                                  className="w-6 h-6 rounded-md bg-muted hover:bg-border flex items-center justify-center transition-colors text-red-500 font-bold"
+                                  aria-label="Diminuer quantité"
+                                >
+                                  <Minus size={11} />
+                                </button>
+                                <span className="text-xs font-bold tabular-nums w-6 text-center">
+                                  {item.qty}
+                                </span>
+                                <button
+                                  onClick={() => updateQty(item.cartItemId, 1)}
+                                  className="w-6 h-6 rounded-md bg-muted hover:bg-border flex items-center justify-center transition-colors text-green-600 font-bold"
+                                  aria-label="Augmenter quantité"
+                                >
+                                  <Plus size={11} />
+                                </button>
+                              </div>
+                              <select
+                                value={item.selectedUnitId || ''}
+                                onChange={(e) => updateCartItemUnit(item.cartItemId, e.target.value ? Number(e.target.value) : null)}
+                                className="text-[11px] py-1 px-2 pr-6 bg-muted/50 border border-border rounded-md text-foreground max-w-[120px]"
                               >
-                                <Minus size={11} />
-                              </button>
-                              <span className="text-xs font-bold tabular-nums w-6 text-center">
-                                {item.qty}
-                              </span>
-                              <button
-                                onClick={() => updateQty(item.cartItemId, 1)}
-                                className="w-6 h-6 rounded-md bg-muted hover:bg-border flex items-center justify-center transition-colors"
-                                aria-label="Augmenter quantité"
-                              >
-                                <Plus size={11} />
-                              </button>
-                            </>
+                                <option value="">Pièce (1)</option>
+                                {allUnites.map((u) => (
+                                  <option key={u.id_unite} value={u.id_unite}>
+                                    {u.nom}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           ) : (
                             <span className="text-xs font-bold text-muted-foreground tabular-nums">
                               Qté: {item.qty}
@@ -1166,15 +1198,6 @@ export default function POSTerminal() {
           onCloturer={handleClotureSuccess}
         />
       )}
-      <UnitSelectionModal
-        open={!!unitModalProduct}
-        onClose={() => setUnitModalProduct(null)}
-        product={unitModalProduct}
-        devise={devise}
-        onSelectUnit={(cond) => {
-          if (unitModalProduct) doAddToCart(unitModalProduct, cond);
-        }}
-      />
     </div>
   );
 }

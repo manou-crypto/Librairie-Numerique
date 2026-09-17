@@ -5,6 +5,7 @@ export interface UniteItem {
   nom: string;
   description?: string;
   multiple: number;
+  id_unite_base?: number | null;
 }
 
 export const unitesService = {
