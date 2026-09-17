@@ -69,7 +69,7 @@ export default function TarificationTab({ products, onUpdate }: TarificationTabP
           prix: productEdits[tv.id]
         }));
 
-        return produitsService.updateProduct(p.id, {
+        return produitsService.update(p.id, {
           ...p,
           tarifs: updatedTarifs
         });
