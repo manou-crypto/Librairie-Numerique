@@ -320,6 +320,9 @@ model Achat {
   montant_total_ht           Decimal     @default(0.00) @db.Decimal(10, 2)
   montant_total_ttc          Decimal     @default(0.00) @db.Decimal(10, 2)
   statut_achat               StatutAchat @default(EN_ATTENTE)
+  
+  created_at                 DateTime    @default(now())
+  updated_at                 DateTime    @updatedAt
 
   fournisseur      Fournisseur      @relation(fields: [id_fournisseur], references: [id_fournisseur])
   utilisateur      Utilisateur      @relation(fields: [id_utilisateur], references: [id_utilisateur])

@@ -30,12 +30,14 @@ export interface AchatItem {
   fournisseurId: string;
   fournisseurNom: string;
   utilisateurId: number;
+  utilisateurNom?: string;
   dateAchat: string;
   datePrevueReception?: string;
   dateReception?: string;
   montantTotalHt: number;
   montantTotalTtc: number;
   statutAchat: 'EN_ATTENTE' | 'RECU' | 'ANNULE';
+  createdAt?: string;
   lignes?: LigneAchatItem[];
 }
 
@@ -63,6 +65,37 @@ export const achatsService = {
     });
     if (!response.ok) throw new Error("Échec de la création du bon d'achat");
     return response.json();
+  },
+
+  async createRetroactif(payload: { fournisseurId: string; dateAchat: string; lignes: LigneAchatPayload[] }): Promise<AchatItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/achats/retroactif`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Échec de la création de l'achat rétroactif");
+    return data;
+  },
+
+  async update(id: string, payload: any): Promise<AchatItem> {
+    const response = await fetch(`${API_BASE_URL}/v1/achats/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Échec de la modification de l'achat");
+    return data;
+  },
+
+  async remove(id: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/v1/achats/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Échec de la suppression de l'achat");
   },
 
   /**

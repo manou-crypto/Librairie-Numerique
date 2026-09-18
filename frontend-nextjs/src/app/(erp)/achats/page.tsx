@@ -21,6 +21,7 @@ import { fournisseursService, Fournisseur } from '@/services/fournisseurs.servic
 import { produitsService, Produit } from '@/services/produits.service';
 import { useAppConfig } from '@/contexts/ConfigContext';
 import { toast } from 'sonner';
+import { authService } from '@/services/auth.service';
 
 const STATUT_CONFIG: Record<string, { label: string; className: string }> = {
   EN_ATTENTE: { label: 'En attente', className: 'badge-draft' },
@@ -48,6 +49,8 @@ export default function AchatsPage() {
   const { config } = useAppConfig();
   const devise = config?.devise || 'FCFA';
   const tauxTva = config?.tva ? Number(config.tva) / 100 : 0;
+  
+  const currentUser = authService.getUser();
 
   const [search, setSearch] = useState('');
   const [filterStatut, setFilterStatut] = useState('all');
@@ -62,7 +65,9 @@ export default function AchatsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [formFournisseur, setFormFournisseur] = useState('');
+  const [isRetroactif, setIsRetroactif] = useState(false);
   const [formDatePrevueReception, setFormDatePrevueReception] = useState('');
+  const [formDateAchat, setFormDateAchat] = useState('');
   const [lignesForm, setLignesForm] = useState<LigneForm[]>([]);
   const [selectedProduit, setSelectedProduit] = useState('');
 
@@ -145,31 +150,51 @@ export default function AchatsPage() {
 
   const handleCreate = async () => {
     if (!formFournisseur) return toast.error('Sélectionnez un fournisseur');
-    if (!formDatePrevueReception) return toast.error('Sélectionnez une date de réception prévue');
-    
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (new Date(formDatePrevueReception) < today) {
-      return toast.error('La date prévue ne peut pas être dans le passé');
+    if (lignesForm.length === 0) return toast.error('Ajoutez au moins un produit');
+
+    if (isRetroactif) {
+      if (!formDateAchat) return toast.error('Sélectionnez la date d\'achat');
+      const today = new Date();
+      if (new Date(formDateAchat) > today) {
+        return toast.error('La date rétroactive ne peut pas être dans le futur');
+      }
+    } else {
+      if (!formDatePrevueReception) return toast.error('Sélectionnez une date de réception prévue');
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (new Date(formDatePrevueReception) < today) {
+        return toast.error('La date prévue ne peut pas être dans le passé');
+      }
     }
 
-    if (lignesForm.length === 0) return toast.error('Ajoutez au moins un produit');
     setCreating(true);
     try {
-      await achatsService.create({
-        fournisseurId: formFournisseur,
-        datePrevueReception: formDatePrevueReception,
-        lignes: lignesForm.map((l) => ({
-          produitId: l.produitId,
-          quantiteCommandee: l.quantiteCommandee,
-          prixAchatUnitaireHt: l.prixAchatUnitaireHt,
-        })),
-      });
-      toast.success("Bon d'achat créé !");
+      const payloadLignes = lignesForm.map((l) => ({
+        produitId: l.produitId,
+        quantiteCommandee: l.quantiteCommandee,
+        prixAchatUnitaireHt: l.prixAchatUnitaireHt,
+      }));
+
+      if (isRetroactif) {
+        await achatsService.createRetroactif({
+          fournisseurId: formFournisseur,
+          dateAchat: formDateAchat,
+          lignes: payloadLignes,
+        });
+        toast.success("Achat rétroactif enregistré et stock mis à jour !");
+      } else {
+        await achatsService.create({
+          fournisseurId: formFournisseur,
+          datePrevueReception: formDatePrevueReception,
+          lignes: payloadLignes,
+        });
+        toast.success("Bon d'achat créé !");
+      }
+      
       setShowCreate(false);
       loadAchats();
-    } catch {
-      toast.error('Erreur lors de la création');
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur lors de la création');
     } finally {
       setCreating(false);
     }
@@ -220,8 +245,8 @@ export default function AchatsPage() {
 
   const handleValiderReception = async () => {
     if (lignesReception.length === 0) return;
-    const hasZeroQte = lignesReception.some((l) => l.quantiteRecue <= 0);
-    if (hasZeroQte) return toast.error('Toutes les quantités reçues doivent être supérieures à 0');
+    const hasNegativeQte = lignesReception.some((l) => l.quantiteRecue < 0);
+    if (hasNegativeQte) return toast.error('Les quantités reçues ne peuvent pas être négatives');
     if (!confirm('Confirmer la réception ? Les stocks seront mis à jour et les totaux recalculés.'))
       return;
     setValidating(true);
@@ -254,8 +279,24 @@ export default function AchatsPage() {
       toast.success("Bon d'achat annulé.");
       setShowDetail(false);
       loadAchats();
-    } catch {
-      toast.error("Erreur lors de l'annulation");
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de l'annulation");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedAchat) return;
+    if (!confirm("Supprimer ce bon d'achat ? S'il est réceptionné, les stocks seront décrémentés (action irréversible).")) return;
+    setCancelling(true);
+    try {
+      await achatsService.remove(selectedAchat.id);
+      toast.success("Bon d'achat supprimé avec succès.");
+      setShowDetail(false);
+      loadAchats();
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de la suppression");
     } finally {
       setCancelling(false);
     }
@@ -549,18 +590,44 @@ export default function AchatsPage() {
                     ))}
                   </select>
                 </div>
-                <div className="col-span-2 sm:col-span-1">
-                  <label className="block text-xs font-semibold text-foreground mb-1.5">
-                    Date prévue de réception *
+                <div className="col-span-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isRetroactif}
+                      onChange={(e) => setIsRetroactif(e.target.checked)}
+                      className="rounded border-border text-primary focus:ring-primary"
+                    />
+                    Saisir un achat ultérieur (déjà reçu)
                   </label>
-                  <input
-                    type="date"
-                    min={new Date().toISOString().split('T')[0]}
-                    value={formDatePrevueReception}
-                    onChange={(e) => setFormDatePrevueReception(e.target.value)}
-                    className="input-field text-sm w-full"
-                  />
                 </div>
+                {isRetroactif ? (
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-xs font-semibold text-foreground mb-1.5">
+                      Date réelle de l'achat/réception *
+                    </label>
+                    <input
+                      type="date"
+                      max={new Date().toISOString().split('T')[0]}
+                      value={formDateAchat}
+                      onChange={(e) => setFormDateAchat(e.target.value)}
+                      className="input-field text-sm w-full"
+                    />
+                  </div>
+                ) : (
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-xs font-semibold text-foreground mb-1.5">
+                      Date prévue de réception *
+                    </label>
+                    <input
+                      type="date"
+                      min={new Date().toISOString().split('T')[0]}
+                      value={formDatePrevueReception}
+                      onChange={(e) => setFormDatePrevueReception(e.target.value)}
+                      className="input-field text-sm w-full"
+                    />
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">
@@ -682,12 +749,23 @@ export default function AchatsPage() {
           <div className="bg-card rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col fade-in">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <div>
-                <h3 className="text-base font-bold text-foreground">
-                  Bon d&apos;achat — {selectedAchat.numeroFactureFournisseur}
-                </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {selectedAchat.fournisseurNom} ·{' '}
-                  {new Date(selectedAchat.dateAchat).toLocaleDateString('fr-FR')}
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-foreground">
+                    Bon d&apos;achat — {selectedAchat.numeroFactureFournisseur}
+                  </h3>
+                  {selectedAchat.createdAt && new Date(selectedAchat.dateAchat).toDateString() !== new Date(selectedAchat.createdAt).toDateString() && (
+                    <span className="badge-purple text-[10px]">Rétroactif</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Fournisseur : <span className="font-semibold text-foreground">{selectedAchat.fournisseurNom}</span>
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Saisi le {selectedAchat.createdAt ? new Date(selectedAchat.createdAt).toLocaleString('fr-FR') : 'N/A'} par <span className="font-medium text-foreground">{selectedAchat.utilisateurNom || 'Inconnu'}</span>
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Date de l'achat : {new Date(selectedAchat.dateAchat).toLocaleDateString('fr-FR')}
+                  {selectedAchat.dateReception && ` • Réceptionné le ${new Date(selectedAchat.dateReception).toLocaleDateString('fr-FR')}`}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -739,18 +817,30 @@ export default function AchatsPage() {
                       <tbody>
                         {lignesReception.map((l, idx) => {
                           const ecart = l.quantiteRecue - l.quantiteCommandee;
+                          const isNonRecu = l.quantiteRecue === 0;
                           return (
-                            <tr key={idx} className="border-b border-border last:border-0">
+                            <tr key={idx} className={`border-b border-border last:border-0 ${isNonRecu ? 'opacity-60 bg-muted/30' : ''}`}>
                               <td className="px-4 py-3 font-medium text-foreground">
                                 {l.produitLibelle}
+                                {isNonRecu && <span className="ml-2 badge-rupture text-[10px]">Non reçu</span>}
                               </td>
                               <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
                                 {l.quantiteCommandee}
                               </td>
-                              <td className="px-4 py-3 text-right">
+                              <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
+                                {!isNonRecu && (
+                                  <button
+                                    type="button"
+                                    title="Marquer comme non reçu"
+                                    onClick={() => updateLigneReception(idx, 'quantiteRecue', '0')}
+                                    className="text-xs text-negative hover:underline"
+                                  >
+                                    ❌
+                                  </button>
+                                )}
                                 <input
                                   type="number"
-                                  min="1"
+                                  min="0"
                                   value={l.quantiteRecue}
                                   onChange={(e) =>
                                     updateLigneReception(idx, 'quantiteRecue', e.target.value)
@@ -768,6 +858,7 @@ export default function AchatsPage() {
                                     updateLigneReception(idx, 'prixAchatUnitaireHt', e.target.value)
                                   }
                                   className="input-field w-28 text-right py-1 text-sm"
+                                  disabled={isNonRecu}
                                 />
                               </td>
                               <td className="px-4 py-3 text-right tabular-nums font-medium text-foreground">
@@ -904,26 +995,42 @@ export default function AchatsPage() {
             </div>
             <div className="flex items-center justify-between px-6 py-4 border-t border-border">
               <div>
-                {selectedAchat.statutAchat === 'EN_ATTENTE' && (
-                  <button
-                    onClick={handleAnnuler}
-                    disabled={cancelling}
-                    className="text-sm py-2 px-3 rounded-lg border border-negative/30 text-negative hover:bg-negative/10 transition-colors flex items-center gap-2"
-                  >
-                    {cancelling ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Ban size={14} />
-                    )}{' '}
-                    Annuler le bon
-                  </button>
+                {(currentUser?.role === 'ADMIN' || selectedAchat.utilisateurId === currentUser?.id) && (
+                  <div className="flex gap-2">
+                    {selectedAchat.statutAchat === 'EN_ATTENTE' && (
+                      <button
+                        onClick={handleAnnuler}
+                        disabled={cancelling}
+                        className="text-sm py-2 px-3 rounded-lg border border-warning/30 text-warning hover:bg-warning/10 transition-colors flex items-center gap-2"
+                      >
+                        {cancelling ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Ban size={14} />
+                        )}{' '}
+                        Annuler le bon
+                      </button>
+                    )}
+                    <button
+                      onClick={handleDelete}
+                      disabled={cancelling}
+                      className="text-sm py-2 px-3 rounded-lg border border-negative/30 text-negative hover:bg-negative/10 transition-colors flex items-center gap-2"
+                    >
+                      {cancelling ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={14} />
+                      )}{' '}
+                      Supprimer
+                    </button>
+                  </div>
                 )}
               </div>
               <div className="flex items-center gap-3">
                 <button onClick={() => setShowDetail(false)} className="btn-secondary text-sm py-2">
                   Fermer
                 </button>
-                {selectedAchat.statutAchat === 'EN_ATTENTE' && (
+                {(currentUser?.role === 'ADMIN' || selectedAchat.utilisateurId === currentUser?.id) && selectedAchat.statutAchat === 'EN_ATTENTE' && (
                   <button
                     onClick={handleValiderReception}
                     disabled={validating}

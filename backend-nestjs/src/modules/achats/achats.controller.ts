@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Put, Delete, Body, Param, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { AchatsService } from './achats.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -31,18 +31,36 @@ export class AchatsController {
   @Post()
   @Roles('ADMIN', 'ACHETEUR_STOCK')
   async create(@CurrentUser() user: any, @Body() data: any) {
-    return this.achatsService.create(user.id, data);
+    return this.achatsService.create(user, data);
+  }
+
+  @Post('retroactif')
+  @Roles('ADMIN', 'ACHETEUR_STOCK')
+  async createRetroactif(@CurrentUser() user: any, @Body() data: any) {
+    return this.achatsService.createRetroactif(user, data);
   }
 
   @Post(':id/reception')
   @Roles('ADMIN', 'ACHETEUR_STOCK')
   async validerReception(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any, @Body() data: any) {
-    return this.achatsService.validerReception(id, user.id, data);
+    return this.achatsService.validerReception(id, user, data);
   }
 
   @Patch(':id/annuler')
   @Roles('ADMIN', 'ACHETEUR_STOCK')
-  async annuler(@Param('id', ParseIntPipe) id: number) {
-    return this.achatsService.annuler(id);
+  async annuler(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
+    return this.achatsService.annuler(id, user);
+  }
+
+  @Put(':id')
+  @Roles('ADMIN', 'ACHETEUR_STOCK')
+  async update(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any, @Body() data: any) {
+    return this.achatsService.update(id, user, data);
+  }
+
+  @Delete(':id')
+  @Roles('ADMIN', 'ACHETEUR_STOCK')
+  async remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
+    return this.achatsService.remove(id, user);
   }
 }
