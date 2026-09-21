@@ -8,6 +8,7 @@ import CategoryTreeSidebar, {
 import ProductTable from './ProductTable';
 import ProductFiltersBar from './ProductFiltersBar';
 import AddEditProductModal from './AddEditProductModal';
+import ProductDetailModal from './ProductDetailModal';
 import TarificationProductModal from './TarificationProductModal';
 import AddCategoryModal from './AddCategoryModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
@@ -82,6 +83,7 @@ export default function ProductManagementClient() {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [tarificationTarget, setTarificationTarget] = useState<Product | null>(null);
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
@@ -412,6 +414,7 @@ export default function ProductManagementClient() {
                 sortField={sortField}
                 sortDir={sortDir}
                 onSort={handleSort}
+                onViewDetails={(p) => setViewingProduct(p)}
                 onEdit={(p) => setEditingProduct(p)}
                 onDelete={(p) => setDeleteTarget(p)}
                 onTarification={(p) => setTarificationTarget(p)}
@@ -448,6 +451,12 @@ export default function ProductManagementClient() {
         onSave={handleSaveProduct}
         onCategoryAdded={mutateCategories}
       />
+      {viewingProduct && (
+        <ProductDetailModal
+          product={viewingProduct}
+          onClose={() => setViewingProduct(null)}
+        />
+      )}
       {tarificationTarget && (
         <TarificationProductModal
           open={!!tarificationTarget}

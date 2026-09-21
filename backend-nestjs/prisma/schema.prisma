@@ -37,6 +37,8 @@ enum TypeMouvementStock {
   ENTREE_ACHAT
   SORTIE_VENTE
   AJUSTEMENT_INVENTAIRE
+  TRANSFERT_ETAL
+  RETOUR_RESERVE
 }
 
 enum StatutInventaire {
@@ -320,6 +322,8 @@ model Achat {
   montant_total_ht           Decimal     @default(0.00) @db.Decimal(10, 2)
   montant_total_ttc          Decimal     @default(0.00) @db.Decimal(10, 2)
   statut_achat               StatutAchat @default(EN_ATTENTE)
+  montant_paye               Decimal     @default(0.00) @db.Decimal(10, 2)
+  mode_paiement              ModePaiement?
   
   created_at                 DateTime    @default(now())
   updated_at                 DateTime    @updatedAt
@@ -354,6 +358,7 @@ model Stock {
   id_stock             Int       @id @default(autoincrement())
   id_produit           Int       @unique
   quantite_en_stock    Int       @default(0)
+  quantite_etal        Int       @default(0)
   seuil_alerte         Int       @default(5)
   date_derniere_entree DateTime?
   date_derniere_sortie DateTime?

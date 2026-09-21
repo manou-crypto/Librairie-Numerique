@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Banknote, FileText, CheckCircle, Loader2 } from 'lucide-react';
+import { CreditCard, Banknote, Smartphone, CheckCircle, Loader2 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 
 interface PaymentModalProps {
@@ -13,7 +13,7 @@ interface PaymentModalProps {
   onSuccess: (mode: string, montantRecu: number) => void;
 }
 
-type PaymentMode = 'especes' | 'carte' | 'cheque';
+type PaymentMode = 'especes' | 'wave';
 
 export default function PaymentModal({
   open,
@@ -54,8 +54,7 @@ export default function PaymentModal({
 
   const modes: Array<{ id: PaymentMode; label: string; icon: React.ElementType }> = [
     { id: 'especes', label: 'Espèces', icon: Banknote },
-    { id: 'carte', label: 'Carte bancaire', icon: CreditCard },
-    { id: 'cheque', label: 'Chèque', icon: FileText },
+    { id: 'wave', label: 'Wave', icon: Smartphone },
   ];
 
   return (
@@ -147,24 +146,14 @@ export default function PaymentModal({
           </div>
         )}
 
-        {/* Instructions carte */}
-        {mode === 'carte' && (
+        {/* Instructions Wave */}
+        {mode === 'wave' && (
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center fade-in">
-            <CreditCard size={24} className="text-blue-600 mx-auto mb-2" />
+            <Smartphone size={24} className="text-blue-600 mx-auto mb-2" />
             <p className="text-sm font-semibold text-blue-800">
-              Présentez la carte sur le terminal
+              Paiement via Wave
             </p>
-            <p className="text-xs text-blue-600 mt-1">Confirmez après validation du terminal</p>
-          </div>
-        )}
-
-        {/* Référence chèque */}
-        {mode === 'cheque' && (
-          <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 fade-in">
-            <label className="block text-xs font-semibold text-purple-800 mb-1.5">
-              N° de chèque
-            </label>
-            <input type="text" placeholder="Ex: 0012345678" className="input-field text-sm" />
+            <p className="text-xs text-blue-600 mt-1">Veuillez valider la transaction sur le téléphone du client</p>
           </div>
         )}
 

@@ -327,9 +327,13 @@ export default function FournisseursPage() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Building2 size={18} className="text-primary" />
+                  {selected.typeFournisseur === 'INDIVIDUEL' ? <User size={18} className="text-primary" /> : <Building2 size={18} className="text-primary" />}
                 </div>
-                <h3 className="text-base font-bold text-foreground">{selected.nomEntreprise}</h3>
+                <h3 className="text-base font-bold text-foreground">
+                  {selected.typeFournisseur === 'INDIVIDUEL' && selected.prenom 
+                    ? `${selected.prenom} ${selected.nomEntreprise}` 
+                    : selected.nomEntreprise}
+                </h3>
               </div>
               <button
                 onClick={() => setSelected(null)}
@@ -340,7 +344,8 @@ export default function FournisseursPage() {
             </div>
             <div className="px-6 py-5 grid grid-cols-2 gap-4">
               {[
-                ['Contact', selected.contactNom],
+                ['Type', selected.typeFournisseur === 'INDIVIDUEL' ? 'Individuel' : 'Société'],
+                ['Contact', selected.typeFournisseur === 'INDIVIDUEL' ? '—' : selected.contactNom],
                 ['N° Contribuable', selected.numeroContribuable],
                 ['Téléphone', selected.telephone],
                 ['Email', selected.email],

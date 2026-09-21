@@ -5,14 +5,24 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class FinancesService {
   constructor(private prisma: PrismaService) {}
 
-  async getDashboardKpis() {
+  async getDashboardKpis(period?: 'jour' | 'mois' | 'annee') {
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const startDate = new Date(today);
+    
+    if (period === 'mois') {
+      startDate.setDate(1);
+      startDate.setHours(0, 0, 0, 0);
+    } else if (period === 'annee') {
+      startDate.setMonth(0, 1);
+      startDate.setHours(0, 0, 0, 0);
+    } else {
+      startDate.setHours(0, 0, 0, 0);
+    }
 
     const [ventesJour, rupturesCount, totalMonthSales] = await Promise.all([
       this.prisma.vente.findMany({
         where: {
-          date_vente: { gte: today },
+          date_vente: { gte: startDate },
           statut_vente: 'VALIDEE',
         },
       }),
@@ -49,13 +59,23 @@ export class FinancesService {
     };
   }
 
-  async getDashboardCharts() {
-    // 1. Categories Distribution (Current Month)
+  async getDashboardCharts(period?: 'jour' | 'mois' | 'annee') {
+    // 1. Categories Distribution
     const today = new Date();
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const startDate = new Date(today);
+    
+    if (period === 'mois' || !period) {
+      startDate.setDate(1);
+      startDate.setHours(0, 0, 0, 0);
+    } else if (period === 'annee') {
+      startDate.setMonth(0, 1);
+      startDate.setHours(0, 0, 0, 0);
+    } else {
+      startDate.setHours(0, 0, 0, 0);
+    }
     
     const ventesMois = await this.prisma.vente.findMany({
-      where: { date_vente: { gte: firstDayOfMonth }, statut_vente: 'VALIDEE' },
+      where: { date_vente: { gte: startDate }, statut_vente: 'VALIDEE' },
       include: { lignes: { include: { produit: { include: { categories: { include: { categorie: true } } } } } } }
     });
 

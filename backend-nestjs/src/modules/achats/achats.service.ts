@@ -28,6 +28,8 @@ export class AchatsService {
       dateReception: a.date_reception ? a.date_reception.toISOString() : undefined,
       montantTotalHt: Number(a.montant_total_ht),
       montantTotalTtc: Number(a.montant_total_ttc),
+      montantPaye: Number(a.montant_paye),
+      modePaiement: a.mode_paiement,
       statutAchat: a.statut_achat,
       createdAt: a.created_at.toISOString(),
     }));
@@ -55,6 +57,8 @@ export class AchatsService {
       dateReception: a.date_reception ? a.date_reception.toISOString() : undefined,
       montantTotalHt: Number(a.montant_total_ht),
       montantTotalTtc: Number(a.montant_total_ttc),
+      montantPaye: Number(a.montant_paye),
+      modePaiement: a.mode_paiement,
       statutAchat: a.statut_achat,
       createdAt: a.created_at.toISOString(),
       lignes: a.lignes.map((l) => ({
@@ -68,7 +72,7 @@ export class AchatsService {
     };
   }
 
-  async create(user: any, data: { fournisseurId: string; datePrevueReception?: string; lignes: { produitId: string; quantiteCommandee: number; prixAchatUnitaireHt: number }[] }) {
+  async create(user: any, data: { fournisseurId: string; datePrevueReception?: string; montantPaye?: number; modePaiement?: any; lignes: { produitId: string; quantiteCommandee: number; prixAchatUnitaireHt: number }[] }) {
     if (data.datePrevueReception) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -102,6 +106,8 @@ export class AchatsService {
         id_utilisateur: user.id,
         montant_total_ht: totalHt,
         montant_total_ttc: totalHt * (1 + tauxTva),
+        montant_paye: data.montantPaye || 0,
+        mode_paiement: data.modePaiement || null,
         statut_achat: 'EN_ATTENTE',
         date_prevue_reception: data.datePrevueReception ? new Date(data.datePrevueReception) : null,
         lignes: {
@@ -119,7 +125,7 @@ export class AchatsService {
     return { id: String(achat.id_achat) };
   }
 
-  async createRetroactif(user: any, data: { fournisseurId: string; dateAchat: string; lignes: { produitId: string; quantiteCommandee: number; prixAchatUnitaireHt: number }[] }) {
+  async createRetroactif(user: any, data: { fournisseurId: string; dateAchat: string; montantPaye?: number; modePaiement?: any; lignes: { produitId: string; quantiteCommandee: number; prixAchatUnitaireHt: number }[] }) {
     if (new Date(data.dateAchat) > new Date()) {
       throw new BadRequestException("Un achat rétroactif ne peut pas être dans le futur.");
     }
@@ -150,6 +156,8 @@ export class AchatsService {
           id_utilisateur: user.id,
           montant_total_ht: totalHt,
           montant_total_ttc: totalHt * (1 + tauxTva),
+          montant_paye: data.montantPaye || 0,
+          mode_paiement: data.modePaiement || null,
           statut_achat: 'RECU',
           date_achat: new Date(data.dateAchat),
           date_reception: new Date(data.dateAchat),
@@ -258,7 +266,19 @@ export class AchatsService {
     const achat = await this.prisma.achat.findUnique({ where: { id_achat: id }, include: { lignes: true } });
     if (!achat) throw new NotFoundException(`Achat #${id} introuvable`);
     
-    this.checkOwnership(achat, user);
+    // Vérification de la permission de suppression
+    if (user.role !== 'ADMIN') {
+      const userWithPerms = await this.prisma.utilisateur.findUnique({
+        where: { id_utilisateur: user.id },
+        include: { role: { include: { permissions: { include: { permission: true } } } } }
+      });
+      const hasPermission = userWithPerms?.role?.permissions?.some(p => p.permission.code_permission === 'SUPPRESSION_ACHAT');
+      
+      if (!hasPermission) {
+        throw new ForbiddenException("Vous n'avez pas la permission de supprimer des bons d'achat.");
+      }
+      this.checkOwnership(achat, user);
+    }
 
     if (achat.statut_achat === 'RECU') {
       await this.prisma.$transaction(async (tx) => {

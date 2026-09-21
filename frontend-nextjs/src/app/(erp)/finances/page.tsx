@@ -47,10 +47,11 @@ export default function FinancesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     Promise.all([
-      financesService.getDashboardKpis().catch(() => null),
+      financesService.getDashboardKpis(period).catch(() => null),
       financesService.getHistoriqueClotures().catch(() => []),
-      financesService.getDashboardCharts().catch(() => null),
+      financesService.getDashboardCharts(period).catch(() => null),
     ]).then(([kpiData, cloturesData, chartsData]) => {
       if (kpiData) setKpis(kpiData);
       setClotures(cloturesData as ClotureJournaliereItem[]);
@@ -60,7 +61,7 @@ export default function FinancesPage() {
       }
       setLoading(false);
     });
-  }, []);
+  }, [period]);
 
   const handleCloture = async () => {
     try {

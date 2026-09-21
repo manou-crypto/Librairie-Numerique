@@ -17,6 +17,10 @@ import {
   AlertTriangle,
   LogOut,
   BarChart3,
+  Smartphone,
+  Save,
+  Clock,
+  Archive,
 } from 'lucide-react';
 
 import Badge from '@/components/ui/Badge';
@@ -96,6 +100,17 @@ export default function POSTerminal() {
   const [openingSession, setOpeningSession] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // Brouillons
+  const [draftsModalOpen, setDraftsModalOpen] = useState(false);
+  const [drafts, setDrafts] = useState<{ id: string, name: string, date: string, cart: CartItem[] }[]>([]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('pos_cart_drafts');
+    if (saved) {
+      try { setDrafts(JSON.parse(saved)); } catch (e) {}
+    }
+  }, []);
 
   // Charger les produits depuis l'API
   const loadProducts = useCallback(async () => {
@@ -476,6 +491,39 @@ export default function POSTerminal() {
     toast.info('Panier vidé.');
   };
 
+  const saveDraft = () => {
+    if (cart.length === 0) {
+      toast.error('Panier vide');
+      return;
+    }
+    const name = prompt('Nom pour ce brouillon ? (ex: Client X)', `Brouillon du ${new Date().toLocaleTimeString()}`);
+    if (!name) return;
+    const newDrafts = [...drafts, { id: Date.now().toString(), name, date: new Date().toISOString(), cart }];
+    setDrafts(newDrafts);
+    localStorage.setItem('pos_cart_drafts', JSON.stringify(newDrafts));
+    setCart([]);
+    toast.success('Panier mis en brouillon');
+  };
+
+  const loadDraft = (id: string) => {
+    const d = drafts.find(draft => draft.id === id);
+    if (d) {
+      if (cart.length > 0) {
+        if (!confirm('Le panier actuel sera remplacé. Continuer ?')) return;
+      }
+      setCart(d.cart);
+      deleteDraft(id);
+      setDraftsModalOpen(false);
+      toast.success('Brouillon récupéré');
+    }
+  };
+
+  const deleteDraft = (id: string) => {
+    const newDrafts = drafts.filter(draft => draft.id !== id);
+    setDrafts(newDrafts);
+    localStorage.setItem('pos_cart_drafts', JSON.stringify(newDrafts));
+  };
+
   // Calculs du panier avec TVA globale
   const sousTotalHt = cart.reduce((s, i) => s + i.prixVente * i.qty, 0);
   const totalTva = cart.reduce((s, i) => {
@@ -517,7 +565,7 @@ export default function POSTerminal() {
         paiements: [
           {
             modePaiement:
-              mode === 'especes' ? 'ESPECES' : mode === 'carte' ? 'CARTE_BANCAIRE' : 'CHEQUE',
+              mode === 'especes' ? 'ESPECES' : 'MOBILE_MONEY',
             montant: totalTtc,
             referenceTransaction: undefined,
           },
@@ -967,14 +1015,30 @@ export default function POSTerminal() {
               </span>
             )}
           </div>
-          {cart.length > 0 && (
+          <div className="flex items-center gap-3">
             <button
-              onClick={clearCart}
-              className="text-xs text-muted-foreground hover:text-negative flex items-center gap-1 transition-colors"
+              onClick={() => setDraftsModalOpen(true)}
+              className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors"
             >
-              <Trash2 size={13} /> Vider
+              <Archive size={13} /> Brouillons {drafts.length > 0 && `(${drafts.length})`}
             </button>
-          )}
+            {cart.length > 0 && (
+              <>
+                <button
+                  onClick={saveDraft}
+                  className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors"
+                >
+                  <Save size={13} /> Attente
+                </button>
+                <button
+                  onClick={clearCart}
+                  className="text-xs text-muted-foreground hover:text-negative flex items-center gap-1 transition-colors"
+                >
+                  <Trash2 size={13} /> Vider
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Lignes du panier */}
@@ -1125,11 +1189,10 @@ export default function POSTerminal() {
           </div>
 
           {/* Modes de paiement rapides */}
-          <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="grid grid-cols-2 gap-2 mb-3">
             {[
               { id: 'pay-especes', label: 'Espèces', icon: Banknote },
-              { id: 'pay-carte', label: 'Carte', icon: CreditCard },
-              { id: 'pay-cheque', label: 'Chèque', icon: FileText },
+              { id: 'pay-wave', label: 'Wave', icon: Smartphone },
             ].map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
@@ -1213,6 +1276,60 @@ export default function POSTerminal() {
           onCloturer={handleClotureSuccess}
           mode={rapportMode}
         />
+      )}
+      
+      {/* Modale Brouillons */}
+      {draftsModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-lg fade-in">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                <Archive size={18} /> Brouillons en attente
+              </h3>
+              <button
+                onClick={() => setDraftsModalOpen(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="px-6 py-4 max-h-[60vh] overflow-y-auto">
+              {drafts.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Archive size={32} className="mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Aucun panier en attente</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {drafts.map((d) => (
+                    <div key={d.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/20">
+                      <div>
+                        <p className="text-sm font-bold text-foreground">{d.name}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {d.cart.length} article(s) - {new Date(d.date).toLocaleString('fr-FR')}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => loadDraft(d.id)}
+                          className="btn-primary py-1 px-3 text-xs"
+                        >
+                          Reprendre
+                        </button>
+                        <button
+                          onClick={() => deleteDraft(d.id)}
+                          className="p-1.5 text-muted-foreground hover:text-negative transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

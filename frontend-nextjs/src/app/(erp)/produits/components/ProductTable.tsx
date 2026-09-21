@@ -25,6 +25,7 @@ interface ProductTableProps {
   sortField: SortField;
   sortDir: SortDir;
   onSort: (field: SortField) => void;
+  onViewDetails?: (p: Product) => void;
   onEdit: (p: Product) => void;
   onDelete: (p: Product) => void;
   onTarification: (p: Product) => void;
@@ -111,6 +112,7 @@ export default function ProductTable({
   sortField,
   sortDir,
   onSort,
+  onViewDetails,
   onEdit,
   onDelete,
   onTarification,
@@ -260,9 +262,18 @@ export default function ProductTable({
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <p className="text-xs font-bold text-foreground truncate max-w-[200px]">
-                            {product.name}
-                          </p>
+                          {onViewDetails ? (
+                            <button
+                              onClick={() => onViewDetails(product)}
+                              className="text-xs font-bold text-primary hover:underline text-left truncate max-w-[200px]"
+                            >
+                              {product.name}
+                            </button>
+                          ) : (
+                            <p className="text-xs font-bold text-foreground truncate max-w-[200px]">
+                              {product.name}
+                            </p>
+                          )}
                           {product.marque && (
                             <span className="text-[9px] font-medium bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20 shrink-0">
                               {product.marque}

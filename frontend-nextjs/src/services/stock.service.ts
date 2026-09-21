@@ -10,6 +10,7 @@ export interface StockItem {
   produitLibelle: string;
   categoryName: string;
   quantiteEnStock: number;
+  quantiteEtal?: number;
   seuilAlerte: number;
   dateDerniereEntree?: string;
   dateDerniereSortie?: string;
@@ -19,7 +20,7 @@ export interface StockItem {
 
 export interface MouvementStockPayload {
   produitId: string;
-  typeMouvement: 'ENTREE_ACHAT' | 'SORTIE_VENTE' | 'AJUSTEMENT_INVENTAIRE';
+  typeMouvement: 'ENTREE_ACHAT' | 'SORTIE_VENTE' | 'AJUSTEMENT_INVENTAIRE' | 'TRANSFERT_ETAL' | 'RETOUR_RESERVE';
   quantite: number;
   achatId?: string;
 }
@@ -64,6 +65,20 @@ export const stockService = {
       body: JSON.stringify(payload),
     });
     if (!response.ok) throw new Error('Échec du mouvement de stock');
+    return response.json();
+  },
+
+  /**
+   * Transférer en étal ou retourner en réserve
+   * POST /api/v1/stock/transfert-etal
+   */
+  async transfererEtal(payload: { produitId: string; typeMouvement: 'TRANSFERT_ETAL' | 'RETOUR_RESERVE'; quantite: number }): Promise<MouvementStockResponse> {
+    const response = await fetch(`${API_BASE_URL}/v1/stock/transfert-etal`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) throw new Error('Échec du transfert');
     return response.json();
   },
 

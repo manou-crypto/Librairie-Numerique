@@ -15,7 +15,9 @@ import {
   Download,
   Ban,
   AlertTriangle,
+  History,
 } from 'lucide-react';
+import Link from 'next/link';
 import { achatsService, AchatItem } from '@/services/achats.service';
 import { fournisseursService, Fournisseur } from '@/services/fournisseurs.service';
 import { produitsService, Produit } from '@/services/produits.service';
@@ -68,6 +70,8 @@ export default function AchatsPage() {
   const [isRetroactif, setIsRetroactif] = useState(false);
   const [formDatePrevueReception, setFormDatePrevueReception] = useState('');
   const [formDateAchat, setFormDateAchat] = useState('');
+  const [formMontantPaye, setFormMontantPaye] = useState('');
+  const [formModePaiement, setFormModePaiement] = useState('ESPECES');
   const [lignesForm, setLignesForm] = useState<LigneForm[]>([]);
   const [selectedProduit, setSelectedProduit] = useState('');
 
@@ -105,6 +109,8 @@ export default function AchatsPage() {
       setProduits(p);
       setFormFournisseur('');
       setFormDatePrevueReception('');
+      setFormMontantPaye('');
+      setFormModePaiement('ESPECES');
       setLignesForm([]);
       setSelectedProduit('');
       setShowCreate(true);
@@ -179,6 +185,8 @@ export default function AchatsPage() {
         await achatsService.createRetroactif({
           fournisseurId: formFournisseur,
           dateAchat: formDateAchat,
+          montantPaye: formMontantPaye ? Number(formMontantPaye) : 0,
+          modePaiement: formModePaiement || 'ESPECES',
           lignes: payloadLignes,
         });
         toast.success("Achat rétroactif enregistré et stock mis à jour !");
@@ -186,6 +194,8 @@ export default function AchatsPage() {
         await achatsService.create({
           fournisseurId: formFournisseur,
           datePrevueReception: formDatePrevueReception,
+          montantPaye: formMontantPaye ? Number(formMontantPaye) : 0,
+          modePaiement: formModePaiement || 'ESPECES',
           lignes: payloadLignes,
         });
         toast.success("Bon d'achat créé !");
@@ -302,37 +312,7 @@ export default function AchatsPage() {
     }
   };
 
-  // Export CSV
-  const exportCSV = () => {
-    if (filtered.length === 0) return toast.error('Aucune donnée à exporter');
-    const headers = [
-      'Référence',
-      'Fournisseur',
-      'Date commande',
-      'Date réception',
-      'Montant HT',
-      'Montant TTC',
-      'Statut',
-    ];
-    const rows = filtered.map((a) => [
-      a.numeroFactureFournisseur,
-      a.fournisseurNom,
-      new Date(a.dateAchat).toLocaleDateString('fr-FR'),
-      a.dateReception ? new Date(a.dateReception).toLocaleDateString('fr-FR') : '',
-      a.montantTotalHt.toFixed(2),
-      a.montantTotalTtc.toFixed(2),
-      STATUT_CONFIG[a.statutAchat]?.label || a.statutAchat,
-    ]);
-    const csvContent = [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `achats_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-    toast.success('Export CSV téléchargé !');
-  };
+  // Fonctionnalité d'export CSV déplacée vers la page liste des achats
 
   // Filtrage avec dates
   const filtered = achats.filter((a) => {
@@ -445,12 +425,12 @@ export default function AchatsPage() {
                 <option value="RECU">Reçu</option>
                 <option value="ANNULE">Annulé</option>
               </select>
-              <button
-                onClick={exportCSV}
-                className="btn-secondary flex items-center gap-1.5 text-sm py-2"
+              <Link
+                href="/achats/liste"
+                className="btn-secondary flex items-center gap-1.5 text-sm py-2 px-3 hover:bg-muted/80 transition-colors"
               >
-                <Download size={14} /> CSV
-              </button>
+                <History size={14} /> Liste Traçabilité
+              </Link>
               <button
                 onClick={openCreateModal}
                 className="btn-primary flex items-center gap-1.5 text-sm py-2"
@@ -561,7 +541,7 @@ export default function AchatsPage() {
       {/* MODALE CRÉATION */}
       {showCreate && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col fade-in">
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col fade-in">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <h3 className="text-base font-bold text-foreground">Nouveau bon d&apos;achat</h3>
               <button
@@ -585,7 +565,7 @@ export default function AchatsPage() {
                     <option value="">Sélectionner...</option>
                     {fournisseurs.map((f) => (
                       <option key={f.id} value={f.id}>
-                        {f.nomEntreprise}
+                        {f.typeFournisseur === 'INDIVIDUEL' ? `${f.prenom || ''} ${f.nomEntreprise || ''}`.trim() : f.nomEntreprise}
                       </option>
                     ))}
                   </select>
@@ -628,6 +608,36 @@ export default function AchatsPage() {
                     />
                   </div>
                 )}
+                
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">
+                    Montant déjà payé ({devise})
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={formMontantPaye}
+                    onChange={(e) => setFormMontantPaye(e.target.value)}
+                    className="input-field text-sm w-full"
+                  />
+                </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">
+                    Mode de paiement
+                  </label>
+                  <select
+                    value={formModePaiement}
+                    onChange={(e) => setFormModePaiement(e.target.value)}
+                    className="input-field text-sm w-full"
+                  >
+                    <option value="ESPECES">Espèces</option>
+                    <option value="CARTE_BANCAIRE">Carte Bancaire</option>
+                    <option value="CHEQUE">Chèque</option>
+                    <option value="VIREMENT">Virement</option>
+                    <option value="MOBILE_MONEY">Mobile Money</option>
+                  </select>
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">
@@ -746,7 +756,7 @@ export default function AchatsPage() {
       {/* MODALE DÉTAIL / RÉCEPTION INTERACTIVE */}
       {showDetail && selectedAchat && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-card rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col fade-in">
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-7xl max-h-[90vh] flex flex-col fade-in">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <div>
                 <div className="flex items-center gap-2">
@@ -828,14 +838,23 @@ export default function AchatsPage() {
                                 {l.quantiteCommandee}
                               </td>
                               <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
-                                {!isNonRecu && (
+                                {!isNonRecu ? (
                                   <button
                                     type="button"
                                     title="Marquer comme non reçu"
                                     onClick={() => updateLigneReception(idx, 'quantiteRecue', '0')}
-                                    className="text-xs text-negative hover:underline"
+                                    className="text-xs px-2 py-1 bg-negative/10 text-negative font-medium rounded hover:bg-negative/20 transition-colors"
                                   >
-                                    ❌
+                                    Non reçu
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    title="Annuler (Remettre la quantité commandée)"
+                                    onClick={() => updateLigneReception(idx, 'quantiteRecue', l.quantiteCommandee.toString())}
+                                    className="text-xs px-2 py-1 bg-primary/10 text-primary font-medium rounded hover:bg-primary/20 transition-colors"
+                                  >
+                                    Remettre
                                   </button>
                                 )}
                                 <input
@@ -1011,18 +1030,20 @@ export default function AchatsPage() {
                         Annuler le bon
                       </button>
                     )}
-                    <button
-                      onClick={handleDelete}
-                      disabled={cancelling}
-                      className="text-sm py-2 px-3 rounded-lg border border-negative/30 text-negative hover:bg-negative/10 transition-colors flex items-center gap-2"
-                    >
-                      {cancelling ? (
-                        <Loader2 size={14} className="animate-spin" />
-                      ) : (
-                        <Trash2 size={14} />
-                      )}{' '}
-                      Supprimer
-                    </button>
+                    {(currentUser?.role === 'ADMIN' || currentUser?.permissions?.includes('SUPPRESSION_ACHAT')) && (
+                      <button
+                        onClick={handleDelete}
+                        disabled={cancelling}
+                        className="text-sm py-2 px-3 rounded-lg border border-negative/30 text-negative hover:bg-negative/10 transition-colors flex items-center gap-2"
+                      >
+                        {cancelling ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={14} />
+                        )}{' '}
+                        Supprimer
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

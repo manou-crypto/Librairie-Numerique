@@ -12,6 +12,8 @@ export interface LigneAchatPayload {
 export interface AchatPayload {
   fournisseurId: string;
   datePrevueReception?: string;
+  montantPaye?: number;
+  modePaiement?: string;
   lignes: LigneAchatPayload[];
 }
 
@@ -36,6 +38,8 @@ export interface AchatItem {
   dateReception?: string;
   montantTotalHt: number;
   montantTotalTtc: number;
+  montantPaye?: number;
+  modePaiement?: string;
   statutAchat: 'EN_ATTENTE' | 'RECU' | 'ANNULE';
   createdAt?: string;
   lignes?: LigneAchatItem[];
@@ -67,7 +71,13 @@ export const achatsService = {
     return response.json();
   },
 
-  async createRetroactif(payload: { fournisseurId: string; dateAchat: string; lignes: LigneAchatPayload[] }): Promise<AchatItem> {
+  async createRetroactif(payload: {
+    fournisseurId: string;
+    dateAchat: string;
+    montantPaye?: number;
+    modePaiement?: string;
+    lignes: LigneAchatPayload[];
+  }): Promise<{ id: string }> {
     const response = await fetch(`${API_BASE_URL}/v1/achats/retroactif`, {
       method: 'POST',
       headers: getAuthHeaders(),

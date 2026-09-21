@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -27,6 +27,7 @@ export class StockService {
         produitLibelle: s.produit.libelle,
         categoryName: s.produit.categories[0]?.categorie?.nom || 'Général',
         quantiteEnStock: qte,
+        quantiteEtal: s.quantite_etal,
         seuilAlerte: seuil,
         dateDerniereEntree: s.date_derniere_entree ? s.date_derniere_entree.toISOString() : undefined,
         dateDerniereSortie: s.date_derniere_sortie ? s.date_derniere_sortie.toISOString() : undefined,
@@ -99,6 +100,63 @@ export class StockService {
       quantite: mouvement.quantite,
       dateMouvement: mouvement.date_mouvement.toISOString(),
       nouvelleQuantiteEnStock: updatedStock.quantite_en_stock,
+    };
+  }
+
+  async transfererEtal(userId: number, data: { produitId: string; typeMouvement: 'TRANSFERT_ETAL' | 'RETOUR_RESERVE'; quantite: number }) {
+    const produitIdNum = Number(data.produitId);
+    const stock = await this.prisma.stock.findUnique({
+      where: { id_produit: produitIdNum },
+    });
+
+    if (!stock) {
+      throw new NotFoundException(`Stock introuvable pour le produit #${data.produitId}`);
+    }
+
+    if (data.typeMouvement === 'TRANSFERT_ETAL' && stock.quantite_en_stock < data.quantite) {
+      throw new BadRequestException("Quantité en réserve insuffisante.");
+    }
+    if (data.typeMouvement === 'RETOUR_RESERVE' && stock.quantite_etal < data.quantite) {
+      throw new BadRequestException("Quantité en étal insuffisante.");
+    }
+
+    const nouvelleQteReserve =
+      data.typeMouvement === 'TRANSFERT_ETAL'
+        ? stock.quantite_en_stock - data.quantite
+        : stock.quantite_en_stock + data.quantite;
+
+    const nouvelleQteEtal =
+      data.typeMouvement === 'TRANSFERT_ETAL'
+        ? stock.quantite_etal + data.quantite
+        : stock.quantite_etal - data.quantite;
+
+    const [updatedStock, mouvement] = await this.prisma.$transaction([
+      this.prisma.stock.update({
+        where: { id_produit: produitIdNum },
+        data: {
+          quantite_en_stock: nouvelleQteReserve,
+          quantite_etal: nouvelleQteEtal,
+        },
+      }),
+      this.prisma.mouvementStock.create({
+        data: {
+          id_produit: produitIdNum,
+          id_utilisateur: userId,
+          type_mouvement: data.typeMouvement,
+          quantite: data.quantite,
+        },
+      }),
+    ]);
+
+    return {
+      id: String(mouvement.id_mouvement),
+      produitId: String(mouvement.id_produit),
+      utilisateurId: mouvement.id_utilisateur,
+      typeMouvement: mouvement.type_mouvement,
+      quantite: mouvement.quantite,
+      dateMouvement: mouvement.date_mouvement.toISOString(),
+      nouvelleQuantiteEnStock: updatedStock.quantite_en_stock,
+      nouvelleQuantiteEtal: updatedStock.quantite_etal,
     };
   }
 

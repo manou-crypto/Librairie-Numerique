@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/AppLayout';
 import Topbar from '@/components/Topbar';
-import { Search, AlertTriangle, TrendingDown, Package, Download, Loader2 } from 'lucide-react';
+import { Search, AlertTriangle, TrendingDown, Package, Download, Loader2, X, ArrowRightLeft } from 'lucide-react';
 import { stockService, StockItem } from '@/services/stock.service';
 import { toast } from 'sonner';
 
@@ -19,13 +19,56 @@ export default function StockPage() {
   const [stocks, setStocks] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const [transferModal, setTransferModal] = useState<{
+    type: 'TRANSFERT_ETAL' | 'RETOUR_RESERVE';
+    item: StockItem;
+  } | null>(null);
+  const [transferQty, setTransferQty] = useState('');
+  const [transferLoading, setTransferLoading] = useState(false);
+
+  const loadStocks = () => {
+    setLoading(true);
     stockService
       .getStocks()
       .then((res) => setStocks(res || []))
       .catch((err) => toast.error('Erreur lors du chargement des stocks'))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadStocks();
   }, []);
+
+  const handleTransfer = async () => {
+    if (!transferModal) return;
+    const qty = parseInt(transferQty, 10);
+    if (!qty || qty <= 0) return toast.error('Veuillez entrer une quantité valide');
+
+    const maxQty = transferModal.type === 'TRANSFERT_ETAL' 
+      ? transferModal.item.quantiteEnStock 
+      : (transferModal.item.quantiteEtal || 0);
+
+    if (qty > maxQty) {
+      return toast.error(`Quantité insuffisante (Maximum: ${maxQty})`);
+    }
+
+    setTransferLoading(true);
+    try {
+      await stockService.transfererEtal({
+        produitId: transferModal.item.produitId,
+        typeMouvement: transferModal.type,
+        quantite: qty
+      });
+      toast.success('Transfert effectué avec succès');
+      setTransferModal(null);
+      setTransferQty('');
+      loadStocks();
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors du transfert');
+    } finally {
+      setTransferLoading(false);
+    }
+  };
 
   const getComputedStatut = (item: StockItem) => {
     if (item.estEnRupture) return 'rupture';
@@ -129,16 +172,22 @@ export default function StockPage() {
                     Catégorie
                   </th>
                   <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground">
-                    Stock actuel
+                    Réserve
                   </th>
                   <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground">
-                    Seuil Alerte
+                    Étal
+                  </th>
+                  <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground">
+                    Total
                   </th>
                   <th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">
                     Statut
                   </th>
                   <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">
                     Dernier mouvement
+                  </th>
+                  <th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">
+                    Actions
                   </th>
                 </tr>
               </thead>
@@ -170,8 +219,11 @@ export default function StockPage() {
                         <td className="px-5 py-3 text-right tabular-nums font-semibold text-foreground">
                           {item.quantiteEnStock}
                         </td>
-                        <td className="px-5 py-3 text-right tabular-nums text-muted-foreground text-xs">
-                          {item.seuilAlerte}
+                        <td className="px-5 py-3 text-right tabular-nums font-semibold text-primary">
+                          {item.quantiteEtal || 0}
+                        </td>
+                        <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">
+                          {item.quantiteEnStock + (item.quantiteEtal || 0)}
                         </td>
                         <td className="px-5 py-3 text-center">
                           <span className={STATUT_CONFIG[st].className}>
@@ -182,6 +234,30 @@ export default function StockPage() {
                           {item.dateDerniereEntree
                             ? new Date(item.dateDerniereEntree).toLocaleDateString()
                             : '—'}
+                        </td>
+                        <td className="px-5 py-3 text-center">
+                          <div className="flex items-center justify-center gap-3">
+                            <button
+                              title="Transférer vers étal"
+                              onClick={() => {
+                                setTransferModal({ type: 'TRANSFERT_ETAL', item });
+                                setTransferQty('');
+                              }}
+                              className="text-primary hover:underline text-xs flex items-center gap-1"
+                            >
+                              <ArrowRightLeft size={12} /> + Étal
+                            </button>
+                            <button
+                              title="Retourner en réserve"
+                              onClick={() => {
+                                setTransferModal({ type: 'RETOUR_RESERVE', item });
+                                setTransferQty('');
+                              }}
+                              className="text-muted-foreground hover:text-foreground text-xs flex items-center gap-1"
+                            >
+                              <ArrowRightLeft size={12} /> + Réserve
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -205,6 +281,68 @@ export default function StockPage() {
           </div>
         </div>
       </div>
+
+      {/* MODALE DE TRANSFERT */}
+      {transferModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-sm fade-in">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h3 className="text-base font-bold text-foreground">
+                {transferModal.type === 'TRANSFERT_ETAL' ? 'Transfert vers Étal' : 'Retour en Réserve'}
+              </h3>
+              <button
+                onClick={() => setTransferModal(null)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <p className="text-sm font-semibold text-foreground mb-1">
+                  {transferModal.item.produitLibelle}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Disponible pour le transfert :{' '}
+                  <span className="font-bold text-foreground">
+                    {transferModal.type === 'TRANSFERT_ETAL' 
+                      ? transferModal.item.quantiteEnStock 
+                      : (transferModal.item.quantiteEtal || 0)}
+                  </span>
+                </p>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5">
+                  Quantité à transférer
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max={transferModal.type === 'TRANSFERT_ETAL' ? transferModal.item.quantiteEnStock : (transferModal.item.quantiteEtal || 0)}
+                  value={transferQty}
+                  onChange={(e) => setTransferQty(e.target.value)}
+                  className="input-field text-sm w-full"
+                  placeholder="0"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border">
+              <button onClick={() => setTransferModal(null)} className="btn-secondary text-sm py-2">
+                Annuler
+              </button>
+              <button
+                onClick={handleTransfer}
+                disabled={transferLoading || !transferQty}
+                className="btn-primary text-sm py-2 flex items-center gap-2"
+              >
+                {transferLoading && <Loader2 size={14} className="animate-spin" />}
+                Valider
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </AppLayout>
   );
 }

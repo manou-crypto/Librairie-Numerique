@@ -22,6 +22,12 @@ export class StockController {
     return this.stockService.ajusterStock(user.id, data);
   }
 
+  @Post('transfert-etal')
+  @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE', 'ACHETEUR_STOCK')
+  async transfererEtal(@CurrentUser() user: any, @Body() data: any) {
+    return this.stockService.transfererEtal(user.id, data);
+  }
+
   @Get('mouvements')
   @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE', 'ACHETEUR_STOCK')
   async getMouvements(@Query('produitId') produitId?: string) {

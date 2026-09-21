@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Query } from '@nestjs/common';
 import { FinancesService } from './finances.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -12,14 +12,14 @@ export class FinancesController {
 
   @Get('dashboard/kpi')
   @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
-  async getDashboardKpis() {
-    return this.financesService.getDashboardKpis();
+  async getDashboardKpis(@Query('period') period?: 'jour' | 'mois' | 'annee') {
+    return this.financesService.getDashboardKpis(period);
   }
 
   @Get('dashboard/charts')
   @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
-  async getDashboardCharts() {
-    return this.financesService.getDashboardCharts();
+  async getDashboardCharts(@Query('period') period?: 'jour' | 'mois' | 'annee') {
+    return this.financesService.getDashboardCharts(period);
   }
 
   @Get('dashboard/feed')
