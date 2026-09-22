@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Loader2,
   ChevronsUpDown,
+  PackagePlus,
 } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
 import { useAppConfig } from '@/contexts/ConfigContext';
@@ -29,6 +30,7 @@ interface ProductTableProps {
   onEdit: (p: Product) => void;
   onDelete: (p: Product) => void;
   onTarification: (p: Product) => void;
+  onRechargeStock?: (p: Product) => void;
   currentPage: number;
   totalPages: number;
   totalItems: number;
@@ -116,6 +118,7 @@ export default function ProductTable({
   onEdit,
   onDelete,
   onTarification,
+  onRechargeStock,
   currentPage,
   totalPages,
   totalItems,
@@ -343,6 +346,16 @@ export default function ProductTable({
                           aria-label={`Tarification ${product.name}`}
                         >
                           <Tag size={14} />
+                        </button>
+                      )}
+                      {onRechargeStock && (
+                        <button
+                          onClick={() => onRechargeStock(product)}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                          title={`Recharger stock ${product.name}`}
+                          aria-label={`Recharger stock ${product.name}`}
+                        >
+                          <PackagePlus size={14} />
                         </button>
                       )}
                       <button

@@ -23,6 +23,7 @@ export interface MouvementStockPayload {
   typeMouvement: 'ENTREE_ACHAT' | 'SORTIE_VENTE' | 'AJUSTEMENT_INVENTAIRE' | 'TRANSFERT_ETAL' | 'RETOUR_RESERVE';
   quantite: number;
   achatId?: string;
+  seuilAlerte?: number;
 }
 
 export interface MouvementStockResponse {
@@ -66,6 +67,19 @@ export const stockService = {
     });
     if (!response.ok) throw new Error('Échec du mouvement de stock');
     return response.json();
+  },
+
+  /**
+   * Ajouter/Créer un stock initial ou incrémenter
+   * POST /api/v1/stock/mouvements
+   */
+  async ajouterStock(payload: { produitId: string; quantite: number; seuilAlerte?: number }): Promise<MouvementStockResponse> {
+    return this.ajusterStock({
+      produitId: payload.produitId,
+      typeMouvement: 'ENTREE_ACHAT',
+      quantite: payload.quantite,
+      seuilAlerte: payload.seuilAlerte,
+    });
   },
 
   /**

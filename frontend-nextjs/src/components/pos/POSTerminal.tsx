@@ -89,6 +89,7 @@ export default function POSTerminal() {
     referenceTicket: string;
     total: number;
     mode: string;
+    paiements?: Array<{modePaiement: string, montant: number}>;
     items: { name: string; qty: number; price: number; total: number; nomKit?: string }[];
   } | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -537,9 +538,12 @@ export default function POSTerminal() {
    * Traitement du paiement — Appel réel à l'API backend.
    * Cette fonction est appelée depuis PaymentModal après confirmation.
    */
-  const handlePaymentSuccess = async (mode: string, montantRecu: number) => {
+  const handlePaymentSuccess = async (paiementsModal: Array<{mode: string, montant: number}>) => {
     if (cart.length === 0) return;
     setIsSaving(true);
+
+    // Déterminer le mode principal (celui qui a le plus grand montant ou wave en priorité s'il existe)
+    const mainMode = paiementsModal.some(p => p.mode === 'wave') ? 'wave' : 'especes';
 
     try {
       const payload = {
@@ -562,14 +566,11 @@ export default function POSTerminal() {
             idKitGroupe: item.idKitGroupe,
           };
         }),
-        paiements: [
-          {
-            modePaiement:
-              mode === 'especes' ? 'ESPECES' : 'MOBILE_MONEY',
-            montant: totalTtc,
-            referenceTransaction: undefined,
-          },
-        ],
+        paiements: paiementsModal.map(p => ({
+          modePaiement: p.mode === 'especes' ? 'ESPECES' : 'MOBILE_MONEY',
+          montant: p.montant,
+          referenceTransaction: undefined,
+        })),
       };
 
       const result = await ventesService.createVente(payload as any);
@@ -578,7 +579,8 @@ export default function POSTerminal() {
         id: result.id,
         referenceTicket: result.referenceTicket,
         total: result.totalTtc,
-        mode,
+        mode: mainMode,
+        paiements: paiementsModal.map(p => ({ modePaiement: p.mode, montant: p.montant })),
         items: cart.map((i) => ({
           name: i.name,
           qty: i.qty,
@@ -1254,6 +1256,7 @@ export default function POSTerminal() {
           referenceTicket={lastSaleData.referenceTicket}
           total={lastSaleData.total}
           mode={lastSaleData.mode}
+          paiements={lastSaleData.paiements}
           items={lastSaleData.items}
           caisse={assignedCaisse?.codeCaisse || 'Caisse'}
           devise={devise}

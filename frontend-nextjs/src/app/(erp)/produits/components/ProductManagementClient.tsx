@@ -12,6 +12,7 @@ import ProductDetailModal from './ProductDetailModal';
 import TarificationProductModal from './TarificationProductModal';
 import AddCategoryModal from './AddCategoryModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
+import RechargeStockModal from './RechargeStockModal';
 import CategoriesTab from './CategoriesTab';
 import MarquesTab from './MarquesTab';
 import UnitesTab from './UnitesTab';
@@ -86,6 +87,7 @@ export default function ProductManagementClient() {
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [tarificationTarget, setTarificationTarget] = useState<Product | null>(null);
+  const [rechargeStockTarget, setRechargeStockTarget] = useState<Product | null>(null);
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
@@ -178,6 +180,27 @@ export default function ProductManagementClient() {
   ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
+  
+  const handleRechargeStockSave = async (mode: 'ajouter' | 'redefinir', quantite: number) => {
+    if (!rechargeStockTarget) return;
+    try {
+      // Pour l'instant on utilise le token existant dans les cookies (envoyé automatiquement par fetcher)
+      await fetcher('/v1/stock/mouvements', {
+        method: 'POST',
+        body: JSON.stringify({
+          produitId: rechargeStockTarget.id,
+          typeMouvement: mode === 'ajouter' ? 'ENTREE_ACHAT' : 'AJUSTEMENT_INVENTAIRE',
+          quantite,
+        })
+      });
+      toast.success('Stock mis à jour avec succès');
+      loadData(); // Rafraîchir les produits
+    } catch (error: any) {
+      toast.error('Erreur: ' + error.message);
+      throw error;
+    }
+  };
+
   const paginatedProducts = filteredProducts.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
@@ -418,6 +441,7 @@ export default function ProductManagementClient() {
                 onEdit={(p) => setEditingProduct(p)}
                 onDelete={(p) => setDeleteTarget(p)}
                 onTarification={(p) => setTarificationTarget(p)}
+                onRechargeStock={setRechargeStockTarget}
                 currentPage={currentPage}
                 totalPages={totalPages}
                 totalItems={filteredProducts.length}
@@ -472,6 +496,12 @@ export default function ProductManagementClient() {
         onClose={() => setDeleteTarget(null)}
         product={deleteTarget}
         onConfirm={handleDeleteConfirm}
+      />
+      <RechargeStockModal
+        open={!!rechargeStockTarget}
+        onClose={() => setRechargeStockTarget(null)}
+        product={rechargeStockTarget}
+        onSave={handleRechargeStockSave}
       />
       <AddCategoryModal
         open={isAddCategoryOpen}

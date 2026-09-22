@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/AppLayout';
 import Topbar from '@/components/Topbar';
-import { Search, AlertTriangle, TrendingDown, Package, Download, Loader2, X, ArrowRightLeft } from 'lucide-react';
+import { Search, AlertTriangle, TrendingDown, Package, Download, Loader2, X, ArrowRightLeft, PackagePlus } from 'lucide-react';
 import { stockService, StockItem } from '@/services/stock.service';
+import AddStockModal from './components/AddStockModal';
 import { toast } from 'sonner';
 
 const STATUT_CONFIG: Record<string, { label: string; className: string }> = {
@@ -25,6 +26,7 @@ export default function StockPage() {
   } | null>(null);
   const [transferQty, setTransferQty] = useState('');
   const [transferLoading, setTransferLoading] = useState(false);
+  const [addStockModalOpen, setAddStockModalOpen] = useState(false);
 
   const loadStocks = () => {
     setLoading(true);
@@ -67,6 +69,17 @@ export default function StockPage() {
       toast.error(error.message || 'Erreur lors du transfert');
     } finally {
       setTransferLoading(false);
+    }
+  };
+
+  const handleAddStock = async (produitId: string, quantite: number, seuilAlerte: number) => {
+    try {
+      await stockService.ajouterStock({ produitId, quantite, seuilAlerte });
+      toast.success('Stock ajouté avec succès');
+      loadStocks();
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors de l\'ajout du stock');
+      throw error;
     }
   };
 
@@ -155,6 +168,12 @@ export default function StockPage() {
               </select>
               <button className="btn-secondary flex items-center gap-1.5 text-sm py-2">
                 <Download size={14} /> Exporter
+              </button>
+              <button 
+                onClick={() => setAddStockModalOpen(true)}
+                className="btn-primary flex items-center gap-1.5 text-sm py-2"
+              >
+                <PackagePlus size={14} /> Ajouter un stock
               </button>
             </div>
           </div>
@@ -343,6 +362,11 @@ export default function StockPage() {
         </div>
       )}
 
+      <AddStockModal
+        open={addStockModalOpen}
+        onClose={() => setAddStockModalOpen(false)}
+        onSave={handleAddStock}
+      />
     </AppLayout>
   );
 }

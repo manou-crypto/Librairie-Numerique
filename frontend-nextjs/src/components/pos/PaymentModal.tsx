@@ -9,8 +9,8 @@ interface PaymentModalProps {
   total: number;
   devise: string;
   isLoading?: boolean;
-  /** Appelé avec le mode de paiement et le montant reçu une fois confirmé */
-  onSuccess: (mode: string, montantRecu: number) => void;
+  /** Appelé avec le tableau des paiements une fois confirmé */
+  onSuccess: (paiements: Array<{ mode: string; montant: number }>) => void;
 }
 
 type PaymentMode = 'especes' | 'wave';
@@ -25,21 +25,41 @@ export default function PaymentModal({
 }: PaymentModalProps) {
   const [mode, setMode] = useState<PaymentMode>('especes');
   const [montantRecu, setMontantRecu] = useState('');
+  const [montantWaveEspeces, setMontantWaveEspeces] = useState(''); // Montant payé en espèces si mode mixte
 
   useEffect(() => {
     if (open) {
       setMontantRecu('');
+      setMontantWaveEspeces('');
       setMode('especes');
     }
   }, [open]);
 
   const montantRecuNum = parseFloat(montantRecu.replace(',', '.')) || 0;
-  const monnaie = montantRecuNum - total;
-  const canPay = mode === 'especes' ? montantRecuNum >= total : true;
+  const montantWaveEspecesNum = parseFloat(montantWaveEspeces.replace(',', '.')) || 0;
+  
+  const monnaie = mode === 'especes' ? montantRecuNum - total : 0;
+  
+  const canPay = mode === 'especes' 
+    ? montantRecuNum >= total 
+    : (montantWaveEspecesNum <= total); // Wave + Espèces (montant espèces ne doit pas dépasser le total)
 
   const handlePay = () => {
     if (!canPay || isLoading) return;
-    onSuccess(mode, montantRecuNum);
+
+    if (mode === 'especes') {
+      onSuccess([{ mode: 'especes', montant: total }]);
+    } else if (mode === 'wave') {
+      const paiements = [];
+      if (montantWaveEspecesNum > 0) {
+        paiements.push({ mode: 'especes', montant: montantWaveEspecesNum });
+      }
+      const resteWave = total - montantWaveEspecesNum;
+      if (resteWave > 0) {
+        paiements.push({ mode: 'wave', montant: resteWave });
+      }
+      onSuccess(paiements);
+    }
   };
 
   // Montants rapides suggérés (arrondi supérieur)
@@ -75,7 +95,7 @@ export default function PaymentModal({
           <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
             Mode de paiement
           </label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {modes.map(({ id, label, icon: Icon }) => (
               <button
                 key={`mode-${id}`}
@@ -146,14 +166,40 @@ export default function PaymentModal({
           </div>
         )}
 
-        {/* Instructions Wave */}
+        {/* Instructions Wave + Mixte */}
         {mode === 'wave' && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center fade-in">
-            <Smartphone size={24} className="text-blue-600 mx-auto mb-2" />
-            <p className="text-sm font-semibold text-blue-800">
-              Paiement via Wave
-            </p>
-            <p className="text-xs text-blue-600 mt-1">Veuillez valider la transaction sur le téléphone du client</p>
+          <div className="space-y-3 fade-in">
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
+              <Smartphone size={24} className="text-blue-600 mx-auto mb-2" />
+              <p className="text-sm font-semibold text-blue-800">
+                Paiement via Wave
+              </p>
+              <p className="text-xs text-blue-600 mt-1">Veuillez valider la transaction sur le téléphone du client</p>
+            </div>
+            
+            <div className="border border-border rounded-xl p-3">
+              <label className="block text-xs font-semibold text-foreground mb-1.5">
+                Une partie en espèces ? (Optionnel)
+              </label>
+              <input
+                type="number"
+                value={montantWaveEspeces}
+                onChange={(e) => setMontantWaveEspeces(e.target.value)}
+                placeholder={`Ex: 5000`}
+                className="input-field text-sm font-bold tabular-nums text-center"
+              />
+              {montantWaveEspecesNum > 0 && montantWaveEspecesNum <= total && (
+                <div className="mt-2 text-xs text-center text-muted-foreground font-medium">
+                  Espèces: {montantWaveEspecesNum.toLocaleString('fr-FR')} {devise} <br/>
+                  Wave: {(total - montantWaveEspecesNum).toLocaleString('fr-FR')} {devise}
+                </div>
+              )}
+              {montantWaveEspecesNum > total && (
+                <div className="mt-2 text-xs text-center text-red-600 font-medium">
+                  Le montant en espèces ne peut pas dépasser le total.
+                </div>
+              )}
+            </div>
           </div>
         )}
 

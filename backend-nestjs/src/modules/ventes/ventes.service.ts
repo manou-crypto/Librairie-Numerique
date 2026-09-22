@@ -106,36 +106,59 @@ export class VentesService {
         produitLibelle: string;
         nouvelleQuantite: number;
         seuilAlerte: number;
+        nouvelleQuantiteEtal: number;
       }> = [];
 
       for (const l of payload.lignes) {
         const pId = Number(l.produitId || l.id);
         const qte = l.quantite || l.qty;
 
-        const updatedStock = await tx.stock.update({
+        const stockActuel = await tx.stock.findUnique({
           where: { id_produit: pId },
-          data: {
-            quantite_en_stock: { decrement: qte },
-            date_derniere_sortie: new Date(),
-          },
           include: { produit: true },
         });
 
-        await tx.mouvementStock.create({
-          data: {
-            id_produit: pId,
-            id_utilisateur: userId,
-            type_mouvement: 'SORTIE_VENTE',
-            quantite: qte,
-          },
-        });
+        if (stockActuel) {
+          let resteASoustraire = qte;
+          let nouvelleQteEtal = stockActuel.quantite_etal;
+          let nouvelleQteReserve = stockActuel.quantite_en_stock;
 
-        stockUpdates.push({
-          produitId: String(pId),
-          produitLibelle: updatedStock.produit.libelle,
-          nouvelleQuantite: updatedStock.quantite_en_stock,
-          seuilAlerte: updatedStock.seuil_alerte,
-        });
+          if (nouvelleQteEtal >= resteASoustraire) {
+            nouvelleQteEtal -= resteASoustraire;
+            resteASoustraire = 0;
+          } else {
+            resteASoustraire -= nouvelleQteEtal;
+            nouvelleQteEtal = 0;
+            nouvelleQteReserve = Math.max(0, nouvelleQteReserve - resteASoustraire);
+          }
+
+          const updatedStock = await tx.stock.update({
+            where: { id_produit: pId },
+            data: {
+              quantite_etal: nouvelleQteEtal,
+              quantite_en_stock: nouvelleQteReserve,
+              date_derniere_sortie: new Date(),
+            },
+            include: { produit: true },
+          });
+
+          await tx.mouvementStock.create({
+            data: {
+              id_produit: pId,
+              id_utilisateur: userId,
+              type_mouvement: 'SORTIE_VENTE',
+              quantite: qte,
+            },
+          });
+
+          stockUpdates.push({
+            produitId: String(pId),
+            produitLibelle: updatedStock.produit.libelle,
+            nouvelleQuantite: updatedStock.quantite_en_stock + updatedStock.quantite_etal,
+            nouvelleQuantiteEtal: updatedStock.quantite_etal,
+            seuilAlerte: updatedStock.seuil_alerte,
+          });
+        }
       }
 
       await tx.sessionCaisse.update({
@@ -181,6 +204,12 @@ export class VentesService {
           'alerte',
           'Rupture de Stock',
           `Le produit "${su.produitLibelle}" est complètement épuisé.`
+        );
+      } else if (su.nouvelleQuantiteEtal === 0 && su.nouvelleQuantite > 0) {
+        await this.notificationsService.createNotification(
+          'info',
+          'Étal Vide',
+          `L'étal du produit "${su.produitLibelle}" est vide. Pensez à le réapprovisionner depuis la réserve.`
         );
       } else if (estEnAlerte) {
         await this.notificationsService.createNotification(

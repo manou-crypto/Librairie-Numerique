@@ -54,32 +54,36 @@ export class StockService {
     return result;
   }
 
-  async ajusterStock(userId: number, data: { produitId: string; typeMouvement: 'ENTREE_ACHAT' | 'SORTIE_VENTE' | 'AJUSTEMENT_INVENTAIRE'; quantite: number; achatId?: string }) {
+  async ajusterStock(userId: number, data: { produitId: string; typeMouvement: 'ENTREE_ACHAT' | 'SORTIE_VENTE' | 'AJUSTEMENT_INVENTAIRE'; quantite: number; achatId?: string; seuilAlerte?: number }) {
     const produitIdNum = Number(data.produitId);
-    const stock = await this.prisma.stock.findUnique({
+    const currentStock = await this.prisma.stock.findUnique({
       where: { id_produit: produitIdNum },
     });
 
-    if (!stock) {
-      throw new NotFoundException(`Stock introuvable pour le produit #${data.produitId}`);
-    }
-
-    const nouvelleQte =
-      data.typeMouvement === 'ENTREE_ACHAT'
-        ? stock.quantite_en_stock + data.quantite
+    const nouvelleQte = currentStock
+      ? data.typeMouvement === 'ENTREE_ACHAT'
+        ? currentStock.quantite_en_stock + data.quantite
         : data.typeMouvement === 'SORTIE_VENTE'
-        ? Math.max(0, stock.quantite_en_stock - data.quantite)
-        : data.quantite;
+        ? Math.max(0, currentStock.quantite_en_stock - data.quantite)
+        : data.quantite // AJUSTEMENT_INVENTAIRE
+      : data.quantite;
 
     const [updatedStock, mouvement] = await this.prisma.$transaction([
-      this.prisma.stock.update({
+      this.prisma.stock.upsert({
         where: { id_produit: produitIdNum },
-        data: {
+        update: {
           quantite_en_stock: nouvelleQte,
-          ...(data.typeMouvement === 'ENTREE_ACHAT'
+          ...(data.typeMouvement === 'ENTREE_ACHAT' || data.typeMouvement === 'AJUSTEMENT_INVENTAIRE'
             ? { date_derniere_entree: new Date() }
             : { date_derniere_sortie: new Date() }),
         },
+        create: {
+          id_produit: produitIdNum,
+          quantite_en_stock: nouvelleQte,
+          quantite_etal: 0,
+          seuil_alerte: data.seuilAlerte || 5,
+          date_derniere_entree: new Date(),
+        }
       }),
       this.prisma.mouvementStock.create({
         data: {

@@ -18,6 +18,7 @@ interface ReceiptModalProps {
   referenceTicket?: string;
   total: number;
   mode: string;
+  paiements?: Array<{modePaiement: string, montant: number}>;
   items?: ReceiptItem[];
   caisse?: string;
   devise?: string;
@@ -25,8 +26,9 @@ interface ReceiptModalProps {
 
 const modeLabels: Record<string, string> = {
   especes: 'Espèces',
-  carte: 'Carte bancaire',
-  cheque: 'Chèque',
+  ESPECES: 'Espèces',
+  wave: 'Wave',
+  MOBILE_MONEY: 'Wave',
 };
 
 export default function ReceiptModal({
@@ -83,10 +85,19 @@ export default function ReceiptModal({
                 <span>CAISSE</span>
                 <span>{caisse}</span>
               </div>
-              <div className="flex justify-between">
-                <span>PAIEMENT</span>
-                <span>{modeLabels[mode] || mode}</span>
-              </div>
+              {paiements && paiements.length > 0 ? (
+                paiements.map((p, idx) => (
+                  <div key={idx} className="flex justify-between">
+                    <span>PAIEMENT ({modeLabels[p.modePaiement] || p.modePaiement})</span>
+                    <span>{p.montant.toLocaleString('fr-FR')}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="flex justify-between">
+                  <span>PAIEMENT</span>
+                  <span>{modeLabels[mode] || mode}</span>
+                </div>
+              )}
             </div>
 
             {/* Liste des articles */}

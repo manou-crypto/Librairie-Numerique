@@ -91,7 +91,7 @@ export function getTokenFromCookie(): string | null {
  */
 export function setTokenCookie(token: string): void {
   if (typeof document === 'undefined') return;
-  document.cookie = `auth_token=${encodeURIComponent(token)}; path=/; SameSite=Strict`;
+  document.cookie = `auth_token=${encodeURIComponent(token)}; max-age=36000; path=/; SameSite=Strict`;
 }
 
 /**
