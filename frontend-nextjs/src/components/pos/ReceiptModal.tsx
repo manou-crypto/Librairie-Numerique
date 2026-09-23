@@ -10,7 +10,7 @@ interface ReceiptItem {
   total: number;
   nomKit?: string;
 }
-
+// Paiement ---
 interface ReceiptModalProps {
   open: boolean;
   onClose: () => void;
@@ -18,7 +18,7 @@ interface ReceiptModalProps {
   referenceTicket?: string;
   total: number;
   mode: string;
-  paiements?: Array<{modePaiement: string, montant: number}>;
+  paiements?: Array<{ modePaiement: string, montant: number }>;
   items?: ReceiptItem[];
   caisse?: string;
   devise?: string;
