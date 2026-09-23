@@ -38,6 +38,7 @@ export default function ReceiptModal({
   referenceTicket,
   total,
   mode,
+  paiements,
   items = [],
   caisse = 'Caisse',
   devise = 'FCFA',
