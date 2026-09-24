@@ -12,14 +12,17 @@ export class FinancesController {
 
   @Get('dashboard/kpi')
   @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
-  async getDashboardKpis(@Query('period') period?: 'jour' | 'mois' | 'annee') {
+  async getDashboardKpis(@Query('period') period?: 'jour' | 'semaine' | 'mois' | 'annee') {
     return this.financesService.getDashboardKpis(period);
   }
 
   @Get('dashboard/charts')
   @Roles('ADMIN', 'GESTIONNAIRE_CATALOGUE')
-  async getDashboardCharts(@Query('period') period?: 'jour' | 'mois' | 'annee') {
-    return this.financesService.getDashboardCharts(period);
+  async getDashboardCharts(
+    @Query('period') period?: 'jour' | 'mois' | 'annee',
+    @Query('days') days?: number,
+  ) {
+    return this.financesService.getDashboardCharts(period, days);
   }
 
   @Get('dashboard/feed')

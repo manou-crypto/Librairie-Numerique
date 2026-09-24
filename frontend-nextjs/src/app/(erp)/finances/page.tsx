@@ -70,91 +70,118 @@ export default function FinancesPage() {
       setClotures([newCloture, ...clotures]);
       toast.success('Clôture journalière effectuée avec succès');
 
-      const kpisData = await financesService.getDashboardKpis().catch(() => null);
+      const kpisData = await financesService.getDashboardKpis(period).catch(() => null);
       if (kpisData) setKpis(kpisData);
     } catch (err: any) {
       toast.error(err.message || 'Erreur lors de la clôture');
     }
   };
 
-  const totalCA = liveKpis?.caMoisTotal ?? kpis?.caMoisTotal ?? 0;
-  const totalBenefice = liveKpis?.beneficeBrutJour ?? kpis?.beneficeBrutJour ?? 0;
+  const periodLabel = period === 'jour' ? "aujourd'hui" : period === 'annee' ? "de l'année" : 'du mois';
+  const caAffiche = period === 'jour' ? (liveKpis?.caJour ?? kpis?.caJour ?? 0) : (kpis?.caPeriode ?? kpis?.caMoisTotal ?? 0);
+  const totalBenefice = kpis?.beneficeBrutPeriode ?? (liveKpis?.beneficeBrutJour ?? kpis?.beneficeBrutJour ?? 0);
   const marge = kpis?.margeMoyennePourcent || 0;
   const caJour = liveKpis?.caJour ?? kpis?.caJour ?? 0;
+  const dettes = kpis?.dettesFournisseurs ?? 0;
 
   return (
     <AppLayout currentPath="/finances">
       <Topbar
         title="Tableau de bord financier"
-        subtitle="Chiffre d'affaires, bénéfices et rapports"
+        subtitle="Chiffre d'affaires, marges réelles, journal des clôtures et dettes"
       />
       <div className="px-6 py-6 max-w-screen-2xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1 bg-muted rounded-lg p-1 w-fit">
+        {/* Barre d'outils et lien vers Journal des Clôtures */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-1 bg-muted rounded-lg p-1 w-fit border border-border">
             {(['jour', 'mois', 'annee'] as const).map((p) => (
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all capitalize ${period === p ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all capitalize ${
+                  period === p ? 'bg-card text-foreground shadow-sm font-semibold' : 'text-muted-foreground hover:text-foreground'
+                }`}
               >
                 {p === 'annee' ? 'Année' : p.charAt(0).toUpperCase() + p.slice(1)}
               </button>
             ))}
           </div>
-          <button
-            onClick={() => toast.info("L'export du rapport sera bientôt disponible")}
-            className="btn-secondary flex items-center gap-1.5 text-sm py-2"
-          >
-            <Download size={14} /> Exporter rapport
-          </button>
+
+          <div className="flex items-center gap-2">
+            <a
+              href="/finances/clotures"
+              className="btn-primary flex items-center gap-1.5 text-sm py-2 px-3.5 shadow-sm"
+            >
+              <Calendar size={15} />
+              <span>Journal complet des Clôtures</span>
+            </a>
+          </div>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
+        {/* Grille des KPIs Financiers Réels */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="kpi-card-info">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-muted-foreground font-semibold uppercase">CA {periodLabel}</p>
               <DollarSign size={16} className="text-info" />
-              <p className="text-xs text-muted-foreground">CA du mois</p>
             </div>
-            <p className="text-xl font-bold text-foreground tabular-nums">
-              {totalCA.toLocaleString('fr-FR')} {devise}
+            <p className="text-2xl font-bold text-foreground tabular-nums">
+              {caAffiche.toLocaleString('fr-FR')} {devise}
             </p>
             <div className="flex items-center gap-1 mt-1">
               <TrendingUp size={12} className="text-positive" />
-              <p className="text-xs text-positive">En temps réel</p>
+              <p className="text-xs text-positive">Ventes validées</p>
             </div>
           </div>
+
           <div className="kpi-card-positive">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-muted-foreground font-semibold uppercase">Bénéfice brut ({periodLabel})</p>
               <TrendingUp size={16} className="text-positive" />
-              <p className="text-xs text-muted-foreground">Bénéfice brut (jour)</p>
             </div>
-            <p className="text-xl font-bold text-foreground tabular-nums">
+            <p className="text-2xl font-bold text-foreground tabular-nums">
               {totalBenefice.toLocaleString('fr-FR')} {devise}
             </p>
             <div className="flex items-center gap-1 mt-1">
-              <TrendingUp size={12} className="text-positive" />
-              <p className="text-xs text-positive">En temps réel</p>
+              <span className="text-xs text-positive font-medium">Marge calculée</span>
             </div>
           </div>
+
           <div className="kpi-card-neutral">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-muted-foreground font-semibold uppercase">Marge moyenne</p>
               <BarChart2 size={16} className="text-muted-foreground" />
-              <p className="text-xs text-muted-foreground">Marge moyenne</p>
             </div>
-            <p className="text-xl font-bold text-foreground tabular-nums">{marge}%</p>
-            <p className="text-xs text-muted-foreground mt-1">Objectif : 35%</p>
+            <p className="text-2xl font-bold text-foreground tabular-nums">{marge}%</p>
+            <p className="text-xs text-muted-foreground mt-1">Calculée sur les ventes</p>
           </div>
+
           <div className="kpi-card-warning">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-muted-foreground font-semibold uppercase">CA Aujourd'hui</p>
               <Calendar size={16} className="text-warning" />
-              <p className="text-xs text-muted-foreground">CA aujourd'hui</p>
             </div>
-            <p className="text-xl font-bold text-foreground tabular-nums">
+            <p className="text-2xl font-bold text-foreground tabular-nums">
               {caJour.toLocaleString('fr-FR')} {devise}
             </p>
             <div className="flex items-center gap-1 mt-1">
-              <TrendingUp size={12} className="text-positive" />
-              <p className="text-xs text-positive">En temps réel</p>
+              <p className="text-xs text-muted-foreground">Journée en cours</p>
             </div>
+          </div>
+
+          <div className={`p-4 rounded-xl border transition-all ${
+            dettes > 0 ? 'bg-amber-500/10 border-amber-500/20 text-amber-900 dark:text-amber-300' : 'bg-card border-border text-foreground'
+          }`}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold uppercase">Dettes Fournisseurs</p>
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-500/20 text-amber-700">Impayés</span>
+            </div>
+            <p className="text-2xl font-bold tabular-nums">
+              {dettes.toLocaleString('fr-FR')} {devise}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {dettes > 0 ? 'Factures achats à solder' : 'Tous les achats réglés'}
+            </p>
           </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -233,20 +260,23 @@ export default function FinancesPage() {
           </div>
         </div>
         <div className="card-base overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-            <h3 className="text-sm font-bold text-foreground">Clôtures journalières</h3>
-            <div className="flex items-center gap-3">
+          <div className="px-5 py-4 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Dernières clôtures journalières</h3>
+              <p className="text-xs text-muted-foreground">Consolidation des recettes et marges par journée comptable</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href="/finances/clotures"
+                className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3"
+              >
+                <span>Voir le Journal complet ({clotures.length})</span>
+              </a>
               <button
                 onClick={handleCloture}
-                className="btn-primary flex items-center gap-1.5 text-sm py-1.5"
+                className="btn-primary flex items-center gap-1.5 text-xs py-1.5 px-3"
               >
-                Clôturer la journée
-              </button>
-              <button
-                onClick={() => toast.info('Export Excel bientôt disponible')}
-                className="btn-secondary flex items-center gap-1.5 text-sm py-1.5"
-              >
-                <Download size={13} /> Export Excel
+                Clôturer aujourd'hui
               </button>
             </div>
           </div>
@@ -257,14 +287,20 @@ export default function FinancesPage() {
                   <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">
                     Date Clôture
                   </th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">
+                    Validateur / Type
+                  </th>
                   <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground">
                     CA HT
                   </th>
                   <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground">
-                    TVA Collectée
+                    TVA
                   </th>
                   <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground">
                     Total TTC
+                  </th>
+                  <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground">
+                    Bénéfice Brut
                   </th>
                   <th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">
                     Statut
@@ -274,40 +310,62 @@ export default function FinancesPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                    <td colSpan={7} className="py-8 text-center text-muted-foreground">
                       <Loader2 className="animate-spin mx-auto mb-2" size={24} /> Chargement des
                       clôtures...
                     </td>
                   </tr>
                 ) : clotures.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-muted-foreground">
-                      Aucune clôture trouvée.
+                    <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                      Aucune clôture enregistrée.
                     </td>
                   </tr>
                 ) : (
-                  clotures.map((c, idx) => (
-                    <tr
-                      key={c.id}
-                      className={`border-b border-border table-row-hover ${idx % 2 === 0 ? '' : 'bg-muted/20'}`}
-                    >
-                      <td className="px-5 py-3 font-medium text-foreground">
-                        {new Date(c.dateCloture).toLocaleDateString()}
-                      </td>
-                      <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">
-                        {c.chiffreAffairesHt.toLocaleString('fr-FR')} {devise}
-                      </td>
-                      <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">
-                        {c.tvaCollectee.toLocaleString('fr-FR')} {devise}
-                      </td>
-                      <td className="px-5 py-3 text-right tabular-nums font-bold text-foreground">
-                        {c.chiffreAffairesTtc.toLocaleString('fr-FR')} {devise}
-                      </td>
-                      <td className="px-5 py-3 text-center">
-                        <span className="badge-active">Clôturé</span>
-                      </td>
-                    </tr>
-                  ))
+                  clotures.slice(0, 10).map((c, idx) => {
+                    const isAuto = c.typeCloture === 'AUTOMATIQUE';
+                    return (
+                      <tr
+                        key={c.id}
+                        className={`border-b border-border table-row-hover ${idx % 2 === 0 ? '' : 'bg-muted/20'}`}
+                      >
+                        <td className="px-5 py-3 font-medium text-foreground">
+                          {new Date(c.dateCloture).toLocaleDateString('fr-FR', {
+                            weekday: 'short',
+                            day: '2-digit',
+                            month: 'short',
+                          })}
+                        </td>
+                        <td className="px-5 py-3 text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">
+                            {c.utilisateurValidationNom || 'Système'}
+                          </span>
+                          <span className="ml-1 text-[10px] text-muted-foreground">
+                            {isAuto ? '(00:00 Auto)' : '(Manuelle)'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">
+                          {c.chiffreAffairesHt.toLocaleString('fr-FR')} {devise}
+                        </td>
+                        <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">
+                          {c.tvaCollectee.toLocaleString('fr-FR')} {devise}
+                        </td>
+                        <td className="px-5 py-3 text-right tabular-nums font-bold text-foreground">
+                          {c.chiffreAffairesTtc.toLocaleString('fr-FR')} {devise}
+                        </td>
+                        <td className="px-5 py-3 text-right tabular-nums font-semibold text-emerald-600">
+                          +{c.beneficeBrutTotal.toLocaleString('fr-FR')} {devise}
+                        </td>
+                        <td className="px-5 py-3 text-center">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                            isAuto ? 'bg-amber-500/10 text-amber-700' : 'bg-emerald-500/10 text-emerald-700'
+                          }`}>
+                            {isAuto ? 'Auto' : 'Validé'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

@@ -139,4 +139,179 @@ export class RapportsService {
       ventesJour
     };
   }
+
+  async getAchatsStats(period: string) {
+    const now = new Date();
+    let startDate = new Date();
+
+    if (period === 'semaine') {
+      startDate.setDate(now.getDate() - 7);
+    } else if (period === 'mois') {
+      startDate.setMonth(now.getMonth() - 1);
+    } else if (period === 'trimestre') {
+      startDate.setMonth(now.getMonth() - 3);
+    } else if (period === 'annee') {
+      startDate.setFullYear(now.getFullYear() - 1);
+    }
+
+    const achats = await this.prisma.achat.findMany({
+      where: {
+        date_achat: { gte: startDate, lte: now },
+        statut_achat: { not: 'ANNULE' },
+      },
+      include: {
+        fournisseur: true,
+        utilisateur: { select: { nom: true, prenom: true } },
+        lignes: { include: { produit: true } },
+      },
+      orderBy: { date_achat: 'desc' },
+    });
+
+    let totalAchatsTtc = 0;
+    let totalPaye = 0;
+    let totalArticlesAchetes = 0;
+
+    const supplierMap = new Map<string, { nom: string; totalTtc: number; paye: number; commandes: number }>();
+    const chartMap = new Map<string, number>();
+
+    achats.forEach((a) => {
+      const ttc = Number(a.montant_total_ttc);
+      const paye = Number(a.montant_paye);
+      totalAchatsTtc += ttc;
+      totalPaye += paye;
+
+      const fNom = a.fournisseur?.nom_entreprise || 'Inconnu';
+      if (!supplierMap.has(fNom)) {
+        supplierMap.set(fNom, { nom: fNom, totalTtc: 0, paye: 0, commandes: 0 });
+      }
+      const s = supplierMap.get(fNom)!;
+      s.totalTtc += ttc;
+      s.paye += paye;
+      s.commandes += 1;
+
+      a.lignes.forEach((l) => {
+        totalArticlesAchetes += l.quantite_commandee;
+      });
+
+      const dayKey = `${String(a.date_achat.getDate()).padStart(2, '0')}/${String(a.date_achat.getMonth() + 1).padStart(2, '0')}`;
+      chartMap.set(dayKey, (chartMap.get(dayKey) || 0) + ttc);
+    });
+
+    const dettesTotal = Math.max(0, totalAchatsTtc - totalPaye);
+
+    const suppliersData = Array.from(supplierMap.values())
+      .sort((a, b) => b.totalTtc - a.totalTtc)
+      .map((s) => ({
+        ...s,
+        resteAPayer: Math.max(0, s.totalTtc - s.paye),
+      }));
+
+    const chartData = Array.from(chartMap.entries()).map(([date, montant]) => ({
+      date,
+      montant: Math.round(montant),
+    }));
+
+    const recentAchats = achats.slice(0, 10).map((a) => ({
+      id: a.id_achat,
+      facture: a.numero_facture_fournisseur,
+      fournisseur: a.fournisseur?.nom_entreprise || 'Inconnu',
+      acheteur: `${a.utilisateur?.prenom} ${a.utilisateur?.nom}`.trim(),
+      date: a.date_achat.toISOString(),
+      totalTtc: Number(a.montant_total_ttc),
+      paye: Number(a.montant_paye),
+      resteAPayer: Math.max(0, Number(a.montant_total_ttc) - Number(a.montant_paye)),
+      statut: a.statut_achat,
+    }));
+
+    return {
+      totalAchatsTtc: Math.round(totalAchatsTtc),
+      totalPaye: Math.round(totalPaye),
+      dettesTotal: Math.round(dettesTotal),
+      commandesCount: achats.length,
+      totalArticlesAchetes,
+      suppliersData,
+      chartData,
+      recentAchats,
+    };
+  }
+
+  async getStocksStats() {
+    const [stocks, rupturesCount, alertesCount, derniersMouvements] = await Promise.all([
+      this.prisma.stock.findMany({
+        include: {
+          produit: {
+            include: {
+              categories: { include: { categorie: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.stock.count({ where: { quantite_en_stock: { lte: 0 } } }),
+      this.prisma.stock.count({
+        where: {
+          quantite_en_stock: { gt: 0, lte: 5 },
+        },
+      }),
+      this.prisma.mouvementStock.findMany({
+        take: 15,
+        orderBy: { date_mouvement: 'desc' },
+        include: {
+          produit: true,
+          utilisateur: { select: { nom: true, prenom: true } },
+        },
+      }),
+    ]);
+
+    let valeurStockAchat = 0;
+    let valeurStockVente = 0;
+    let totalPieces = 0;
+    const catMap = new Map<string, { nom: string; valeur: number; quantite: number }>();
+
+    stocks.forEach((s) => {
+      const q = s.quantite_en_stock;
+      const pa = Number(s.produit.prix_achat || 0);
+      const pv = Number(s.produit.prix_vente || 0);
+
+      totalPieces += q;
+      valeurStockAchat += q * pa;
+      valeurStockVente += q * pv;
+
+      const catNom = s.produit.categories[0]?.categorie?.nom || 'Autres';
+      if (!catMap.has(catNom)) {
+        catMap.set(catNom, { nom: catNom, valeur: 0, quantite: 0 });
+      }
+      const c = catMap.get(catNom)!;
+      c.valeur += q * pa;
+      c.quantite += q;
+    });
+
+    const categoriesDistribution = Array.from(catMap.values())
+      .sort((a, b) => b.valeur - a.valeur)
+      .map((c) => ({
+        name: c.nom,
+        valeur: Math.round(c.valeur),
+        quantite: c.quantite,
+      }));
+
+    const formattedMouvements = derniersMouvements.map((m) => ({
+      id: m.id_mouvement,
+      produit: m.produit?.libelle || 'Inconnu',
+      type: m.type_mouvement,
+      quantite: m.quantite,
+      date: m.date_mouvement.toISOString(),
+      operateur: `${m.utilisateur?.prenom} ${m.utilisateur?.nom}`.trim(),
+    }));
+
+    return {
+      totalReferences: stocks.length,
+      totalPieces,
+      valeurStockAchat: Math.round(valeurStockAchat),
+      valeurStockVente: Math.round(valeurStockVente),
+      plusValueLatente: Math.round(valeurStockVente - valeurStockAchat),
+      rupturesCount,
+      alertesCount,
+      categoriesDistribution,
+      derniersMouvements: formattedMouvements,
+    };
+  }
 }

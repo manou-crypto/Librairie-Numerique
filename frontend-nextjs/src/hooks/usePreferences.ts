@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { authService } from '@/services/auth.service';
+import { playNotificationSound } from '@/utils/sound';
 
 export interface UserPreferences {
   theme: 'clair' | 'sombre' | 'auto';
@@ -14,37 +16,50 @@ export interface UserPreferences {
 
 const defaultPreferences: UserPreferences = {
   theme: 'clair',
-  notifEmail: true,
-  notifSon: false,
+  notifEmail: false, // désactivé par défaut car non implémenté
+  notifSon: true,
   notifStockBas: true,
-  notifNouvelleVente: false,
+  notifNouvelleVente: true,
   notifRapportJournalier: true,
   notifAlerteRupture: true,
 };
+
+function getStorageKey(): string {
+  if (typeof window === 'undefined') return 'app_preferences_guest';
+  const user = authService.getUser();
+  return user?.id ? `app_preferences_user_${user.id}` : 'app_preferences_guest';
+}
 
 export function usePreferences() {
   const [preferences, setPreferencesState] = useState<UserPreferences>(defaultPreferences);
   const [mounted, setMounted] = useState(false);
 
-  // Charger les préférences depuis localStorage au démarrage
-  useEffect(() => {
-    setMounted(true);
-    const stored = localStorage.getItem('app_preferences');
+  // Charger les préférences de l'utilisateur actif
+  const loadPreferences = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const key = getStorageKey();
+    const stored = localStorage.getItem(key);
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        // On nettoie l'ancienne clé "langue" si elle était stockée
         const { langue, ...cleanParsed } = parsed;
         setPreferencesState({ ...defaultPreferences, ...cleanParsed });
       } catch (e) {
         console.error('Erreur lecture preferences', e);
       }
+    } else {
+      setPreferencesState(defaultPreferences);
     }
   }, []);
 
+  useEffect(() => {
+    setMounted(true);
+    loadPreferences();
+  }, [loadPreferences]);
+
   // Appliquer le thème dès que les préférences changent
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || typeof window === 'undefined') return;
 
     const applyTheme = (theme: 'clair' | 'sombre' | 'auto') => {
       const root = window.document.documentElement;
@@ -65,10 +80,17 @@ export function usePreferences() {
   const updatePreferences = (newPrefs: Partial<UserPreferences>) => {
     setPreferencesState((prev) => {
       const updated = { ...prev, ...newPrefs };
-      localStorage.setItem('app_preferences', JSON.stringify(updated));
+      if (typeof window !== 'undefined') {
+        const key = getStorageKey();
+        localStorage.setItem(key, JSON.stringify(updated));
+      }
       return updated;
     });
   };
 
-  return { preferences, updatePreferences, mounted };
+  const testNotificationSound = () => {
+    playNotificationSound();
+  };
+
+  return { preferences, updatePreferences, testNotificationSound, mounted };
 }

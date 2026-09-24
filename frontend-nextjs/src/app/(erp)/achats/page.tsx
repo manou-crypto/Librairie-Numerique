@@ -58,6 +58,7 @@ export default function AchatsPage() {
   const [filterStatut, setFilterStatut] = useState('all');
   const [filterDateDebut, setFilterDateDebut] = useState('');
   const [filterDateFin, setFilterDateFin] = useState('');
+  const [filterPaiement, setFilterPaiement] = useState<'all' | 'impayes' | 'soldes'>('all');
   const [achats, setAchats] = useState<AchatItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -81,8 +82,33 @@ export default function AchatsPage() {
   const [validating, setValidating] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
+  // Gestion des règlements d'impayés
+  const [showReglementForm, setShowReglementForm] = useState(false);
+  const [montantReglement, setMontantReglement] = useState('');
+  const [modeReglement, setModeReglement] = useState('ESPECES');
+  const [reglementLoading, setReglementLoading] = useState(false);
+
   // État pour la saisie interactive de réception
   const [lignesReception, setLignesReception] = useState<LigneReception[]>([]);
+
+  const handleEnregistrerReglement = async () => {
+    if (!selectedAchat) return;
+    const montant = Number(montantReglement);
+    if (isNaN(montant) || montant <= 0) return toast.error('Veuillez saisir un montant valide');
+    setReglementLoading(true);
+    try {
+      await achatsService.enregistrerPaiement(selectedAchat.id, montant, modeReglement);
+      toast.success('Règlement enregistré avec succès !');
+      setShowReglementForm(false);
+      const updated = await achatsService.getById(selectedAchat.id);
+      setSelectedAchat(updated);
+      loadAchats();
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de l'enregistrement du règlement");
+    } finally {
+      setReglementLoading(false);
+    }
+  };
 
   const loadAchats = async () => {
     setLoading(true);
@@ -215,6 +241,9 @@ export default function AchatsPage() {
     try {
       const detail = await achatsService.getById(id);
       setSelectedAchat(detail);
+      setShowReglementForm(false);
+      const reste = Math.max(0, (detail.montantTotalTtc || detail.montantTotalHt) - (detail.montantPaye || 0));
+      setMontantReglement(reste > 0 ? String(reste) : '');
       // Pré-remplir les lignes de réception si le bon est EN_ATTENTE
       if (detail.statutAchat === 'EN_ATTENTE' && detail.lignes) {
         setLignesReception(
@@ -312,9 +341,7 @@ export default function AchatsPage() {
     }
   };
 
-  // Fonctionnalité d'export CSV déplacée vers la page liste des achats
-
-  // Filtrage avec dates
+  //   // Filtrage avec dates et impayés
   const filtered = achats.filter((a) => {
     const matchSearch =
       a.numeroFactureFournisseur.toLowerCase().includes(search.toLowerCase()) ||
@@ -322,12 +349,32 @@ export default function AchatsPage() {
     const matchStatut = filterStatut === 'all' || a.statutAchat === filterStatut;
     const matchDateDebut = !filterDateDebut || a.dateAchat >= filterDateDebut;
     const matchDateFin = !filterDateFin || a.dateAchat <= filterDateFin + 'T23:59:59';
-    return matchSearch && matchStatut && matchDateDebut && matchDateFin;
+    
+    const totalAchat = a.montantTotalTtc || a.montantTotalHt || 0;
+    const paye = a.montantPaye || 0;
+    const reste = Math.max(0, totalAchat - paye);
+    
+    const matchPaiement =
+      filterPaiement === 'all' ||
+      (filterPaiement === 'impayes' && reste > 0 && a.statutAchat !== 'ANNULE') ||
+      (filterPaiement === 'soldes' && reste <= 0);
+
+    return matchSearch && matchStatut && matchDateDebut && matchDateFin && matchPaiement;
   });
 
-  const totalMontant = achats
-    .filter((a) => a.statutAchat === 'RECU')
-    .reduce((s, a) => s + a.montantTotalHt, 0);
+  const totalEngageTtc = achats.reduce((s, a) => s + (a.montantTotalTtc || a.montantTotalHt || 0), 0);
+  const totalPaye = achats.reduce((s, a) => s + (a.montantPaye || 0), 0);
+  const totalImpayes = achats.reduce((s, a) => {
+    if (a.statutAchat === 'ANNULE') return s;
+    const reste = Math.max(0, (a.montantTotalTtc || a.montantTotalHt || 0) - (a.montantPaye || 0));
+    return s + reste;
+  }, 0);
+  const nbImpayes = achats.filter((a) => {
+    if (a.statutAchat === 'ANNULE') return false;
+    const reste = Math.max(0, (a.montantTotalTtc || a.montantTotalHt || 0) - (a.montantPaye || 0));
+    return reste > 0;
+  }).length;
+
   const enAttente = achats.filter((a) => a.statutAchat === 'EN_ATTENTE').length;
   // KPI: bons en attente dont la date prévue de réception est dépassée
   const enRetard = achats.filter((a) => {
@@ -342,34 +389,46 @@ export default function AchatsPage() {
     <AppLayout currentPath="/achats">
       <Topbar
         title="Achats & Approvisionnements"
-        subtitle="Bons de commande et réceptions fournisseurs"
+        subtitle="Bons de commande, suivi des réceptions et gestion des impayés"
       />
       <div className="px-6 py-6 max-w-screen-2xl mx-auto space-y-6">
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="kpi-card-info">
-            <p className="text-xs text-muted-foreground mb-1">Total achats reçus</p>
+            <p className="text-xs text-muted-foreground mb-1">Total Achats (TTC)</p>
             <p className="text-xl font-bold text-foreground tabular-nums">
-              {totalMontant.toLocaleString('fr-FR')} {devise}
+              {totalEngageTtc.toLocaleString('fr-FR')} {devise}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              {achats.filter((a) => a.statutAchat === 'RECU').length} commandes reçues
+              {achats.length} commandes au total
             </p>
+          </div>
+          <div className="kpi-card-positive">
+            <p className="text-xs text-muted-foreground mb-1">Total Réglé (Payé)</p>
+            <p className="text-xl font-bold text-positive tabular-nums">
+              {totalPaye.toLocaleString('fr-FR')} {devise}
+            </p>
+            <p className="text-xs text-positive mt-1">
+              Montants décaissés
+            </p>
+          </div>
+          <div className="kpi-card-negative">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs text-negative font-semibold">Dettes Fournisseurs</p>
+              {nbImpayes > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-negative text-white font-bold">
+                  {nbImpayes} impayé{nbImpayes > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            <p className="text-xl font-bold text-negative tabular-nums">
+              {totalImpayes.toLocaleString('fr-FR')} {devise}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">Reste à payer total</p>
           </div>
           <div className="kpi-card-warning">
             <p className="text-xs text-muted-foreground mb-1">En attente réception</p>
             <p className="text-xl font-bold text-warning tabular-nums">{enAttente}</p>
-            <p className="text-xs text-muted-foreground mt-1">bons envoyés</p>
-          </div>
-          <div className="kpi-card-neutral">
-            <p className="text-xs text-muted-foreground mb-1">Total Commandes</p>
-            <p className="text-xl font-bold text-foreground tabular-nums">{achats.length}</p>
-            <p className="text-xs text-muted-foreground mt-1">historique</p>
-          </div>
-          <div className="kpi-card-negative">
-            <p className="text-xs text-muted-foreground mb-1">Annulés</p>
-            <p className="text-xl font-bold text-negative tabular-nums">
-              {achats.filter((a) => a.statutAchat === 'ANNULE').length}
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">bons en cours</p>
           </div>
           <div className={`kpi-card-${enRetard > 0 ? 'negative' : 'neutral'}`}>
             <div className="flex items-center gap-1.5 mb-1">
@@ -425,6 +484,15 @@ export default function AchatsPage() {
                 <option value="RECU">Reçu</option>
                 <option value="ANNULE">Annulé</option>
               </select>
+              <select
+                value={filterPaiement}
+                onChange={(e) => setFilterPaiement(e.target.value as any)}
+                className="input-field text-sm w-auto font-medium"
+              >
+                <option value="all">Tous les paiements</option>
+                <option value="impayes">⚠️ Avec impayés ({nbImpayes})</option>
+                <option value="soldes">✅ Soldés uniquement</option>
+              </select>
               <Link
                 href="/achats/liste"
                 className="btn-secondary flex items-center gap-1.5 text-sm py-2 px-3 hover:bg-muted/80 transition-colors"
@@ -450,13 +518,16 @@ export default function AchatsPage() {
                     Fournisseur
                   </th>
                   <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">
-                    Date commande
-                  </th>
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">
-                    Date réception
+                    Date
                   </th>
                   <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground">
-                    Montant HT
+                    Total TTC
+                  </th>
+                  <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground">
+                    Payé
+                  </th>
+                  <th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">
+                    Reste à payer (Dette)
                   </th>
                   <th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">
                     Statut
@@ -469,12 +540,16 @@ export default function AchatsPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                    <td colSpan={8} className="py-8 text-center text-muted-foreground">
                       <Loader2 className="animate-spin mx-auto mb-2" size={24} /> Chargement...
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((achat, idx) => (
+                  filtered.map((achat, idx) => {
+                    const totalTtc = achat.montantTotalTtc || achat.montantTotalHt || 0;
+                    const paye = achat.montantPaye || 0;
+                    const reste = Math.max(0, totalTtc - paye);
+                    return (
                     <tr
                       key={achat.id}
                       className={`border-b border-border table-row-hover ${idx % 2 === 0 ? '' : 'bg-muted/20'}`}
@@ -485,7 +560,7 @@ export default function AchatsPage() {
                       <td className="px-5 py-3 font-medium text-foreground">
                         {achat.fournisseurNom}
                       </td>
-                      <td className="px-5 py-3 text-muted-foreground">
+                      <td className="px-5 py-3 text-muted-foreground text-xs">
                         <div>{new Date(achat.dateAchat).toLocaleDateString('fr-FR')}</div>
                         {achat.datePrevueReception && (
                           <div className="text-[10px] text-primary mt-0.5">
@@ -493,13 +568,24 @@ export default function AchatsPage() {
                           </div>
                         )}
                       </td>
-                      <td className="px-5 py-3 text-muted-foreground">
-                        {achat.dateReception
-                          ? new Date(achat.dateReception).toLocaleDateString('fr-FR')
-                          : '—'}
-                      </td>
                       <td className="px-5 py-3 text-right tabular-nums font-semibold text-foreground">
-                        {achat.montantTotalHt.toLocaleString('fr-FR')} {devise}
+                        {totalTtc.toLocaleString('fr-FR')} {devise}
+                      </td>
+                      <td className="px-5 py-3 text-right tabular-nums text-positive font-medium">
+                        {paye.toLocaleString('fr-FR')} {devise}
+                      </td>
+                      <td className="px-5 py-3 text-center">
+                        {achat.statutAchat === 'ANNULE' ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : reste <= 0 ? (
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300">
+                            Soldé
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">
+                            Reste : {reste.toLocaleString('fr-FR')} {devise}
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-3 text-center">
                         <span className={STATUT_CONFIG[achat.statutAchat]?.className}>
@@ -510,7 +596,7 @@ export default function AchatsPage() {
                         <button
                           onClick={() => openDetail(achat.id)}
                           disabled={loadingDetail === achat.id}
-                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50"
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50 font-medium"
                         >
                           {loadingDetail === achat.id ? (
                             <Loader2 size={12} className="animate-spin" />
@@ -521,7 +607,8 @@ export default function AchatsPage() {
                         </button>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -1011,6 +1098,104 @@ export default function AchatsPage() {
                   </div>
                 </div>
               )}
+
+              {/* BLOC RÉCAPITULATIF FINANCIER & RÈGLEMENT D'IMPAYÉ */}
+              <div className="mt-4 p-4 rounded-xl border border-border bg-muted/20 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      État financier & Règlements
+                    </h4>
+                    <div className="flex items-center gap-4 mt-1.5 flex-wrap">
+                      <div>
+                        <span className="text-xs text-muted-foreground">Total TTC : </span>
+                        <span className="text-sm font-bold text-foreground tabular-nums">
+                          {Number(selectedAchat.montantTotalTtc || selectedAchat.montantTotalHt).toLocaleString('fr-FR')} {devise}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground">Montant Payé : </span>
+                        <span className="text-sm font-bold text-positive tabular-nums">
+                          {Number(selectedAchat.montantPaye || 0).toLocaleString('fr-FR')} {devise}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground">Reste à payer : </span>
+                        {Math.max(0, Number(selectedAchat.montantTotalTtc || selectedAchat.montantTotalHt) - Number(selectedAchat.montantPaye || 0)) <= 0 ? (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300">
+                            Soldé (Aucun impayé)
+                          </span>
+                        ) : (
+                          <span className="text-sm font-bold text-negative tabular-nums">
+                            {Math.max(0, Number(selectedAchat.montantTotalTtc || selectedAchat.montantTotalHt) - Number(selectedAchat.montantPaye || 0)).toLocaleString('fr-FR')} {devise} (Impayé)
+                          </span>
+                        )}
+                      </div>
+                      {selectedAchat.modePaiement && (
+                        <div className="text-xs text-muted-foreground">
+                          Mode : <span className="font-medium text-foreground">{selectedAchat.modePaiement}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {Math.max(0, Number(selectedAchat.montantTotalTtc || selectedAchat.montantTotalHt) - Number(selectedAchat.montantPaye || 0)) > 0 && selectedAchat.statutAchat !== 'ANNULE' && (
+                    <button
+                      type="button"
+                      onClick={() => setShowReglementForm(!showReglementForm)}
+                      className="btn-primary text-xs py-1.5 px-3 self-start flex items-center gap-1.5"
+                    >
+                      <span>💳</span> {showReglementForm ? 'Fermer' : 'Régler un versement'}
+                    </button>
+                  )}
+                </div>
+
+                {/* Formulaire de règlement complémentaire */}
+                {showReglementForm && (
+                  <div className="p-3 bg-card rounded-lg border border-primary/20 space-y-3 mt-2">
+                    <p className="text-xs font-semibold text-foreground">Ajouter un versement pour ce bon d&apos;achat :</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[11px] text-muted-foreground mb-1">Montant à verser ({devise})</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max={Math.max(0, Number(selectedAchat.montantTotalTtc || selectedAchat.montantTotalHt) - Number(selectedAchat.montantPaye || 0))}
+                          value={montantReglement}
+                          onChange={(e) => setMontantReglement(e.target.value)}
+                          className="input-field text-sm"
+                          placeholder="Montant du versement"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] text-muted-foreground mb-1">Mode de règlement</label>
+                        <select
+                          value={modeReglement}
+                          onChange={(e) => setModeReglement(e.target.value)}
+                          className="input-field text-sm"
+                        >
+                          <option value="ESPECES">Espèces</option>
+                          <option value="VIREMENT">Virement bancaire</option>
+                          <option value="CHEQUE">Chèque</option>
+                          <option value="MOBILE_MONEY">Mobile Money</option>
+                          <option value="CARTE_BANCAIRE">Carte bancaire</option>
+                        </select>
+                      </div>
+                      <div className="flex items-end">
+                        <button
+                          type="button"
+                          disabled={reglementLoading || !montantReglement || Number(montantReglement) <= 0}
+                          onClick={handleEnregistrerReglement}
+                          className="btn-primary text-xs py-2 w-full flex items-center justify-center gap-1.5"
+                        >
+                          {reglementLoading ? <Loader2 size={13} className="animate-spin" /> : null}
+                          Confirmer le versement
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex items-center justify-between px-6 py-4 border-t border-border">
               <div>

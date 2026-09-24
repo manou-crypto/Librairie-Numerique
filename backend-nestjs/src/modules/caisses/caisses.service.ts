@@ -476,4 +476,39 @@ export class CaissesService {
       marques: Object.values(produitsParMarque)
     };
   }
+
+  async getHistoriqueSessions(limit: number = 50) {
+    const sessions = await this.prisma.sessionCaisse.findMany({
+      take: limit,
+      orderBy: { date_ouverture: 'desc' },
+      include: {
+        utilisateur: { select: { id_utilisateur: true, nom: true, prenom: true, email: true } },
+        caisse: true,
+        ventes: {
+          where: { statut_vente: 'VALIDEE' },
+          select: { total_ttc: true },
+        },
+      },
+    });
+
+    return sessions.map((s) => {
+      const totalVentes = s.ventes.reduce((acc, v) => acc + Number(v.total_ttc), 0);
+      return {
+        id: s.id_session,
+        codeCaisse: s.caisse?.code_caisse || 'Caisse',
+        emplacement: s.caisse?.emplacement || 'Principal',
+        caissierNom: `${s.utilisateur?.prenom} ${s.utilisateur?.nom}`.trim(),
+        caissierEmail: s.utilisateur?.email,
+        dateOuverture: s.date_ouverture.toISOString(),
+        dateCloture: s.date_cloture ? s.date_cloture.toISOString() : null,
+        statutSession: s.statut_session,
+        fondInitial: Number(s.fond_de_caisse_initial || 0),
+        montantTotalVentes: totalVentes,
+        totalTheorique: Number(s.total_encaisse_calcule || Number(s.fond_de_caisse_initial || 0) + totalVentes),
+        totalReelCompte: s.total_encaisse_reel !== null ? Number(s.total_encaisse_reel) : null,
+        ecart: s.ecart_caisse !== null ? Number(s.ecart_caisse) : null,
+        nombreVentes: s.ventes.length,
+      };
+    });
+  }
 }

@@ -58,6 +58,16 @@ export class AchatsController {
     return this.achatsService.update(id, user, data);
   }
 
+  @Post(':id/paiement')
+  @Roles('ADMIN', 'ACHETEUR_STOCK')
+  async enregistrerPaiement(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+    @Body() body: { montantVerse: number; modePaiement?: any },
+  ) {
+    return this.achatsService.enregistrerPaiement(id, user, body);
+  }
+
   @Delete(':id')
   @Roles('ADMIN', 'ACHETEUR_STOCK')
   async remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {

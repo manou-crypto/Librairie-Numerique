@@ -67,6 +67,12 @@ export class CaissesController {
     return this.caissesService.cloturerSession(id);
   }
 
+  @Get('sessions-caisse/historique')
+  @Roles('ADMIN', 'CAISSIER')
+  async getHistoriqueSessions() {
+    return this.caissesService.getHistoriqueSessions();
+  }
+
   @Get('sessions-caisse/:id/rapport')
   @Roles('ADMIN', 'CAISSIER')
   async getRapportSession(@Param('id', ParseIntPipe) id: number) {

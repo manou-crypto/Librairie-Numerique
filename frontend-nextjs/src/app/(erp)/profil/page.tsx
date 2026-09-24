@@ -20,7 +20,7 @@ export default function ProfilPage() {
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [infos, setInfos] = useState({ prenom: '', nom: '', email: '', telephone: '', poste: '' });
   const [passwords, setPasswords] = useState({ actuel: '', nouveau: '', confirmation: '' });
-  const { preferences, updatePreferences, mounted } = usePreferences();
+  const { preferences, updatePreferences, testNotificationSound, mounted } = usePreferences();
   const [localPrefs, setLocalPrefs] = useState<UserPreferences>(preferences);
 
   useEffect(() => {
@@ -322,28 +322,66 @@ export default function ProfilPage() {
                   <option value="auto">Automatique (système)</option>
                 </select>
               </div>
-              <div className="border-t border-border pt-4 space-y-3">
+              <div className="border-t border-border pt-4 space-y-4">
                 <h4 className="text-xs font-bold text-foreground">Notifications</h4>
-                {[
-                  { key: 'notifEmail', label: 'Notifications par email' },
-                  { key: 'notifSon', label: 'Sons de notification' },
-                ].map((item) => (
-                  <div key={item.key} className="flex items-center justify-between">
-                    <p className="text-sm text-foreground">{item.label}</p>
+                
+                {/* Notif Email (Non implémentée) */}
+                <div className="flex items-center justify-between group relative p-2 rounded-lg hover:bg-muted/40 transition-colors">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-foreground">Notifications par email</p>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                        Bientôt disponible
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Alertes de sécurité et récapitulatifs par courrier électronique</p>
+                  </div>
+                  <div className="relative" title="Fonctionnalité non implémentée">
                     <button
+                      type="button"
+                      disabled
+                      className="relative w-10 h-5 rounded-full bg-muted cursor-not-allowed opacity-60 flex items-center"
+                    >
+                      <span className="absolute left-0.5 w-4 h-4 rounded-full bg-white shadow" />
+                    </button>
+                    {/* Tooltip au survol */}
+                    <div className="absolute right-0 bottom-full mb-1 hidden group-hover:block z-10 whitespace-nowrap bg-gray-900 text-white text-[11px] rounded px-2.5 py-1 shadow-md font-medium">
+                      Fonctionnalité non implémentée
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notif Sonore (Active avec test) */}
+                <div className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/40 transition-colors">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Sons de notification</p>
+                    <p className="text-xs text-muted-foreground">Émettre un signal sonore lors des alertes et nouvelles ventes</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => testNotificationSound()}
+                      className="text-xs font-medium px-2.5 py-1 rounded border border-border hover:bg-muted text-primary flex items-center gap-1 transition-all"
+                      title="Tester le son du carillon"
+                    >
+                      <span>🔊</span> Tester le son
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => {
-                        const newVal = !localPrefs[item.key as keyof UserPreferences];
-                        setLocalPrefs({ ...localPrefs, [item.key]: newVal });
-                        updatePreferences({ [item.key]: newVal });
+                        const newVal = !localPrefs.notifSon;
+                        setLocalPrefs({ ...localPrefs, notifSon: newVal });
+                        updatePreferences({ notifSon: newVal });
+                        if (newVal) testNotificationSound();
                       }}
-                      className={`relative w-10 h-5 rounded-full transition-colors flex items-center ${localPrefs[item.key as keyof UserPreferences] ? 'bg-primary' : 'bg-muted'}`}
+                      className={`relative w-10 h-5 rounded-full transition-colors flex items-center ${localPrefs.notifSon ? 'bg-primary' : 'bg-muted'}`}
                     >
                       <span
-                        className={`absolute left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${localPrefs[item.key as keyof UserPreferences] ? 'translate-x-5' : 'translate-x-0'}`}
+                        className={`absolute left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${localPrefs.notifSon ? 'translate-x-5' : 'translate-x-0'}`}
                       />
                     </button>
                   </div>
-                ))}
+                </div>
               </div>
             </div>
           </div>

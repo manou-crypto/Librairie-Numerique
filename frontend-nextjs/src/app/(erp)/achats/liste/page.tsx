@@ -89,13 +89,57 @@ export default function AchatsListePage() {
     return matchSearch && matchStatut && matchDateDebut && matchDateFin;
   });
 
+  const totalEngageTtc = achats.reduce((s, a) => s + (a.montantTotalTtc || a.montantTotalHt || 0), 0);
+  const totalPaye = achats.reduce((s, a) => s + (a.montantPaye || 0), 0);
+  const totalImpayes = achats.reduce((s, a) => {
+    if (a.statutAchat === 'ANNULE') return s;
+    const reste = Math.max(0, (a.montantTotalTtc || a.montantTotalHt || 0) - (a.montantPaye || 0));
+    return s + reste;
+  }, 0);
+  const nbImpayes = achats.filter((a) => {
+    if (a.statutAchat === 'ANNULE') return false;
+    const reste = Math.max(0, (a.montantTotalTtc || a.montantTotalHt || 0) - (a.montantPaye || 0));
+    return reste > 0;
+  }).length;
+
   return (
     <AppLayout currentPath="/achats/liste">
       <Topbar
         title="Traçabilité des Achats"
-        subtitle="Historique complet des saisies avec suivi utilisateur"
+        subtitle="Historique complet des saisies avec suivi utilisateur et impayés"
       />
       <div className="px-6 py-6 max-w-screen-2xl mx-auto space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="kpi-card-info">
+            <p className="text-xs text-muted-foreground mb-1">Total Achats (TTC)</p>
+            <p className="text-xl font-bold text-foreground tabular-nums">
+              {totalEngageTtc.toLocaleString('fr-FR')} {devise}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">{achats.length} commandes enregistrées</p>
+          </div>
+          <div className="kpi-card-positive">
+            <p className="text-xs text-muted-foreground mb-1">Total Réglé (Payé)</p>
+            <p className="text-xl font-bold text-positive tabular-nums">
+              {totalPaye.toLocaleString('fr-FR')} {devise}
+            </p>
+            <p className="text-xs text-positive mt-1">Montants décaissés</p>
+          </div>
+          <div className="kpi-card-negative">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs text-negative font-semibold">Dettes Fournisseurs</p>
+              {nbImpayes > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-negative text-white font-bold">
+                  {nbImpayes} impayé{nbImpayes > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            <p className="text-xl font-bold text-negative tabular-nums">
+              {totalImpayes.toLocaleString('fr-FR')} {devise}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">Reste à payer total</p>
+          </div>
+        </div>
+
         <div className="card-base overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <div className="relative flex-1 max-w-sm">

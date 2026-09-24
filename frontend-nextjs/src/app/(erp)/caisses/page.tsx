@@ -16,8 +16,12 @@ import {
   Loader2,
   Trash2,
   Pencil,
+  Eye,
+  FileText,
+  History,
+  Search,
 } from 'lucide-react';
-import { caissesService, CaisseItem, UserItem } from '@/services/caisses.service';
+import { caissesService, CaisseItem, UserItem, HistoriqueSessionItem } from '@/services/caisses.service';
 import { toast } from 'sonner';
 
 const STATUT_CONFIG: Record<string, { label: string; className: string; icon: React.ElementType }> =
@@ -46,6 +50,44 @@ export default function CaissesPage() {
   const [utilisateurs, setUtilisateurs] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // ── Onglet actif ───────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<'terminaux' | 'historique'>('terminaux');
+  const [sessions, setSessions] = useState<HistoriqueSessionItem[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [searchSession, setSearchSession] = useState('');
+  const [selectedReport, setSelectedReport] = useState<any>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+
+  const loadSessions = useCallback(async () => {
+    try {
+      setSessionsLoading(true);
+      const res = await caissesService.getHistoriqueSessions();
+      setSessions(res || []);
+    } catch {
+      toast.error("Erreur lors du chargement de l'historique des sessions");
+    } finally {
+      setSessionsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'historique') {
+      loadSessions();
+    }
+  }, [activeTab, loadSessions]);
+
+  const handleOpenReport = async (sessionId: number) => {
+    try {
+      setReportLoading(true);
+      const report = await caissesService.getRapportSession(String(sessionId));
+      setSelectedReport(report);
+    } catch (err: any) {
+      toast.error(err.message || 'Impossible de charger le rapport de caisse');
+    } finally {
+      setReportLoading(false);
+    }
+  };
 
   // ── Modal Clôture ──────────────────────────────────────────────────────────
   const [clotureModal, setClotureModal] = useState<ClotureModal>({ caisse: null, open: false });
@@ -260,19 +302,46 @@ export default function CaissesPage() {
           </div>
         </div>
 
-        {/* ── Titre + bouton ────────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-foreground">État des caisses</h2>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="btn-primary flex items-center gap-1.5 text-sm py-2"
-          >
-            <Plus size={14} /> Nouvelle caisse
-          </button>
+        {/* ── Sélecteur d'onglets (Terminaux vs Historique) ────────────────── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border">
+            <button
+              onClick={() => setActiveTab('terminaux')}
+              className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${
+                activeTab === 'terminaux'
+                  ? 'bg-card text-foreground shadow-sm font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Terminaux de caisse ({caisses.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('historique')}
+              className={`px-4 py-2 rounded-md text-sm font-semibold transition-all flex items-center gap-1.5 ${
+                activeTab === 'historique'
+                  ? 'bg-card text-foreground shadow-sm font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <History size={15} />
+              <span>Historique & Audit des Sessions</span>
+            </button>
+          </div>
+
+          {activeTab === 'terminaux' && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="btn-primary flex items-center gap-1.5 text-sm py-2 px-3.5"
+            >
+              <Plus size={14} /> Nouvelle caisse
+            </button>
+          )}
         </div>
 
-        {/* ── Grille des caisses ────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        {activeTab === 'terminaux' ? (
+          <>
+            {/* ── Grille des caisses ────────────────────────────────────────────── */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {loading ? (
             <div className="col-span-full py-16 text-center text-muted-foreground">
               <Loader2 className="animate-spin mx-auto mb-2" size={24} /> Chargement des caisses...
@@ -459,7 +528,281 @@ export default function CaissesPage() {
             </table>
           </div>
         </div>
+      </>
+    ) : (
+      /* ── ONGLET HISTORIQUE DES SESSIONS ────────────────────────────── */
+      <div className="space-y-4">
+        <div className="card-base p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+            <input
+              type="text"
+              placeholder="Rechercher une session par caissier, code caisse..."
+              value={searchSession}
+              onChange={(e) => setSearchSession(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <button
+            onClick={loadSessions}
+            className="btn-secondary text-sm py-2 px-3 flex items-center gap-1.5"
+          >
+            {sessionsLoading ? <Loader2 size={14} className="animate-spin" /> : <Clock size={14} />}
+            <span>Actualiser</span>
+          </button>
+        </div>
+
+        <div className="card-base overflow-hidden">
+          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Registre des sessions de caisse</h3>
+              <p className="text-xs text-muted-foreground">
+                Suivi des ouvertures, fermetures, écarts d'espèces et opérateurs
+              </p>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/50">
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">Caisse</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">Caissier</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">Ouverture</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">Clôture</th>
+                  <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground">Fond initial</th>
+                  <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground">Total Ventes</th>
+                  <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground">Écart</th>
+                  <th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">Statut</th>
+                  <th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">Rapport</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {sessionsLoading ? (
+                  <tr>
+                    <td colSpan={9} className="py-12 text-center text-muted-foreground">
+                      <Loader2 className="animate-spin mx-auto mb-2 text-primary" size={24} />
+                      Chargement des sessions...
+                    </td>
+                  </tr>
+                ) : sessions.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-12 text-center text-muted-foreground">
+                      Aucune session enregistrée.
+                    </td>
+                  </tr>
+                ) : (
+                  sessions
+                    .filter((s) => {
+                      const q = searchSession.toLowerCase();
+                      return (
+                        !q ||
+                        s.codeCaisse.toLowerCase().includes(q) ||
+                        s.caissierNom.toLowerCase().includes(q) ||
+                        (s.caissierEmail && s.caissierEmail.toLowerCase().includes(q))
+                      );
+                    })
+                    .map((s) => {
+                      const isOpen = s.statutSession === 'OUVERTE';
+                      const ecart = s.ecart ?? 0;
+                      return (
+                        <tr key={s.id} className="hover:bg-muted/30 transition-colors">
+                          <td className="px-5 py-3 font-semibold text-foreground">
+                            {s.codeCaisse}
+                            <span className="block text-[11px] text-muted-foreground font-normal">{s.emplacement}</span>
+                          </td>
+                          <td className="px-5 py-3">
+                            <p className="font-medium text-foreground text-xs">{s.caissierNom}</p>
+                            <p className="text-[10px] text-muted-foreground">{s.caissierEmail}</p>
+                          </td>
+                          <td className="px-5 py-3 text-xs text-muted-foreground">
+                            {new Date(s.dateOuverture).toLocaleString('fr-FR', {
+                              day: '2-digit',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </td>
+                          <td className="px-5 py-3 text-xs">
+                            {s.dateCloture ? (
+                              new Date(s.dateCloture).toLocaleString('fr-FR', {
+                                day: '2-digit',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            ) : (
+                              <span className="text-positive font-semibold flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                                En cours
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">
+                            {s.fondInitial.toLocaleString('fr-FR')} FCFA
+                          </td>
+                          <td className="px-5 py-3 text-right font-bold text-foreground tabular-nums">
+                            {s.montantTotalVentes.toLocaleString('fr-FR')} FCFA
+                            <span className="block text-[10px] text-muted-foreground font-normal">
+                              {s.nombreVentes} ventes
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-right tabular-nums">
+                            {s.dateCloture ? (
+                              ecart === 0 ? (
+                                <span className="text-green-600 font-semibold text-xs">Équilibré</span>
+                              ) : ecart < 0 ? (
+                                <span className="text-red-600 font-bold text-xs">{ecart.toLocaleString('fr-FR')} FCFA</span>
+                              ) : (
+                                <span className="text-blue-600 font-bold text-xs">+{ecart.toLocaleString('fr-FR')} FCFA</span>
+                              )
+                            ) : (
+                              <span className="text-muted-foreground text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3 text-center">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                isOpen
+                                  ? 'bg-green-500/10 text-green-700 border border-green-500/20'
+                                  : 'bg-muted text-muted-foreground'
+                              }`}
+                            >
+                              {isOpen ? 'Ouverte' : 'Clôturée'}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-center">
+                            <button
+                              onClick={() => handleOpenReport(s.id)}
+                              disabled={reportLoading}
+                              className="btn-secondary text-xs py-1 px-2.5 flex items-center gap-1 mx-auto"
+                              title="Consulter le rapport complet de session"
+                            >
+                              <Eye size={12} />
+                              <span>Rapport</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
+    )}
+  </div>
+
+  {/* ── MODAL: Rapport Détaillé de Session ── */}
+  {selectedReport && (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-card text-card-foreground border border-border rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-border pb-3">
+          <div>
+            <h3 className="font-bold text-base text-foreground">Rapport d'Audit de Caisse</h3>
+            <p className="text-xs text-muted-foreground">
+              Session #{selectedReport.session?.id} — {selectedReport.session?.utilisateur}
+            </p>
+          </div>
+          <button
+            onClick={() => setSelectedReport(null)}
+            className="text-muted-foreground hover:text-foreground p-1"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="space-y-3 text-sm">
+          <div className="bg-muted/40 p-3 rounded-lg text-xs space-y-1">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Emplacement :</span>
+              <span className="font-semibold text-foreground">{selectedReport.session?.emplacement}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Ouverture :</span>
+              <span className="text-foreground">
+                {new Date(selectedReport.session?.dateOuverture).toLocaleString('fr-FR')}
+              </span>
+            </div>
+            {selectedReport.session?.dateCloture && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Clôture :</span>
+                <span className="text-foreground">
+                  {new Date(selectedReport.session?.dateCloture).toLocaleString('fr-FR')}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Tiroir caisse */}
+          <div className="card-base p-3 space-y-2 text-xs">
+            <h4 className="font-bold uppercase tracking-wider text-muted-foreground text-[10px]">
+              Mouvements du Tiroir Caisse
+            </h4>
+            <div className="flex justify-between">
+              <span>Solde ouverture :</span>
+              <span className="font-semibold">{selectedReport.tiroirCaisse?.soldeOuverture?.toLocaleString('fr-FR')} FCFA</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Espèces reçues (ventes) :</span>
+              <span className="font-semibold text-green-600">
+                +{selectedReport.tiroirCaisse?.especesRecuesVentes?.toLocaleString('fr-FR')} FCFA
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Espèces attendues au total :</span>
+              <span className="font-bold text-primary">
+                {selectedReport.tiroirCaisse?.especesAttendues?.toLocaleString('fr-FR')} FCFA
+              </span>
+            </div>
+          </div>
+
+          {/* Résumé des ventes */}
+          <div className="card-base p-3 space-y-2 text-xs">
+            <h4 className="font-bold uppercase tracking-wider text-muted-foreground text-[10px]">
+              Chiffre d'Affaires Net
+            </h4>
+            <div className="flex justify-between">
+              <span>Ventes brutes :</span>
+              <span className="font-semibold">{selectedReport.resumeVentes?.ventesBrutes?.toLocaleString('fr-FR')} FCFA</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Remboursements :</span>
+              <span className="text-red-500">-{selectedReport.resumeVentes?.totalRemboursements?.toLocaleString('fr-FR')} FCFA</span>
+            </div>
+            <div className="flex justify-between text-sm font-bold border-t border-border pt-1">
+              <span>Ventes nettes :</span>
+              <span className="text-primary">{selectedReport.resumeVentes?.ventesNettes?.toLocaleString('fr-FR')} FCFA</span>
+            </div>
+          </div>
+
+          {/* Modes de paiement */}
+          {selectedReport.paiements && selectedReport.paiements.length > 0 && (
+            <div className="card-base p-3 space-y-2 text-xs">
+              <h4 className="font-bold uppercase tracking-wider text-muted-foreground text-[10px]">
+                Encaissements par Mode
+              </h4>
+              {selectedReport.paiements.map((p: any, i: number) => (
+                <div key={i} className="flex justify-between">
+                  <span className="capitalize">{p.mode.toLowerCase().replace('_', ' ')} :</span>
+                  <span className="font-semibold">{p.montant?.toLocaleString('fr-FR')} FCFA</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end pt-2 border-t border-border">
+          <button
+            onClick={() => setSelectedReport(null)}
+            className="btn-secondary text-sm py-2 px-4"
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
 
       {/* ════════════════════════════════════════════════════════════════════════
           MODAL: Clôture de caisse

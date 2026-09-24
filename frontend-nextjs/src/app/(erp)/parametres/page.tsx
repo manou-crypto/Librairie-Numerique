@@ -298,27 +298,54 @@ export default function ParametresPage() {
                   label: 'Notifications par email',
                   desc: 'Recevoir les alertes par email',
                 },
-              ].map((item) => (
-                <div
-                  key={item.key}
-                  className="flex items-center justify-between py-3 border-b border-border last:border-0"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{item.label}</p>
-                    <p className="text-xs text-muted-foreground">{item.desc}</p>
-                  </div>
-                  <button
-                    onClick={() =>
-                      setNotifs({ ...notifs, [item.key]: !notifs[item.key as keyof typeof notifs] })
-                    }
-                    className={`relative w-10 h-5 rounded-full transition-colors flex items-center ${notifs[item.key as keyof typeof notifs] ? 'bg-primary' : 'bg-muted'}`}
+              ].map((item) => {
+                const isNotImplemented = item.key === 'rapportJournalier' || item.key === 'emailNotifs';
+                return (
+                  <div
+                    key={item.key}
+                    className={`flex items-center justify-between py-3 border-b border-border last:border-0 group relative p-2 rounded-lg transition-colors ${isNotImplemented ? 'hover:bg-muted/40' : ''}`}
                   >
-                    <span
-                      className={`absolute left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${notifs[item.key as keyof typeof notifs] ? 'translate-x-5' : 'translate-x-0'}`}
-                    />
-                  </button>
-                </div>
-              ))}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-foreground">{item.label}</p>
+                        {isNotImplemented && (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                            Bientôt disponible
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">{item.desc}</p>
+                    </div>
+                    {isNotImplemented ? (
+                      <div className="relative" title="Fonctionnalité non implémentée">
+                        <button
+                          type="button"
+                          disabled
+                          className="relative w-10 h-5 rounded-full bg-muted cursor-not-allowed opacity-60 flex items-center"
+                        >
+                          <span className="absolute left-0.5 w-4 h-4 rounded-full bg-white shadow" />
+                        </button>
+                        {/* Tooltip au survol */}
+                        <div className="absolute right-0 bottom-full mb-1 hidden group-hover:block z-10 whitespace-nowrap bg-gray-900 text-white text-[11px] rounded px-2.5 py-1 shadow-md font-medium">
+                          Fonctionnalité non implémentée
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setNotifs({ ...notifs, [item.key]: !notifs[item.key as keyof typeof notifs] })
+                        }
+                        className={`relative w-10 h-5 rounded-full transition-colors flex items-center ${notifs[item.key as keyof typeof notifs] ? 'bg-primary' : 'bg-muted'}`}
+                      >
+                        <span
+                          className={`absolute left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${notifs[item.key as keyof typeof notifs] ? 'translate-x-5' : 'translate-x-0'}`}
+                        />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

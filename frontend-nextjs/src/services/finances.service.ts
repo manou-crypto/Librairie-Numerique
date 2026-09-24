@@ -12,11 +12,17 @@ export interface ClotureJournaliereItem {
   beneficeBrutTotal: number;
   nombreVentes: number;
   nombreArticlesVendus: number;
-  utilisateurValidationId: number;
+  utilisateurValidationId?: number;
+  utilisateurValidationNom?: string;
+  utilisateurValidationRole?: string;
   dateValidation: string;
+  typeCloture?: 'MANUELLE' | 'AUTOMATIQUE';
 }
 
 export interface KpiDataResponse {
+  period?: 'jour' | 'semaine' | 'mois' | 'annee';
+  caPeriode?: number;
+  beneficeBrutPeriode?: number;
   caJour: number;
   caJourObjectif: number;
   caJourTrend: number;
@@ -27,6 +33,7 @@ export interface KpiDataResponse {
   caMoisTotal: number;
   caMoisObjectif: number;
   rupturesStockCount: number;
+  dettesFournisseurs?: number;
 }
 export interface DashboardChartsResponse {
   categoriesDistribution: { name: string; value: number }[];
@@ -65,8 +72,11 @@ export const financesService = {
    * Obtenir les graphiques du Dashboard (Répartition et Tendances)
    * GET /api/v1/dashboard/charts
    */
-  async getDashboardCharts(period: 'jour' | 'mois' | 'annee' = 'mois'): Promise<DashboardChartsResponse> {
-    const response = await fetch(`${API_BASE_URL}/v1/dashboard/charts?period=${period}`, {
+  async getDashboardCharts(
+    period: 'jour' | 'semaine' | 'mois' | 'annee' = 'mois',
+    days: number = 7,
+  ): Promise<DashboardChartsResponse> {
+    const response = await fetch(`${API_BASE_URL}/v1/dashboard/charts?period=${period}&days=${days}`, {
       headers: getAuthHeaders(),
     });
     if (!response.ok) throw new Error('Échec du chargement des graphiques');
@@ -88,7 +98,7 @@ export const financesService = {
    * Obtenir les KPIs financiers en temps réel pour le Dashboard Super Admin
    * GET /api/v1/dashboard/kpi
    */
-  async getDashboardKpis(period: 'jour' | 'mois' | 'annee' = 'mois'): Promise<KpiDataResponse> {
+  async getDashboardKpis(period: 'jour' | 'semaine' | 'mois' | 'annee' = 'mois'): Promise<KpiDataResponse> {
     const response = await fetch(`${API_BASE_URL}/v1/dashboard/kpi?period=${period}`, {
       headers: getAuthHeaders(),
     });

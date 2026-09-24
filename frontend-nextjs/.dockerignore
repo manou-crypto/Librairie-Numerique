@@ -1,0 +1,15 @@
+node_modules/
+npm-debug.log
+.next/
+coverage/
+.DS_Store
+*.swp
+*.swo
+.git
+.gitignore
+README.md
+docker-compose.yml
+nginx/
+backend-nestjs/
+.eslintrc.json
+.prettierignore

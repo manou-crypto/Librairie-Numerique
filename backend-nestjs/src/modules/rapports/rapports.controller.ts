@@ -13,4 +13,16 @@ export class RapportsController {
   async getStats(@Query('period') period: string = 'semaine') {
     return this.rapportsService.getDashboardStats(period);
   }
+
+  @Get('achats')
+  @RequirePermissions('VIEW_RAPPORTS', 'VIEW_ACHATS')
+  async getAchatsStats(@Query('period') period: string = 'semaine') {
+    return this.rapportsService.getAchatsStats(period);
+  }
+
+  @Get('stocks')
+  @RequirePermissions('VIEW_RAPPORTS', 'VIEW_STOCK')
+  async getStocksStats() {
+    return this.rapportsService.getStocksStats();
+  }
 }

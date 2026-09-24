@@ -190,6 +190,18 @@ export const caissesService = {
   },
 
   /**
+   * Obtenir l'historique des sessions de caisse
+   * GET /api/v1/sessions-caisse/historique
+   */
+  async getHistoriqueSessions(): Promise<HistoriqueSessionItem[]> {
+    const response = await fetch(`${API_BASE_URL}/v1/sessions-caisse/historique`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Échec du chargement de l’historique des sessions de caisse');
+    return response.json();
+  },
+
+  /**
    * Obtenir la caisse assignée à l'utilisateur connecté
    * GET /api/v1/caisses/ma-caisse
    */
@@ -204,3 +216,20 @@ export const caissesService = {
     return JSON.parse(text);
   },
 };
+
+export interface HistoriqueSessionItem {
+  id: number;
+  codeCaisse: string;
+  emplacement: string;
+  caissierNom: string;
+  caissierEmail: string;
+  dateOuverture: string;
+  dateCloture: string | null;
+  statutSession: 'OUVERTE' | 'CLOTUREE';
+  fondInitial: number;
+  montantTotalVentes: number;
+  totalTheorique: number;
+  totalReelCompte: number | null;
+  ecart: number | null;
+  nombreVentes: number;
+}

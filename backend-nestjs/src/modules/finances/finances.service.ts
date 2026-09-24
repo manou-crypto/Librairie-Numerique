@@ -1,90 +1,137 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
+export interface ClotureResult {
+  id: string;
+  dateCloture: string;
+  chiffreAffairesHt: number;
+  chiffreAffairesTtc: number;
+  tvaCollectee: number;
+  beneficeBrutTotal: number;
+  nombreVentes: number;
+  nombreArticlesVendus: number;
+  utilisateurValidationNom: string;
+  utilisateurValidationRole: string;
+  dateValidation: string;
+  typeCloture: 'MANUELLE' | 'AUTOMATIQUE';
+}
+
 @Injectable()
 export class FinancesService {
   constructor(private prisma: PrismaService) {}
 
-  async getDashboardKpis(period?: 'jour' | 'mois' | 'annee') {
+  async getDashboardKpis(period?: 'jour' | 'semaine' | 'mois' | 'annee') {
     const today = new Date();
     const startDate = new Date(today);
     
-    if (period === 'mois') {
+    if (period === 'semaine') {
+      startDate.setDate(today.getDate() - 7);
+      startDate.setHours(0, 0, 0, 0);
+    } else if (period === 'mois') {
       startDate.setDate(1);
       startDate.setHours(0, 0, 0, 0);
     } else if (period === 'annee') {
       startDate.setMonth(0, 1);
       startDate.setHours(0, 0, 0, 0);
     } else {
+      // 'jour' par défaut
       startDate.setHours(0, 0, 0, 0);
     }
 
-    const [ventesJour, rupturesCount, totalMonthSales] = await Promise.all([
+    const startOfToday = new Date(today);
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1, 0, 0, 0);
+
+    const [ventesPeriode, ventesAujourdhui, rupturesCount, totalMonthSales, achats] = await Promise.all([
       this.prisma.vente.findMany({
         where: {
           date_vente: { gte: startDate },
           statut_vente: 'VALIDEE',
         },
       }),
-      this.prisma.stock.count({ where: { quantite_en_stock: 0 } }),
+      this.prisma.vente.findMany({
+        where: {
+          date_vente: { gte: startOfToday },
+          statut_vente: 'VALIDEE',
+        },
+      }),
+      this.prisma.stock.count({ where: { quantite_en_stock: { lte: 0 } } }),
       this.prisma.vente.aggregate({
         _sum: { total_ttc: true },
-        where: { statut_vente: 'VALIDEE' },
+        where: {
+          date_vente: { gte: startOfMonth },
+          statut_vente: 'VALIDEE',
+        },
+      }),
+      this.prisma.achat.findMany({
+        where: { statut_achat: { not: 'ANNULE' } },
+        select: { montant_total_ttc: true, montant_paye: true },
       }),
     ]);
 
+    let caPeriode = 0;
+    let beneficeBrutPeriode = 0;
+    const ventesPeriodeCount = ventesPeriode.length;
+
+    ventesPeriode.forEach((v) => {
+      caPeriode += Number(v.total_ttc);
+      beneficeBrutPeriode += Number(v.marge_totale);
+    });
+
     let caJour = 0;
     let beneficeBrutJour = 0;
-    let ventesJourCount = ventesJour.length;
-
-    ventesJour.forEach((v) => {
+    ventesAujourdhui.forEach((v) => {
       caJour += Number(v.total_ttc);
       beneficeBrutJour += Number(v.marge_totale);
     });
 
-    const panierMoyen = ventesJourCount > 0 ? caJour / ventesJourCount : 0;
-    const margeMoyennePourcent = caJour > 0 ? (beneficeBrutJour / caJour) * 100 : 0;
+    const dettesFournisseurs = achats.reduce((acc, a) => {
+      const reste = Number(a.montant_total_ttc) - Number(a.montant_paye);
+      return acc + (reste > 0 ? reste : 0);
+    }, 0);
+
+    const panierMoyen = ventesPeriodeCount > 0 ? caPeriode / ventesPeriodeCount : 0;
+    const margeMoyennePourcent = caPeriode > 0 ? (beneficeBrutPeriode / caPeriode) * 100 : 0;
 
     return {
-      caJour,
-      caJourObjectif: 500000,
-      caJourTrend: 12.4,
-      beneficeBrutJour,
+      period: period || 'jour',
+      caPeriode,
+      beneficeBrutPeriode,
       margeMoyennePourcent: Number(margeMoyennePourcent.toFixed(1)),
-      ventesJourCount,
+      ventesJourCount: ventesPeriodeCount,
       panierMoyen: Number(panierMoyen.toFixed(2)),
-      caMoisTotal: Number(totalMonthSales._sum.total_ttc || caJour),
-      caMoisObjectif: 10000000,
+      caJour,
+      beneficeBrutJour,
+      caMoisTotal: Number(totalMonthSales._sum.total_ttc || 0),
+      dettesFournisseurs: Math.round(dettesFournisseurs),
       rupturesStockCount: rupturesCount,
+      // Compatibilité
+      caJourTrend: 12.4,
+      caJourObjectif: 500000,
+      caMoisObjectif: 10000000,
     };
   }
 
-  async getDashboardCharts(period?: 'jour' | 'mois' | 'annee') {
-    // 1. Categories Distribution
+  async getDashboardCharts(period?: 'jour' | 'mois' | 'annee', daysCount: number = 7) {
+    const count = Number(daysCount) > 0 ? Number(daysCount) : 7;
     const today = new Date();
-    const startDate = new Date(today);
-    
-    if (period === 'mois' || !period) {
-      startDate.setDate(1);
-      startDate.setHours(0, 0, 0, 0);
-    } else if (period === 'annee') {
-      startDate.setMonth(0, 1);
-      startDate.setHours(0, 0, 0, 0);
-    } else {
-      startDate.setHours(0, 0, 0, 0);
-    }
-    
-    const ventesMois = await this.prisma.vente.findMany({
-      where: { date_vente: { gte: startDate }, statut_vente: 'VALIDEE' },
-      include: { lignes: { include: { produit: { include: { categories: { include: { categorie: true } } } } } } }
+    const startFilterDate = new Date(today);
+    startFilterDate.setDate(today.getDate() - count);
+    startFilterDate.setHours(0, 0, 0, 0);
+
+    // 1. Categories Distribution sur la période
+    const ventesPeriode = await this.prisma.vente.findMany({
+      where: { date_vente: { gte: startFilterDate }, statut_vente: 'VALIDEE' },
+      include: { lignes: { include: { produit: { include: { categories: { include: { categorie: true } } } } } } },
     });
 
     const catMap = new Map<string, number>();
-    ventesMois.forEach(v => {
-      v.lignes.forEach(l => {
+    ventesPeriode.forEach((v) => {
+      v.lignes.forEach((l) => {
         let catName = 'Divers';
         if (l.produit?.categories && l.produit.categories.length > 0) {
-           catName = l.produit.categories[0].categorie.nom;
+          catName = l.produit.categories[0].categorie.nom;
         }
         const amount = Number(l.total_ligne_ht || 0);
         catMap.set(catName, (catMap.get(catName) || 0) + amount);
@@ -93,19 +140,19 @@ export class FinancesService {
 
     const categoriesDistribution = Array.from(catMap.entries()).map(([name, value]) => ({
       name,
-      value: Number(value.toFixed(0))
+      value: Number(value.toFixed(0)),
     }));
 
     if (categoriesDistribution.length === 0) {
       categoriesDistribution.push({ name: 'Aucune donnée', value: 100 });
     }
 
-    // 2. Weekly Trends & Daily CA/Benefice (Last 7 days)
+    // 2. Daily Trends pour le nombre de jours demandé
     const weeklyTrends: { jour: string; semaine: number; precedente: number }[] = [];
     const caTrends: { mois: string; ca: number; benefice: number }[] = [];
-    const days = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+    const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
-    for (let i = 6; i >= 0; i--) {
+    for (let i = count - 1; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       d.setHours(0, 0, 0, 0);
@@ -113,24 +160,28 @@ export class FinancesService {
       dNext.setDate(dNext.getDate() + 1);
 
       const dPrev = new Date(d);
-      dPrev.setDate(dPrev.getDate() - 7);
+      dPrev.setDate(dPrev.getDate() - count);
       const dPrevNext = new Date(dPrev);
       dPrevNext.setDate(dPrevNext.getDate() + 1);
 
       const currentSales = await this.prisma.vente.aggregate({
         _sum: { total_ttc: true, marge_totale: true },
-        where: { date_vente: { gte: d, lt: dNext }, statut_vente: 'VALIDEE' }
+        where: { date_vente: { gte: d, lt: dNext }, statut_vente: 'VALIDEE' },
       });
 
       const prevSales = await this.prisma.vente.aggregate({
         _sum: { total_ttc: true },
-        where: { date_vente: { gte: dPrev, lt: dPrevNext }, statut_vente: 'VALIDEE' }
+        where: { date_vente: { gte: dPrev, lt: dPrevNext }, statut_vente: 'VALIDEE' },
       });
 
       const ca = Number(currentSales._sum.total_ttc || 0);
       const benefice = Number(currentSales._sum.marge_totale || 0);
       const prevCa = Number(prevSales._sum.total_ttc || 0);
-      const label = days[d.getDay()];
+
+      const label =
+        count <= 7
+          ? dayNames[d.getDay()]
+          : `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
 
       weeklyTrends.push({ jour: label, semaine: ca, precedente: prevCa });
       caTrends.push({ mois: label, ca: ca, benefice: benefice });
@@ -139,7 +190,7 @@ export class FinancesService {
     return {
       categoriesDistribution,
       weeklyTrends,
-      caTrends
+      caTrends,
     };
   }
 
@@ -281,11 +332,53 @@ export class FinancesService {
 
   async getHistoriqueClotures() {
     const list = await this.prisma.clotureJournaliere.findMany({
-      include: { utilisateur_validation: true },
+      include: {
+        utilisateur_validation: {
+          select: {
+            id_utilisateur: true,
+            nom: true,
+            prenom: true,
+            role: { select: { code_role: true } },
+            email: true,
+          },
+        },
+      },
       orderBy: { date_cloture: 'desc' },
     });
 
-    return list.map((c) => ({
+    const closedDatesSet = new Set(
+      list.map((c) => c.date_cloture.toISOString().split('T')[0]),
+    );
+
+    // Récupérer les ventes des 60 derniers jours pour détecter les jours avec activité non clôturés manuellement
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+    sixtyDaysAgo.setHours(0, 0, 0, 0);
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const pastSales = await this.prisma.vente.findMany({
+      where: {
+        date_vente: { gte: sixtyDaysAgo },
+        statut_vente: 'VALIDEE',
+      },
+      include: { lignes: true },
+      orderBy: { date_vente: 'desc' },
+    });
+
+    // Grouper par date YYYY-MM-DD
+    const salesByDay = new Map<string, typeof pastSales>();
+    pastSales.forEach((v) => {
+      const dayStr = v.date_vente.toISOString().split('T')[0];
+      if (dayStr < todayStr && !closedDatesSet.has(dayStr)) {
+        if (!salesByDay.has(dayStr)) {
+          salesByDay.set(dayStr, []);
+        }
+        salesByDay.get(dayStr)!.push(v);
+      }
+    });
+
+    const manualItems: ClotureResult[] = list.map((c) => ({
       id: String(c.id_cloture),
       dateCloture: c.date_cloture.toISOString(),
       chiffreAffairesHt: Number(c.chiffre_affaires_ht),
@@ -294,8 +387,48 @@ export class FinancesService {
       beneficeBrutTotal: Number(c.benefice_brut_total),
       nombreVentes: c.nombre_ventes,
       nombreArticlesVendus: c.nombre_articles_vendus,
-      utilisateurValidationNom: `${c.utilisateur_validation.prenom} ${c.utilisateur_validation.nom}`,
+      utilisateurValidationNom: `${c.utilisateur_validation.prenom} ${c.utilisateur_validation.nom}`.trim(),
+      utilisateurValidationRole: c.utilisateur_validation.role?.code_role || 'ADMIN',
       dateValidation: c.date_validation.toISOString(),
+      typeCloture: 'MANUELLE',
     }));
+
+    const autoItems: ClotureResult[] = [];
+    salesByDay.forEach((ventes, dayStr) => {
+      let caHt = 0;
+      let caTtc = 0;
+      let tva = 0;
+      let benefice = 0;
+      let articles = 0;
+
+      ventes.forEach((v) => {
+        caHt += Number(v.total_ht);
+        caTtc += Number(v.total_ttc);
+        tva += Number(v.total_tva);
+        benefice += Number(v.marge_totale);
+        v.lignes.forEach((l) => {
+          articles += l.quantite;
+        });
+      });
+
+      autoItems.push({
+        id: `auto-${dayStr}`,
+        dateCloture: new Date(`${dayStr}T00:00:00.000Z`).toISOString(),
+        chiffreAffairesHt: Math.round(caHt),
+        chiffreAffairesTtc: Math.round(caTtc),
+        tvaCollectee: Math.round(tva),
+        beneficeBrutTotal: Math.round(benefice),
+        nombreVentes: ventes.length,
+        nombreArticlesVendus: articles,
+        utilisateurValidationNom: 'Système Automatique (00:00)',
+        utilisateurValidationRole: 'SYSTEME',
+        dateValidation: `${dayStr}T00:00:00.000Z`,
+        typeCloture: 'AUTOMATIQUE',
+      });
+    });
+
+    const all = [...manualItems, ...autoItems];
+    all.sort((a, b) => new Date(b.dateCloture).getTime() - new Date(a.dateCloture).getTime());
+    return all;
   }
 }

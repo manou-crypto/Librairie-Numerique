@@ -348,4 +348,40 @@ export class AchatsService {
       joursRetard: Math.floor((Date.now() - a.date_prevue_reception!.getTime()) / (1000 * 60 * 60 * 24)),
     }));
   }
+
+  async enregistrerPaiement(id: number, user: any, body: { montantVerse: number; modePaiement?: any }) {
+    const achat = await this.prisma.achat.findUnique({ where: { id_achat: id } });
+    if (!achat) throw new NotFoundException(`Achat #${id} introuvable`);
+
+    const montantVerse = Number(body.montantVerse);
+    if (isNaN(montantVerse) || montantVerse <= 0) {
+      throw new BadRequestException('Le montant versé doit être supérieur à zéro.');
+    }
+
+    const ancienMontantPaye = Number(achat.montant_paye || 0);
+    const totalTtc = Number(achat.montant_total_ttc);
+    const resteAPayer = Math.max(0, totalTtc - ancienMontantPaye);
+
+    if (montantVerse > resteAPayer + 0.01) {
+      throw new BadRequestException(`Le montant versé (${montantVerse.toFixed(2)}) dépasse le reste à payer (${resteAPayer.toFixed(2)}).`);
+    }
+
+    const nouveauMontantPaye = Math.min(totalTtc, ancienMontantPaye + montantVerse);
+
+    const updated = await this.prisma.achat.update({
+      where: { id_achat: id },
+      data: {
+        montant_paye: nouveauMontantPaye,
+        ...(body.modePaiement ? { mode_paiement: body.modePaiement } : {}),
+      },
+    });
+
+    return {
+      id: String(updated.id_achat),
+      montantTotalTtc: Number(updated.montant_total_ttc),
+      montantPaye: Number(updated.montant_paye),
+      resteAPayer: Math.max(0, Number(updated.montant_total_ttc) - Number(updated.montant_paye)),
+      message: 'Paiement enregistré avec succès',
+    };
+  }
 }

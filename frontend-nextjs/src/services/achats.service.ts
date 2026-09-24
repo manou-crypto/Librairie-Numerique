@@ -175,4 +175,21 @@ export const achatsService = {
     if (!response.ok) throw new Error('Échec du chargement des achats en retard');
     return response.json();
   },
+
+  /**
+   * Enregistrer un paiement complémentaire sur un bon d'achat (solder un impayé)
+   * POST /api/v1/achats/:id/paiement
+   */
+  async enregistrerPaiement(id: string, montantVerse: number, modePaiement?: string): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/v1/achats/${id}/paiement`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ montantVerse, modePaiement }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || "Échec de l'enregistrement du paiement");
+    }
+    return response.json();
+  },
 };
