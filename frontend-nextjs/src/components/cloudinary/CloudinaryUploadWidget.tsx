@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CldUploadWidget } from 'next-cloudinary';
 import { UploadCloud, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -21,11 +21,35 @@ export default function CloudinaryUploadWidget({
   multiple = true,
   maxFiles = 5,
 }: CloudinaryUploadWidgetProps) {
+  const [mounted, setMounted] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'gbb7huxa';
+  const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY || '959631882842267';
+
+  // Do not render CldUploadWidget during SSR / Next.js static page generation
+  if (!mounted) {
+    return (
+      <button type="button" disabled className={buttonClassName}>
+        <UploadCloud className="w-4 h-4" />
+        {buttonText}
+      </button>
+    );
+  }
 
   return (
     <CldUploadWidget
       signatureEndpoint="/api/cloudinary/signature"
+      config={{
+        cloud: {
+          cloudName: cloudName,
+          apiKey: apiKey,
+        },
+      }}
       options={{
         folder: folder,
         multiple: multiple,

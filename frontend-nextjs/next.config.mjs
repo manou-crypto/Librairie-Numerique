@@ -13,6 +13,11 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
 
+  env: {
+    NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'gbb7huxa',
+    NEXT_PUBLIC_CLOUDINARY_API_KEY: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY || '959631882842267',
+  },
+
   images: {
     remotePatterns: [
       ...imageHosts,
