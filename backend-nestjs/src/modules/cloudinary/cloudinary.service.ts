@@ -11,16 +11,19 @@ export class CloudinaryService {
     });
   }
 
-  getSignature() {
-    const timestamp = Math.round(new Date().getTime() / 1000);
-    const signature = cloudinary.utils.api_sign_request(
-      {
-        timestamp: timestamp,
-      },
-      process.env.CLOUDINARY_API_SECRET!
-    );
+  getSignature(paramsToSign?: Record<string, any>) {
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+    if (!apiSecret) {
+      throw new Error('CLOUDINARY_API_SECRET non configuré dans les variables d\'environnement');
+    }
 
-    return { timestamp, signature };
+    const params = paramsToSign && Object.keys(paramsToSign).length > 0
+      ? paramsToSign
+      : { timestamp: Math.round(new Date().getTime() / 1000) };
+
+    const signature = cloudinary.utils.api_sign_request(params, apiSecret);
+
+    return { signature, ...params };
   }
 
   async deleteImage(publicId: string) {

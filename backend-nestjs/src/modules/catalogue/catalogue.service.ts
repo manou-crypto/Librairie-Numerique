@@ -559,3 +559,4 @@ export class CatalogueService {
     await this.prisma.typeVente.delete({ where: { id_type_vente: id } });
   }
 }
+

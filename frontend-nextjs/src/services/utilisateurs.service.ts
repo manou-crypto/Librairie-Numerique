@@ -73,10 +73,22 @@ export const utilisateursService = {
   },
 
   /**
+   * Obtenir son propre profil
+   * GET /api/v1/users/me/profile
+   */
+  async getMyProfile(): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/v1/users/me/profile`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Échec du chargement du profil');
+    return response.json();
+  },
+
+  /**
    * Modifier son propre profil
    * PUT /api/v1/users/me/profile
    */
-  async updateMyProfile(data: { nom: string; prenom: string; email: string; telephone?: string }) {
+  async updateMyProfile(data: { nom: string; prenom: string; email: string; telephone?: string; avatarUrl?: string | null }) {
     const response = await fetch(`${API_BASE_URL}/v1/users/me/profile`, {
       method: 'PUT',
       headers: getAuthHeaders(),

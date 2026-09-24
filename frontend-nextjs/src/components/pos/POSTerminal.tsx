@@ -47,6 +47,8 @@ interface Product {
   reference: string;
   tva: number;
   tarifs?: { typeVenteId: string; libelle: string; prix: number }[];
+  conditionnements?: ConditionnementItem[];
+  imageUrl?: string;
 }
 
 interface CartItem extends Product {
@@ -128,6 +130,7 @@ export default function POSTerminal() {
         tva: p.tauxTva ?? tauxTva,
         tarifs: p.tarifs || [],
         conditionnements: p.conditionnements || [],
+        imageUrl: p.imageUrl,
       }));
       setAllProducts(mappedProducts);
     } catch (err) {
@@ -946,7 +949,7 @@ export default function POSTerminal() {
               <p className="text-xs text-muted-foreground">Essayez un autre terme de recherche.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2">
               {filteredProducts.map((product) => {
                 const inCart = cart.find((i) => i.id === product.id && !i.idKitGroupe);
                 const outOfStock = product.stock === 0;
@@ -956,44 +959,54 @@ export default function POSTerminal() {
                     key={product.id}
                     onClick={() => doAddToCart(product, null)}
                     disabled={outOfStock}
-                    className={`card-base p-3.5 text-left transition-all duration-150 active:scale-95 ${
+                    className={`card-base p-2 text-left transition-all duration-150 active:scale-95 flex flex-col justify-between ${
                       outOfStock
                         ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:shadow-elevated hover:border-primary/30 cursor-pointer'
-                    } ${inCart ? 'border-primary/40 bg-primary/5' : ''}`}
+                        : 'hover:shadow-md hover:border-primary/40 cursor-pointer'
+                    } ${inCart ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/30' : ''}`}
                   >
-                    <div className="w-full h-16 rounded-lg bg-gradient-to-br from-muted to-border/50 flex items-center justify-center mb-3 relative">
-                      <span className="text-2xl">
-                        {product.category === 'Livres'
-                          ? '📚'
-                          : product.category === 'Informatique'
-                            ? '💻'
-                            : product.category === 'Bureautique'
-                              ? '🗂️'
-                              : '✏️'}
-                      </span>
-                      {inCart && (
-                        <span className="absolute top-1 right-1 bg-primary text-primary-foreground text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                          {inCart.qty}
-                        </span>
-                      )}
+                    <div>
+                      <div className="w-full h-14 rounded-md bg-white dark:bg-muted/40 border border-border/40 flex items-center justify-center mb-1.5 relative overflow-hidden">
+                        {product.imageUrl ? (
+                          <img
+                            src={product.imageUrl}
+                            alt={product.name}
+                            className="w-full h-full object-contain p-1"
+                          />
+                        ) : (
+                          <span className="text-xl">
+                            {product.category === 'Livres'
+                              ? '📚'
+                              : product.category === 'Informatique'
+                                ? '💻'
+                                : product.category === 'Bureautique'
+                                  ? '🗂️'
+                                  : '✏️'}
+                          </span>
+                        )}
+                        {inCart && (
+                          <span className="absolute top-0.5 right-0.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center shadow">
+                            {inCart.qty}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] font-semibold text-foreground leading-tight mb-0.5 line-clamp-1" title={product.name}>
+                        {product.name}
+                      </p>
+                      <p className="text-[9px] text-muted-foreground truncate mb-1">{product.reference}</p>
                     </div>
-                    <p className="text-xs font-semibold text-foreground leading-tight mb-1 line-clamp-2">
-                      {product.name}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground mb-2">{product.reference}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-primary tabular-nums">
-                        {product.prixVente.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}{' '}
-                        {devise}
+                    <div className="flex items-center justify-between pt-1 border-t border-border/30">
+                      <span className="text-xs font-bold text-primary tabular-nums">
+                        {product.prixVente.toLocaleString('fr-FR', { minimumFractionDigits: 0 })}{' '}
+                        <span className="text-[9px] font-normal">{devise}</span>
                       </span>
                       {outOfStock ? (
-                        <Badge variant="rupture">Rupture</Badge>
+                        <span className="text-[9px] font-medium text-destructive bg-destructive/10 px-1 py-0.5 rounded">Rupture</span>
                       ) : lowStock ? (
-                        <Badge variant="alert">Stock: {product.stock}</Badge>
+                        <span className="text-[9px] font-medium text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-1 py-0.5 rounded">{product.stock}</span>
                       ) : (
-                        <span className="text-[10px] text-muted-foreground">
-                          {product.stock} en stock
+                        <span className="text-[9px] text-muted-foreground">
+                          {product.stock}
                         </span>
                       )}
                     </div>

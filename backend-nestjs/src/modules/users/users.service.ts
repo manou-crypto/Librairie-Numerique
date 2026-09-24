@@ -342,7 +342,24 @@ export class UsersService {
     return { success: true, message: 'Rôle supprimé avec succès.' };
   }
 
-  async updateProfile(id: number, data: { nom: string; prenom: string; email: string; telephone?: string }) {
+  async getProfile(id: number) {
+    const u = await this.prisma.utilisateur.findUnique({
+      where: { id_utilisateur: id },
+      include: { role: true },
+    });
+    if (!u) throw new NotFoundException('Utilisateur introuvable');
+    return {
+      id: u.id_utilisateur,
+      nom: u.nom,
+      prenom: u.prenom,
+      email: u.email,
+      avatarUrl: u.avatar_url,
+      codeRole: u.role.code_role,
+      libelleRole: u.role.libelle,
+    };
+  }
+
+  async updateProfile(id: number, data: { nom: string; prenom: string; email: string; telephone?: string; avatar_url?: string; avatarUrl?: string }) {
     const existing = await this.prisma.utilisateur.findFirst({
       where: { email: data.email, NOT: { id_utilisateur: id } },
     });
@@ -350,13 +367,15 @@ export class UsersService {
       throw new ConflictException('Cet email est déjà utilisé par un autre compte.');
     }
 
+    const avatar = data.avatarUrl !== undefined ? data.avatarUrl : data.avatar_url;
+
     const updated = await this.prisma.utilisateur.update({
       where: { id_utilisateur: id },
       data: {
         nom: data.nom,
         prenom: data.prenom,
         email: data.email,
-        // Si le téléphone était dans le schéma on le mettrait, mais on va juste l'ignorer si non présent
+        ...(avatar !== undefined ? { avatar_url: avatar } : {}),
       },
       include: { role: true }
     });
@@ -366,6 +385,7 @@ export class UsersService {
       nom: updated.nom,
       prenom: updated.prenom,
       email: updated.email,
+      avatarUrl: updated.avatar_url,
       codeRole: updated.role.code_role,
       libelleRole: updated.role.libelle,
     };

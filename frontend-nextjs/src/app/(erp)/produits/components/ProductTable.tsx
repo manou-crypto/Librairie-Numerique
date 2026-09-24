@@ -260,8 +260,16 @@ export default function ProductTable({
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3 min-w-[200px]">
-                      <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0 text-base shadow-sm border border-border/50">
-                        {emoji}
+                      <div className="w-9 h-9 rounded-lg bg-white dark:bg-muted flex items-center justify-center shrink-0 text-base shadow-sm border border-border/50 overflow-hidden">
+                        {product.imageUrl ? (
+                          <img
+                            src={product.imageUrl}
+                            alt={product.name}
+                            className="w-full h-full object-contain p-0.5"
+                          />
+                        ) : (
+                          emoji
+                        )}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">

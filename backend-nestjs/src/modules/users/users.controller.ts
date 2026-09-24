@@ -58,21 +58,26 @@ export class UsersController {
     return this.usersService.create(data);
   }
 
-  @Put(':id')
-  @Roles('ADMIN')
-  async update(@Param('id', ParseIntPipe) id: number, @Body() data: any) {
-    return this.usersService.update(id, data);
+  @Get('me/profile')
+  async getProfile(@CurrentUser() user: any) {
+    return this.usersService.getProfile(user.id);
   }
 
   @Put('me/profile')
   // Pas de restriction de rôle, n'importe quel utilisateur connecté peut modifier son profil
-  async updateProfile(@CurrentUser() user: any, @Body() data: { nom: string; prenom: string; email: string; telephone?: string }) {
+  async updateProfile(@CurrentUser() user: any, @Body() data: { nom: string; prenom: string; email: string; telephone?: string; avatar_url?: string; avatarUrl?: string }) {
     return this.usersService.updateProfile(user.id, data);
   }
 
   @Put('me/password')
   async updatePassword(@CurrentUser() user: any, @Body() data: { actuel: string; nouveau: string }) {
     return this.usersService.updatePassword(user.id, data.actuel, data.nouveau);
+  }
+
+  @Put(':id')
+  @Roles('ADMIN')
+  async update(@Param('id', ParseIntPipe) id: number, @Body() data: any) {
+    return this.usersService.update(id, data);
   }
 
   @Delete(':id')

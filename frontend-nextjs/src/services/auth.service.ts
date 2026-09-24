@@ -18,6 +18,7 @@ export interface AuthUser {
   roleUi: 'super_admin' | 'manager' | 'cashier';
   // Liste des permissions accordées
   permissions?: string[];
+  avatarUrl?: string | null;
 }
 
 export interface AuthTokens {

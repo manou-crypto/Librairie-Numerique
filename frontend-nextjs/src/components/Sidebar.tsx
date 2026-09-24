@@ -304,8 +304,16 @@ export default function Sidebar({ currentPath }: SidebarProps) {
           <div
             className={`flex items-center gap-3 px-3 py-2 rounded-lg ${collapsed ? 'justify-center' : ''}`}
           >
-            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <span className="text-xs font-bold text-primary">{displayInitials}</span>
+            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden border border-border/50">
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={displayName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-xs font-bold text-primary">{displayInitials}</span>
+              )}
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">

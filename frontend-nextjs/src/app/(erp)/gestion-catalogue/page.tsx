@@ -122,16 +122,15 @@ export default function CataloguePage() {
                     <tr key={produit.id} className="border-b hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
                         {produit.imageUrl ? (
-                          <div className="relative w-12 h-12 rounded overflow-hidden border">
-                            <Image
+                          <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-gray-200 shadow-sm bg-white flex items-center justify-center">
+                            <img
                               src={produit.imageUrl}
                               alt={produit.libelle}
-                              layout="fill"
-                              objectFit="cover"
+                              className="w-full h-full object-contain p-0.5"
                             />
                           </div>
                         ) : (
-                          <div className="w-12 h-12 rounded bg-gray-200 flex items-center justify-center border text-gray-400">
+                          <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center border border-gray-200 text-gray-400">
                             <ImageIcon className="w-5 h-5" />
                           </div>
                         )}

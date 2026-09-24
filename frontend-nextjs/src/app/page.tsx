@@ -178,7 +178,7 @@ export default function HomePage() {
                 <BookOpen size={16} strokeWidth={2.4} />
               </div>
               <span className="font-bold tracking-tight text-lg sm:text-xl text-slate-900 dark:text-white">
-                {config?.nom_librairie || 'Bellroy Librairie'}
+                {config?.nom_librairie || 'OK-SERVICE'}
               </span>
             </Link>
 

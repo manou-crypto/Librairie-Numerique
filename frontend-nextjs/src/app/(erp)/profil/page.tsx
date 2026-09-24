@@ -2,12 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/AppLayout';
 import Topbar from '@/components/Topbar';
-import { User, Lock, Bell, Save, CheckCircle, Camera, Shield, Settings2 } from 'lucide-react';
+import { User, Lock, Bell, Save, CheckCircle, Camera, Shield, Settings2, Trash2 } from 'lucide-react';
 import Icon from '@/components/ui/AppIcon';
 import { authService, AuthUser } from '@/services/auth.service';
 import { utilisateursService } from '@/services/utilisateurs.service';
 import { toast } from 'sonner';
 import { usePreferences, UserPreferences } from '@/hooks/usePreferences';
+import CloudinaryUploadWidget from '@/components/cloudinary/CloudinaryUploadWidget';
 
 type ProfileTab = 'infos' | 'securite' | 'preferences';
 
@@ -16,6 +17,7 @@ export default function ProfilPage() {
   const [loading, setLoading] = useState(false);
   const [userCookie, setUserCookie] = useState<AuthUser | null>(null);
 
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [infos, setInfos] = useState({ prenom: '', nom: '', email: '', telephone: '', poste: '' });
   const [passwords, setPasswords] = useState({ actuel: '', nouveau: '', confirmation: '' });
   const { preferences, updatePreferences, mounted } = usePreferences();
@@ -31,6 +33,7 @@ export default function ProfilPage() {
     const user = authService.getUser();
     if (user) {
       setUserCookie(user);
+      setAvatarUrl(user.avatarUrl || '');
       setInfos({
         prenom: user.name?.split(' ')[0] || '',
         nom: user.name?.split(' ').slice(1).join(' ') || '',
@@ -44,6 +47,18 @@ export default function ProfilPage() {
               : 'Caissier',
       });
     }
+
+    utilisateursService.getMyProfile().then((profile) => {
+      if (profile) {
+        if (profile.avatarUrl) setAvatarUrl(profile.avatarUrl);
+        setInfos((prev) => ({
+          ...prev,
+          prenom: profile.prenom || prev.prenom,
+          nom: profile.nom || prev.nom,
+          email: profile.email || prev.email,
+        }));
+      }
+    }).catch(() => {});
   }, []);
 
   const handleSave = async () => {
@@ -53,12 +68,13 @@ export default function ProfilPage() {
       }
       setLoading(true);
       try {
-        await utilisateursService.updateMyProfile(infos);
+        await utilisateursService.updateMyProfile({ ...infos, avatarUrl });
 
-        // Mettre à jour le cookie avec le nouveau nom et email
+        // Mettre à jour le cookie avec le nouveau nom, email et avatar
         authService.updateUserCookie({
           name: `${infos.prenom} ${infos.nom}`,
           email: infos.email,
+          avatarUrl: avatarUrl || null,
         });
 
         toast.success('Profil mis à jour avec succès');
@@ -105,25 +121,64 @@ export default function ProfilPage() {
     <AppLayout currentPath="/profil">
       <Topbar title="Mon profil" subtitle="Gérer vos informations personnelles" />
       <div className="px-6 py-6 max-w-2xl mx-auto space-y-6">
-        <div className="card-base p-6 flex items-center gap-5">
-          <div className="relative">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <span className="text-xl font-bold text-primary">
-                {infos.prenom.charAt(0)}
-                {infos.nom.charAt(0)}
-              </span>
+        <div className="card-base p-6 flex flex-col sm:flex-row items-center sm:items-start gap-5">
+          <div className="relative group shrink-0">
+            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden border-2 border-border/80 shadow-md">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={infos.prenom} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-2xl font-bold text-primary">
+                  {infos.prenom.charAt(0) || 'U'}
+                  {infos.nom.charAt(0) || ''}
+                </span>
+              )}
             </div>
+            {avatarUrl && (
+              <button
+                type="button"
+                onClick={() => setAvatarUrl('')}
+                className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-1 shadow hover:bg-destructive/90 transition-colors"
+                title="Supprimer la photo"
+              >
+                <Trash2 size={12} />
+              </button>
+            )}
           </div>
-          <div>
-            <h2 className="text-base font-bold text-foreground">
-              {infos.prenom} {infos.nom}
-            </h2>
-            <p className="text-sm text-muted-foreground">{infos.email}</p>
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className="badge-draft flex items-center gap-1">
-                <Shield size={10} /> {infos.poste}
-              </span>
-              <span className="badge-active">Actif</span>
+          <div className="flex-1 text-center sm:text-left space-y-2">
+            <div>
+              <h2 className="text-lg font-bold text-foreground">
+                {infos.prenom} {infos.nom}
+              </h2>
+              <p className="text-sm text-muted-foreground">{infos.email}</p>
+              <div className="flex items-center justify-center sm:justify-start gap-2 mt-1.5">
+                <span className="badge-draft flex items-center gap-1">
+                  <Shield size={10} /> {infos.poste}
+                </span>
+                <span className="badge-active">Actif</span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center justify-center sm:justify-start gap-2">
+              <CloudinaryUploadWidget
+                folder="librairie/avatars"
+                buttonText={avatarUrl ? 'Changer la photo' : 'Ajouter une photo'}
+                buttonClassName="border border-border/80 bg-background hover:bg-muted py-1.5 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                multiple={false}
+                maxFiles={1}
+                onUploadSuccess={(url) => {
+                  setAvatarUrl(url);
+                  toast.success('Photo sélectionnée. Pensez à enregistrer les modifications.');
+                }}
+              />
+              {avatarUrl && (
+                <button
+                  type="button"
+                  onClick={() => setAvatarUrl('')}
+                  className="text-xs text-muted-foreground hover:text-destructive py-1.5 px-2 transition-colors"
+                >
+                  Supprimer
+                </button>
+              )}
             </div>
           </div>
         </div>

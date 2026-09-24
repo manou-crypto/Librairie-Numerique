@@ -106,6 +106,7 @@ export class AuthService implements OnModuleInit {
         name: `${user.prenom} ${user.nom}`,
         email: user.email,
         role: user.role.code_role,
+        avatarUrl: user.avatar_url || null,
         permissions: user.role.permissions.map((p) => p.permission.code_permission),
       },
       tokens: {

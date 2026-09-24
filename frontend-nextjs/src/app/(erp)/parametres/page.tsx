@@ -25,6 +25,7 @@ import { produitsService, TypeVenteItem } from '@/services/produits.service';
 import { toast } from 'sonner';
 import { usePreferences, UserPreferences } from '@/hooks/usePreferences';
 import { useAuth } from '@/hooks/useAuth';
+import CloudinaryUploadWidget from '@/components/cloudinary/CloudinaryUploadWidget';
 
 type SettingsTab = 'general' | 'notifications' | 'ventes' | 'securite' | 'sauvegarde';
 
@@ -164,16 +165,62 @@ export default function ParametresPage() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">
-                  URL du Logo (optionnel)
+                  Logo de la librairie
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    placeholder="https://..."
-                    value={general.logo_url}
-                    onChange={(e) => setGeneral({ ...general, logo_url: e.target.value })}
-                    className="input-field text-sm"
-                  />
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  {general.logo_url ? (
+                    <div className="relative w-14 h-14 rounded-xl border border-border bg-white dark:bg-slate-900 flex items-center justify-center p-1 shadow-sm shrink-0 overflow-hidden group">
+                      <img
+                        src={general.logo_url}
+                        alt="Logo"
+                        className="w-full h-full object-contain"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setGeneral({ ...general, logo_url: '' })}
+                        className="absolute inset-0 bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs font-medium"
+                        title="Supprimer le logo"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-14 h-14 rounded-xl border border-dashed border-border bg-muted/40 flex items-center justify-center text-muted-foreground shrink-0">
+                      <Camera size={20} />
+                    </div>
+                  )}
+
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <CloudinaryUploadWidget
+                        folder="librairie/logo"
+                        buttonText={general.logo_url ? 'Changer le logo' : 'Uploader un logo'}
+                        buttonClassName="border border-border/80 bg-background hover:bg-muted py-1.5 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                        multiple={false}
+                        maxFiles={1}
+                        onUploadSuccess={(url) => {
+                          setGeneral({ ...general, logo_url: url });
+                          toast.success('Logo mis à jour. Pensez à enregistrer les paramètres.');
+                        }}
+                      />
+                      {general.logo_url && (
+                        <button
+                          type="button"
+                          onClick={() => setGeneral({ ...general, logo_url: '' })}
+                          className="text-xs text-muted-foreground hover:text-destructive transition-colors py-1.5 px-2"
+                        >
+                          Supprimer
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="url"
+                      placeholder="Ou collez une URL : https://..."
+                      value={general.logo_url}
+                      onChange={(e) => setGeneral({ ...general, logo_url: e.target.value })}
+                      className="input-field text-xs py-1.5 h-8 text-muted-foreground"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

@@ -7,11 +7,19 @@ import { toast } from 'sonner';
 interface CloudinaryUploadWidgetProps {
   onUploadSuccess: (url: string) => void;
   folder?: string;
+  buttonText?: string;
+  buttonClassName?: string;
+  multiple?: boolean;
+  maxFiles?: number;
 }
 
 export default function CloudinaryUploadWidget({
   onUploadSuccess,
   folder = 'librairie',
+  buttonText = 'Ajouter des images',
+  buttonClassName = 'flex items-center gap-2 border px-4 py-2 rounded-md hover:bg-gray-100 disabled:opacity-50 text-sm font-medium',
+  multiple = true,
+  maxFiles = 5,
 }: CloudinaryUploadWidgetProps) {
   const [isUploading, setIsUploading] = useState(false);
 
@@ -20,9 +28,9 @@ export default function CloudinaryUploadWidget({
       signatureEndpoint="/api/cloudinary/signature"
       options={{
         folder: folder,
-        multiple: true,
-        maxFiles: 5,
-        clientAllowedFormats: ['jpg', 'jpeg', 'png', 'webp', 'avif'],
+        multiple: multiple,
+        maxFiles: maxFiles,
+        clientAllowedFormats: ['jpg', 'jpeg', 'png', 'webp', 'avif', 'svg'],
       }}
       onSuccess={(result: any) => {
         if (result?.info?.secure_url) {
@@ -54,14 +62,14 @@ export default function CloudinaryUploadWidget({
               }
             }}
             disabled={isUploading}
-            className="flex items-center gap-2 border px-4 py-2 rounded-md hover:bg-gray-100 disabled:opacity-50"
+            className={buttonClassName}
           >
             {isUploading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <UploadCloud className="w-4 h-4" />
             )}
-            Ajouter des images
+            {buttonText}
           </button>
         );
       }}
