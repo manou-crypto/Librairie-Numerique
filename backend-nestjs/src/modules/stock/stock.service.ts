@@ -3,7 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class StockService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async findAll(query?: { search?: string; status?: string }) {
     const stocks = await this.prisma.stock.findMany({
@@ -64,8 +64,8 @@ export class StockService {
       ? data.typeMouvement === 'ENTREE_ACHAT'
         ? currentStock.quantite_en_stock + data.quantite
         : data.typeMouvement === 'SORTIE_VENTE'
-        ? Math.max(0, currentStock.quantite_en_stock - data.quantite)
-        : data.quantite // AJUSTEMENT_INVENTAIRE
+          ? Math.max(0, currentStock.quantite_en_stock - data.quantite)
+          : data.quantite // AJUSTEMENT_INVENTAIRE
       : data.quantite;
 
     const [updatedStock, mouvement] = await this.prisma.$transaction([
@@ -121,7 +121,7 @@ export class StockService {
       throw new BadRequestException("Quantité en réserve insuffisante.");
     }
     if (data.typeMouvement === 'RETOUR_RESERVE' && stock.quantite_etal < data.quantite) {
-      throw new BadRequestException("Quantité en étal insuffisante.");
+      throw new BadRequestException("Quantité en étagère insuffisante.");
     }
 
     const nouvelleQteReserve =

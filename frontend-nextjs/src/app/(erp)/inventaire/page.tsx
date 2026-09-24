@@ -20,6 +20,11 @@ import {
   FileSpreadsheet,
   Check,
   Download,
+  Layers,
+  Archive,
+  Store,
+  Filter,
+  Tag,
 } from 'lucide-react';
 import {
   inventaireService,
@@ -36,6 +41,67 @@ const STATUT_SESSION: Record<string, { label: string; className: string; icon: a
   VALIDE: { label: 'Validé', className: 'badge-active', icon: CheckCircle },
   ANNULE: { label: 'Invalidé', className: 'badge-rupture', icon: Ban },
 };
+
+export interface InventaireTypeInfo {
+  type: 'GLOBAL' | 'RESERVE' | 'VENTE';
+  label: string;
+  shortLabel: string;
+  badgeClass: string;
+  bgLight: string;
+  textColor: string;
+  borderColor: string;
+  icon: React.ElementType;
+  description: string;
+  targetScope: string;
+  fieldImpact: string;
+}
+
+export function getInventaireTypeInfo(ref: string = '', observations: string = ''): InventaireTypeInfo {
+  const upper = (ref + ' ' + observations).toUpperCase();
+  if (upper.includes('-RES') || upper.includes('INV-RES') || upper.includes('RÉSERVE') || upper.includes('RESERVE')) {
+    return {
+      type: 'RESERVE',
+      label: 'Inventaire Réserve',
+      shortLabel: 'Réserve',
+      badgeClass: 'bg-blue-500/10 text-blue-600 border border-blue-500/30 dark:bg-blue-950 dark:text-blue-300',
+      bgLight: 'bg-blue-500/5 dark:bg-blue-950/30',
+      textColor: 'text-blue-600 dark:text-blue-400',
+      borderColor: 'border-blue-500/30',
+      icon: Archive,
+      description: 'Stock en Réserve (Entrepôt)',
+      targetScope: 'Réserve',
+      fieldImpact: 'Quantité en Réserve uniquement',
+    };
+  }
+  if (upper.includes('-VTE') || upper.includes('INV-VTE') || upper.includes('VENTE') || upper.includes('ETAL')) {
+    return {
+      type: 'VENTE',
+      label: 'Inventaire En Vente',
+      shortLabel: 'En Vente',
+      badgeClass: 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 dark:bg-emerald-950 dark:text-emerald-300',
+      bgLight: 'bg-emerald-500/5 dark:bg-emerald-950/30',
+      textColor: 'text-emerald-600 dark:text-emerald-400',
+      borderColor: 'border-emerald-500/30',
+      icon: Store,
+      description: 'Stock En Vente (Étal & Rayons Magasin)',
+      targetScope: 'En Vente (Étal)',
+      fieldImpact: 'Quantité En Vente (Étal) uniquement',
+    };
+  }
+  return {
+    type: 'GLOBAL',
+    label: 'Inventaire Global',
+    shortLabel: 'Global',
+    badgeClass: 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/30 dark:bg-indigo-950 dark:text-indigo-300',
+    bgLight: 'bg-indigo-500/5 dark:bg-indigo-950/30',
+    textColor: 'text-indigo-600 dark:text-indigo-400',
+    borderColor: 'border-indigo-500/30',
+    icon: Layers,
+    description: 'Stock Global (Réserve + En Vente cumulés)',
+    targetScope: 'Global (Réserve + Vente)',
+    fieldImpact: 'Stock Global (Réserve et Vente)',
+  };
+}
 
 function formatDateTime(isoString?: string) {
   if (!isoString) return '—';
@@ -62,12 +128,15 @@ export default function InventairePage() {
 
   const [activeTab, setActiveTab] = useState<'sessions' | 'saisie'>('sessions');
   const [search, setSearch] = useState('');
+  const [sessionSearch, setSessionSearch] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'GLOBAL' | 'RESERVE' | 'VENTE'>('all');
 
   // Saisie state & metadata
   const [lignes, setLignes] = useState<LigneInventaireItem[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [currentRef, setCurrentRef] = useState<string>('');
   const [currentStatut, setCurrentStatut] = useState<'EN_COURS' | 'VALIDE' | 'ANNULE'>('EN_COURS');
+  const [currentObservations, setCurrentObservations] = useState<string>('');
   const [currentResponsableNom, setCurrentResponsableNom] = useState<string>('');
   const [currentDateInventaire, setCurrentDateInventaire] = useState<string>('');
   const [currentDateValidation, setCurrentDateValidation] = useState<string | undefined>(undefined);
@@ -129,9 +198,17 @@ export default function InventairePage() {
       setCurrentId(null);
 
       const prefix = type === 'GLOBAL' ? 'GLO' : type === 'RESERVE' ? 'RES' : 'VTE';
+      const obs =
+        type === 'GLOBAL'
+          ? 'Inventaire Global (Réserve + En Vente cumulés)'
+          : type === 'RESERVE'
+          ? 'Inventaire Réserve (Stock Entrepôt)'
+          : 'Inventaire En Vente (Stock Rayons & Étal Magasin)';
+
       setCurrentRef(
         `INV-${prefix}-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-NOUVEAU`
       );
+      setCurrentObservations(obs);
       setCurrentStatut('EN_COURS');
       setCurrentResponsableNom(user?.name || 'Moi-même');
       setCurrentDateInventaire(new Date().toISOString());
@@ -159,6 +236,7 @@ export default function InventairePage() {
       setCurrentId(detail.id);
       setCurrentRef(detail.referenceInventaire);
       setCurrentStatut(detail.statutInventaire);
+      setCurrentObservations(detail.observations || '');
       setCurrentResponsableNom(detail.utilisateurNom || 'Inconnu');
       setCurrentDateInventaire(detail.dateInventaire);
       setCurrentDateValidation(detail.dateValidation);
@@ -198,25 +276,29 @@ export default function InventairePage() {
         quantiteReelle: l.quantiteReelle,
       }));
 
+      const typeInfo = getInventaireTypeInfo(currentRef, currentObservations);
+      const obsToSave = currentObservations || typeInfo.label;
+
       if (currentId) {
-        await inventaireService.update(currentId, { lignes: payloadLignes });
+        await inventaireService.update(currentId, { observations: obsToSave, lignes: payloadLignes });
         toast.success('Brouillon mis à jour !');
       } else {
-        let prefix = 'INV';
-        if (currentRef.includes('GLO')) prefix = 'INV-GLO';
-        else if (currentRef.includes('RES')) prefix = 'INV-RES';
-        else if (currentRef.includes('VTE')) prefix = 'INV-VTE';
-        
+        let prefix = 'INV-GLO';
+        if (typeInfo.type === 'RESERVE') prefix = 'INV-RES';
+        else if (typeInfo.type === 'VENTE') prefix = 'INV-VTE';
+
         const ref = `${prefix}-${new Date()
           .toISOString()
           .replace(/[-:T.]/g, '')
           .slice(0, 14)}`;
         const res = await inventaireService.create({
           referenceInventaire: ref,
+          observations: obsToSave,
           lignes: payloadLignes,
         });
         setCurrentId(res.id);
         setCurrentRef(res.referenceInventaire);
+        setCurrentObservations(res.observations || obsToSave);
         setCurrentResponsableNom(res.utilisateurNom || user?.name || 'Moi-même');
         toast.success('Brouillon créé !');
       }
@@ -244,11 +326,13 @@ export default function InventairePage() {
         quantiteReelle: l.quantiteReelle,
       }));
 
+      const typeInfo = getInventaireTypeInfo(currentRef, currentObservations);
+      const obsToSave = currentObservations || typeInfo.label;
+
       if (!invId) {
-        let prefix = 'INV';
-        if (currentRef.includes('GLO')) prefix = 'INV-GLO';
-        else if (currentRef.includes('RES')) prefix = 'INV-RES';
-        else if (currentRef.includes('VTE')) prefix = 'INV-VTE';
+        let prefix = 'INV-GLO';
+        if (typeInfo.type === 'RESERVE') prefix = 'INV-RES';
+        else if (typeInfo.type === 'VENTE') prefix = 'INV-VTE';
 
         const ref = `${prefix}-${new Date()
           .toISOString()
@@ -256,11 +340,12 @@ export default function InventairePage() {
           .slice(0, 14)}`;
         const res = await inventaireService.create({
           referenceInventaire: ref,
+          observations: obsToSave,
           lignes: payloadLignes,
         });
         invId = res.id;
       } else {
-        await inventaireService.update(invId, { lignes: payloadLignes });
+        await inventaireService.update(invId, { observations: obsToSave, lignes: payloadLignes });
       }
 
       const validated = await inventaireService.valider(invId);
@@ -346,6 +431,28 @@ export default function InventairePage() {
     l.produitLibelle.toLowerCase().includes(search.toLowerCase())
   );
 
+  const filteredInventaires = inventaires.filter((inv) => {
+    const typeInfo = getInventaireTypeInfo(inv.referenceInventaire, inv.observations);
+    if (filterType !== 'all' && typeInfo.type !== filterType) return false;
+    if (sessionSearch.trim()) {
+      const q = sessionSearch.toLowerCase();
+      const matchRef = inv.referenceInventaire.toLowerCase().includes(q);
+      const matchUser = (inv.utilisateurNom || '').toLowerCase().includes(q);
+      const matchObs = (inv.observations || '').toLowerCase().includes(q);
+      const matchType = typeInfo.label.toLowerCase().includes(q) || typeInfo.shortLabel.toLowerCase().includes(q);
+      return matchRef || matchUser || matchObs || matchType;
+    }
+    return true;
+  });
+
+  const countTotal = inventaires.length;
+  const countGlobal = inventaires.filter((i) => getInventaireTypeInfo(i.referenceInventaire, i.observations).type === 'GLOBAL').length;
+  const countReserve = inventaires.filter((i) => getInventaireTypeInfo(i.referenceInventaire, i.observations).type === 'RESERVE').length;
+  const countVente = inventaires.filter((i) => getInventaireTypeInfo(i.referenceInventaire, i.observations).type === 'VENTE').length;
+
+  const currentTypeInfo = getInventaireTypeInfo(currentRef, currentObservations);
+  const CurrentTypeIcon = currentTypeInfo.icon;
+
   const isBlindMode = currentStatut === 'EN_COURS';
 
   let compteCount = 0;
@@ -363,13 +470,14 @@ export default function InventairePage() {
   const progress = lignes.length > 0 ? Math.round((compteCount / lignes.length) * 100) : 0;
 
   const handleExportInventaires = () => {
-    if (inventaires.length === 0) {
+    if (filteredInventaires.length === 0) {
       toast.info('Aucun inventaire à exporter');
       return;
     }
     const headers = [
       'Référence Inventaire',
-      'Type Inventaire',
+      'Périmètre / Type',
+      'Description Périmètre',
       'Date & Heure Réalisation',
       'Responsable',
       'Statut',
@@ -377,15 +485,12 @@ export default function InventairePage() {
       'Validé par',
       'Observations',
     ];
-    const data = inventaires.map((inv) => {
-      const typeLabel = inv.referenceInventaire.includes('INV-RES')
-        ? 'Réserve'
-        : inv.referenceInventaire.includes('INV-VTE')
-        ? 'En Vente'
-        : 'Global';
+    const data = filteredInventaires.map((inv) => {
+      const tInfo = getInventaireTypeInfo(inv.referenceInventaire, inv.observations);
       return [
         inv.referenceInventaire,
-        typeLabel,
+        tInfo.label,
+        tInfo.description,
         formatDateTime(inv.dateInventaire),
         inv.utilisateurNom || 'Système',
         STATUT_SESSION[inv.statutInventaire]?.label || inv.statutInventaire,
@@ -394,7 +499,7 @@ export default function InventairePage() {
         inv.observations || '',
       ];
     });
-    exportToCSV({ filename: 'historique_inventaires', headers, data });
+    exportToCSV({ filename: `historique_inventaires_${filterType.toLowerCase()}`, headers, data });
     toast.success('Historique des inventaires exporté avec succès');
   };
 
@@ -406,9 +511,10 @@ export default function InventairePage() {
     const headers = [
       'ID Produit',
       'Désignation Produit',
-      'Stock Théorique',
-      'Stock Réel Compté',
-      'Écart Constaté',
+      `Stock Théorique (${currentTypeInfo.shortLabel})`,
+      `Stock Réel Compté (${currentTypeInfo.shortLabel})`,
+      `Écart Constaté (${currentTypeInfo.shortLabel})`,
+      'Périmètre Inventaire',
       'Motif Ajustement',
     ];
     const data = lignes.map((l) => [
@@ -417,10 +523,11 @@ export default function InventairePage() {
       isBlindMode ? '—' : l.quantiteTheorique,
       l.quantiteReelle,
       isBlindMode ? '—' : (l.quantiteReelle - l.quantiteTheorique),
+      currentTypeInfo.label,
       l.motifAjustement || '',
     ]);
     exportToCSV({
-      filename: `feuille_inventaire_${currentRef || 'en_cours'}`,
+      filename: `feuille_inventaire_${currentTypeInfo.shortLabel.toLowerCase()}_${currentRef || 'en_cours'}`,
       headers,
       data,
     });
@@ -441,134 +548,261 @@ export default function InventairePage() {
         )}
 
         {activeTab === 'sessions' ? (
-          <div className="card-base overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-bold text-foreground">Historique des inventaires</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Consultez la traçabilité des inventaires réalisés et leur statut de validation.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleNouvelInventaire('GLOBAL')}
-                  disabled={loading}
-                  className="btn-primary bg-indigo-600 hover:bg-indigo-700 flex items-center gap-1.5 text-xs py-2 disabled:opacity-50"
-                >
-                  {loading ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-                  Global
-                </button>
-                <button
-                  onClick={() => handleNouvelInventaire('RESERVE')}
-                  disabled={loading}
-                  className="btn-primary bg-blue-600 hover:bg-blue-700 flex items-center gap-1.5 text-xs py-2 disabled:opacity-50"
-                >
-                  {loading ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-                  Réserve
-                </button>
-                <button
-                  onClick={() => handleNouvelInventaire('VENTE')}
-                  disabled={loading}
-                  className="btn-primary bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1.5 text-xs py-2 disabled:opacity-50"
-                >
-                  {loading ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-                  En Vente
-                </button>
-                <button
-                  onClick={handleExportInventaires}
-                  disabled={loading}
-                  className="btn-secondary flex items-center gap-1.5 text-xs py-2 px-3 disabled:opacity-50"
-                  title="Exporter l'historique des inventaires"
-                >
-                  <Download size={13} />
-                  Exporter
-                </button>
-              </div>
+          <div className="space-y-4">
+            {/* KPI Cards par Type d'inventaire */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <button
+                type="button"
+                onClick={() => setFilterType('all')}
+                className={`p-3.5 rounded-xl border text-left transition-all ${
+                  filterType === 'all'
+                    ? 'bg-card border-primary ring-2 ring-primary/20 shadow-sm'
+                    : 'bg-card/70 border-border hover:border-primary/40'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">Tous inventaires</span>
+                  <FileSpreadsheet size={16} className="text-muted-foreground" />
+                </div>
+                <div className="text-xl font-bold text-foreground mt-1 tabular-nums">{countTotal}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">Toutes sessions</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFilterType('GLOBAL')}
+                className={`p-3.5 rounded-xl border text-left transition-all ${
+                  filterType === 'GLOBAL'
+                    ? 'bg-indigo-500/10 border-indigo-500 ring-2 ring-indigo-500/20 shadow-sm'
+                    : 'bg-card/70 border-border hover:border-indigo-500/40'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">Inventaire Global</span>
+                  <Layers size={16} className="text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div className="text-xl font-bold text-foreground mt-1 tabular-nums">{countGlobal}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">Réserve + Vente cumulés</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFilterType('RESERVE')}
+                className={`p-3.5 rounded-xl border text-left transition-all ${
+                  filterType === 'RESERVE'
+                    ? 'bg-blue-500/10 border-blue-500 ring-2 ring-blue-500/20 shadow-sm'
+                    : 'bg-card/70 border-border hover:border-blue-500/40'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">Inventaire Réserve</span>
+                  <Archive size={16} className="text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="text-xl font-bold text-foreground mt-1 tabular-nums">{countReserve}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">Stock Entrepôt</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFilterType('VENTE')}
+                className={`p-3.5 rounded-xl border text-left transition-all ${
+                  filterType === 'VENTE'
+                    ? 'bg-emerald-500/10 border-emerald-500 ring-2 ring-emerald-500/20 shadow-sm'
+                    : 'bg-card/70 border-border hover:border-emerald-500/40'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Inventaire En Vente</span>
+                  <Store size={16} className="text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div className="text-xl font-bold text-foreground mt-1 tabular-nums">{countVente}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">Stock Rayons / Étal</div>
+              </button>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/50">
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">
-                      Référence
-                    </th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">
-                      Date & Heure de réalisation
-                    </th>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">
-                      Responsable
-                    </th>
-                    <th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">
-                      Statut
-                    </th>
-                    <th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan={5} className="py-12 text-center text-muted-foreground">
-                        <Loader2 className="animate-spin mx-auto mb-2 text-primary" size={24} /> Chargement des inventaires...
-                      </td>
+
+            <div className="card-base overflow-hidden">
+              <div className="px-5 py-4 border-b border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold text-foreground">Historique des inventaires</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Consultez la traçabilité des inventaires réalisés (Global, Réserve, En Vente) et leur statut de validation.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => handleNouvelInventaire('GLOBAL')}
+                    disabled={loading}
+                    className="btn-primary bg-indigo-600 hover:bg-indigo-700 flex items-center gap-1.5 text-xs py-2 disabled:opacity-50"
+                    title="Démarrer un inventaire complet (Réserve + Vente)"
+                  >
+                    {loading ? <Loader2 size={13} className="animate-spin" /> : <Layers size={13} />}
+                    Nouveau Global
+                  </button>
+                  <button
+                    onClick={() => handleNouvelInventaire('RESERVE')}
+                    disabled={loading}
+                    className="btn-primary bg-blue-600 hover:bg-blue-700 flex items-center gap-1.5 text-xs py-2 disabled:opacity-50"
+                    title="Démarrer un inventaire de la Réserve uniquement"
+                  >
+                    {loading ? <Loader2 size={13} className="animate-spin" /> : <Archive size={13} />}
+                    Nouveau Réserve
+                  </button>
+                  <button
+                    onClick={() => handleNouvelInventaire('VENTE')}
+                    disabled={loading}
+                    className="btn-primary bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1.5 text-xs py-2 disabled:opacity-50"
+                    title="Démarrer un inventaire de l'Étal (En Vente) uniquement"
+                  >
+                    {loading ? <Loader2 size={13} className="animate-spin" /> : <Store size={13} />}
+                    Nouveau En Vente
+                  </button>
+                  <button
+                    onClick={handleExportInventaires}
+                    disabled={loading}
+                    className="btn-secondary flex items-center gap-1.5 text-xs py-2 px-3 disabled:opacity-50"
+                    title="Exporter l'historique des inventaires"
+                  >
+                    <Download size={13} />
+                    Exporter
+                  </button>
+                </div>
+              </div>
+
+              {/* Barre de filtres et recherche */}
+              <div className="px-5 py-3 border-b border-border bg-muted/20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="relative flex-1 max-w-sm">
+                  <Search
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  />
+                  <input
+                    type="search"
+                    value={sessionSearch}
+                    onChange={(e) => setSessionSearch(e.target.value)}
+                    placeholder="Filtrer par référence, responsable..."
+                    className="input-field pl-9 text-xs py-1.5 w-full"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Filter size={13} /> Périmètre :
+                  </span>
+                  <select
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value as any)}
+                    className="input-field text-xs py-1.5 px-2.5 rounded-lg border-border"
+                  >
+                    <option value="all">Tous ({countTotal})</option>
+                    <option value="GLOBAL">Inventaire Global ({countGlobal})</option>
+                    <option value="RESERVE">Inventaire Réserve ({countReserve})</option>
+                    <option value="VENTE">Inventaire En Vente ({countVente})</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/50">
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">
+                        Référence
+                      </th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">
+                        Périmètre / Type
+                      </th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">
+                        Date & Heure de réalisation
+                      </th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">
+                        Responsable
+                      </th>
+                      <th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">
+                        Statut
+                      </th>
+                      <th className="text-center px-5 py-3 text-xs font-semibold text-muted-foreground">
+                        Actions
+                      </th>
                     </tr>
-                  ) : inventaires.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-12 text-center text-muted-foreground">
-                        <FileSpreadsheet className="mx-auto mb-2 text-muted-foreground/60" size={28} />
-                        Aucun inventaire trouvé
-                      </td>
-                    </tr>
-                  ) : (
-                    inventaires.map((inv, idx) => {
-                      const cfg = STATUT_SESSION[inv.statutInventaire] || STATUT_SESSION['EN_COURS'];
-                      return (
-                        <tr
-                          key={inv.id}
-                          className={`border-b border-border table-row-hover ${idx % 2 === 0 ? '' : 'bg-muted/20'}`}
-                        >
-                          <td className="px-5 py-3 font-mono text-xs font-semibold text-foreground">
-                            {inv.referenceInventaire}
-                          </td>
-                          <td className="px-5 py-3 text-foreground text-xs">
-                            <div className="flex items-center gap-1.5">
-                              <Calendar size={13} className="text-muted-foreground" />
-                              <span>{formatDateTime(inv.dateInventaire)}</span>
-                            </div>
-                          </td>
-                          <td className="px-5 py-3 text-foreground text-xs">
-                            <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
-                                {inv.utilisateurNom ? inv.utilisateurNom[0].toUpperCase() : 'U'}
-                              </div>
-                              <span className="font-medium">{inv.utilisateurNom || 'Inconnu'}</span>
-                            </div>
-                          </td>
-                          <td className="px-5 py-3 text-center">
-                            {inv.demandeInvalidation ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 border border-amber-500/30">
-                                <AlertTriangle size={12} /> Demande d'invalidation
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                          <Loader2 className="animate-spin mx-auto mb-2 text-primary" size={24} /> Chargement des inventaires...
+                        </td>
+                      </tr>
+                    ) : filteredInventaires.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                          <FileSpreadsheet className="mx-auto mb-2 text-muted-foreground/60" size={28} />
+                          Aucun inventaire trouvé pour ce filtre
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredInventaires.map((inv, idx) => {
+                        const cfg = STATUT_SESSION[inv.statutInventaire] || STATUT_SESSION['EN_COURS'];
+                        const typeInfo = getInventaireTypeInfo(inv.referenceInventaire, inv.observations);
+                        const TypeIcon = typeInfo.icon;
+
+                        return (
+                          <tr
+                            key={inv.id}
+                            className={`border-b border-border table-row-hover ${idx % 2 === 0 ? '' : 'bg-muted/20'}`}
+                          >
+                            <td className="px-5 py-3 font-mono text-xs font-semibold text-foreground">
+                              <div>{inv.referenceInventaire}</div>
+                              {inv.observations && (
+                                <div className="text-[11px] text-muted-foreground font-sans font-normal truncate max-w-xs mt-0.5">
+                                  {inv.observations}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-5 py-3 text-xs">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${typeInfo.badgeClass}`}>
+                                <TypeIcon size={13} />
+                                {typeInfo.label}
                               </span>
-                            ) : (
-                              <span className={cfg.className}>{cfg.label}</span>
-                            )}
-                          </td>
-                          <td className="px-5 py-3 text-center">
-                            <button
-                              onClick={() => handleVoir(inv.id)}
-                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline font-semibold"
-                            >
-                              <Eye size={13} />{' '}
-                              {inv.statutInventaire === 'EN_COURS' ? 'Reprendre' : 'Consulter'}
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+                            </td>
+                            <td className="px-5 py-3 text-foreground text-xs">
+                              <div className="flex items-center gap-1.5">
+                                <Calendar size={13} className="text-muted-foreground" />
+                                <span>{formatDateTime(inv.dateInventaire)}</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3 text-foreground text-xs">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
+                                  {inv.utilisateurNom ? inv.utilisateurNom[0].toUpperCase() : 'U'}
+                                </div>
+                                <span className="font-medium">{inv.utilisateurNom || 'Inconnu'}</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3 text-center">
+                              {inv.demandeInvalidation ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 border border-amber-500/30">
+                                  <AlertTriangle size={12} /> Demande d'invalidation
+                                </span>
+                              ) : (
+                                <span className={cfg.className}>{cfg.label}</span>
+                              )}
+                            </td>
+                            <td className="px-5 py-3 text-center">
+                              <button
+                                onClick={() => handleVoir(inv.id)}
+                                className="inline-flex items-center gap-1 text-xs text-primary hover:underline font-semibold"
+                              >
+                                <Eye size={13} />{' '}
+                                {inv.statutInventaire === 'EN_COURS' ? 'Reprendre' : 'Consulter'}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         ) : (
@@ -645,8 +879,12 @@ export default function InventairePage() {
             <div className="card-base p-5 space-y-4">
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-border pb-4">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-bold text-foreground">{currentRef}</h3>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <h3 className="text-lg font-bold text-foreground font-mono">{currentRef}</h3>
+                    <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${currentTypeInfo.badgeClass}`}>
+                      <CurrentTypeIcon size={14} />
+                      {currentTypeInfo.label}
+                    </span>
                     <span className={`inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full ${STATUT_SESSION[currentStatut]?.className}`}>
                       {STATUT_SESSION[currentStatut]?.label}
                     </span>
@@ -727,6 +965,38 @@ export default function InventairePage() {
                 </div>
               </div>
 
+              {/* Fiche Périmètre d'inventaire avec explications et impacts */}
+              <div className={`p-4 rounded-xl border ${currentTypeInfo.borderColor} ${currentTypeInfo.bgLight} flex flex-col md:flex-row items-start md:items-center justify-between gap-4`}>
+                <div className="flex items-start gap-3">
+                  <div className={`p-2.5 rounded-lg bg-background shadow-xs border ${currentTypeInfo.borderColor} shrink-0`}>
+                    <CurrentTypeIcon size={22} className={currentTypeInfo.textColor} />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h4 className="font-bold text-sm text-foreground">
+                        {currentTypeInfo.label}
+                      </h4>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${currentTypeInfo.badgeClass}`}>
+                        Cible : {currentTypeInfo.targetScope}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {currentTypeInfo.description}
+                    </p>
+                    <p className="text-xs font-medium text-foreground">
+                      <span className="text-muted-foreground">Impact sur la base de données : </span>
+                      <span className={currentTypeInfo.textColor}>{currentTypeInfo.fieldImpact}</span>
+                    </p>
+                  </div>
+                </div>
+                {currentObservations && (
+                  <div className="text-xs bg-background/80 border border-border px-3.5 py-2 rounded-lg max-w-sm shrink-0">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground block mb-0.5">Observation enregistrée :</span>
+                    <span className="text-foreground font-medium italic">{currentObservations}</span>
+                  </div>
+                )}
+              </div>
+
               {/* Message d'information Inventaire à l'aveugle */}
               {isBlindMode && (
                 <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 text-xs text-foreground flex items-start gap-2.5">
@@ -741,7 +1011,7 @@ export default function InventairePage() {
               {/* Barres de progression et compteurs */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Progression de la saisie</span>
+                  <span>Progression de la saisie ({currentTypeInfo.label})</span>
                   <span className="font-bold text-foreground tabular-nums">{progress}%</span>
                 </div>
                 <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
@@ -800,12 +1070,12 @@ export default function InventairePage() {
                       {/* Colonne Stock Théorique MASQUÉE en mode aveugle */}
                       {!isBlindMode && (
                         <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground">
-                          Stock Système (Théorique)
+                          Stock Système ({currentTypeInfo.shortLabel})
                         </th>
                       )}
 
                       <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground">
-                        Stock Compté (Physique)
+                        Stock Compté ({currentTypeInfo.shortLabel})
                       </th>
 
                       {/* Colonne Statut affichée en mode aveugle */}
@@ -818,7 +1088,7 @@ export default function InventairePage() {
                       {/* Colonne Écart MASQUÉE en mode aveugle */}
                       {!isBlindMode && (
                         <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground">
-                          Écart
+                          Écart ({currentTypeInfo.shortLabel})
                         </th>
                       )}
                     </tr>

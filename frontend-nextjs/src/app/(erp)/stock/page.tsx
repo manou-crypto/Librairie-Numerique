@@ -47,8 +47,8 @@ export default function StockPage() {
     const qty = parseInt(transferQty, 10);
     if (!qty || qty <= 0) return toast.error('Veuillez entrer une quantité valide');
 
-    const maxQty = transferModal.type === 'TRANSFERT_ETAL' 
-      ? transferModal.item.quantiteEnStock 
+    const maxQty = transferModal.type === 'TRANSFERT_ETAL'
+      ? transferModal.item.quantiteEnStock
       : (transferModal.item.quantiteEtal || 0);
 
     if (qty > maxQty) {
@@ -209,7 +209,7 @@ export default function StockPage() {
               >
                 <Download size={14} /> Exporter
               </button>
-              <button 
+              <button
                 onClick={() => setAddStockModalOpen(true)}
                 className="btn-primary flex items-center gap-1.5 text-sm py-2"
               >
@@ -297,7 +297,7 @@ export default function StockPage() {
                         <td className="px-5 py-3 text-center">
                           <div className="flex items-center justify-center gap-3">
                             <button
-                              title="Transférer vers étal"
+                              title="Transférer vers étagère"
                               onClick={() => {
                                 setTransferModal({ type: 'TRANSFERT_ETAL', item });
                                 setTransferQty('');
@@ -364,8 +364,8 @@ export default function StockPage() {
                 <p className="text-xs text-muted-foreground">
                   Disponible pour le transfert :{' '}
                   <span className="font-bold text-foreground">
-                    {transferModal.type === 'TRANSFERT_ETAL' 
-                      ? transferModal.item.quantiteEnStock 
+                    {transferModal.type === 'TRANSFERT_ETAL'
+                      ? transferModal.item.quantiteEnStock
                       : (transferModal.item.quantiteEtal || 0)}
                   </span>
                 </p>

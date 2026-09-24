@@ -83,7 +83,7 @@ export const stockService = {
   },
 
   /**
-   * Transférer en étal ou retourner en réserve
+   * Transférer en étagère ou retourner en réserve
    * POST /api/v1/stock/transfert-etal
    */
   async transfererEtal(payload: { produitId: string; typeMouvement: 'TRANSFERT_ETAL' | 'RETOUR_RESERVE'; quantite: number }): Promise<MouvementStockResponse> {

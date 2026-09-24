@@ -208,8 +208,8 @@ export class VentesService {
       } else if (su.nouvelleQuantiteEtal === 0 && su.nouvelleQuantite > 0) {
         await this.notificationsService.createNotification(
           'info',
-          'Étal Vide',
-          `L'étal du produit "${su.produitLibelle}" est vide. Pensez à le réapprovisionner depuis la réserve.`
+          'Étagère Vide',
+          `L'étagère du produit "${su.produitLibelle}" est vide. Pensez à le réapprovisionner depuis la réserve.`
         );
       } else if (estEnAlerte) {
         await this.notificationsService.createNotification(
