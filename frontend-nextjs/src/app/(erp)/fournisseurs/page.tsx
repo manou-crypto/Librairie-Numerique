@@ -15,9 +15,11 @@ import {
   Pencil,
   Trash2,
   Save,
+  Download,
 } from 'lucide-react';
 import { fournisseursService, Fournisseur } from '@/services/fournisseurs.service';
 import { toast } from 'sonner';
+import { exportToCSV } from '@/utils/export';
 
 const EMPTY_FORM: Omit<Fournisseur, 'id'> = {
   typeFournisseur: 'SOCIETE',
@@ -135,6 +137,41 @@ export default function FournisseursPage() {
       (f.email || '').toLowerCase().includes(search.toLowerCase())
   );
 
+  const handleExportFournisseurs = () => {
+    if (filtered.length === 0) {
+      toast.info('Aucun fournisseur à exporter');
+      return;
+    }
+    const headers = [
+      'Fournisseur / Entreprise',
+      'Type',
+      'Prénom',
+      'Contact',
+      'Téléphone',
+      'Email',
+      'Adresse',
+      'Ville',
+      'Pays',
+      'N° Contribuable',
+      'Observations',
+    ];
+    const data = filtered.map((f) => [
+      f.nomEntreprise,
+      f.typeFournisseur || 'SOCIETE',
+      f.prenom || '',
+      f.contactNom || '',
+      f.telephone || '',
+      f.email || '',
+      f.adresse || '',
+      f.ville || '',
+      f.pays || '',
+      f.numeroContribuable || '',
+      f.observations || '',
+    ]);
+    exportToCSV({ filename: 'liste_fournisseurs', headers, data });
+    toast.success('Fournisseurs exportés avec succès');
+  };
+
   const field = (label: string, key: keyof typeof form, type = 'text', placeholder = '') => (
     <div>
       <label className="block text-xs font-semibold text-foreground mb-1.5">{label}</label>
@@ -196,12 +233,20 @@ export default function FournisseursPage() {
                 className="input-field pl-9 text-sm"
               />
             </div>
-            <button
-              onClick={openCreate}
-              className="btn-primary flex items-center gap-1.5 text-sm py-2"
-            >
-              <Plus size={14} /> Ajouter
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleExportFournisseurs}
+                className="btn-secondary flex items-center gap-1.5 text-sm py-2"
+              >
+                <Download size={14} /> Exporter
+              </button>
+              <button
+                onClick={openCreate}
+                className="btn-primary flex items-center gap-1.5 text-sm py-2"
+              >
+                <Plus size={14} /> Ajouter
+              </button>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

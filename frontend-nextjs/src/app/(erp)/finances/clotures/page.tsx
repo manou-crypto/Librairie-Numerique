@@ -27,6 +27,7 @@ import {
 } from '@/services/finances.service';
 import { useAppConfig } from '@/contexts/ConfigContext';
 import { toast } from 'sonner';
+import { exportToCSV } from '@/utils/export';
 
 export default function CloturesJournalieresPage() {
   const { config } = useAppConfig();
@@ -139,17 +140,11 @@ export default function CloturesJournalieresPage() {
       c.nombreArticlesVendus,
     ]);
 
-    const csvContent =
-      'data:text/csv;charset=utf-8,\uFEFF' +
-      [headers.join(';'), ...rows.map((e) => e.join(';'))].join('\n');
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `clotures_journalieres_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToCSV({
+      filename: `clotures_journalieres_${new Date().toISOString().split('T')[0]}`,
+      headers,
+      data: rows,
+    });
     toast.success('Fichier CSV généré avec succès');
   };
 

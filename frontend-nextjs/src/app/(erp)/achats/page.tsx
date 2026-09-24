@@ -24,6 +24,7 @@ import { produitsService, Produit } from '@/services/produits.service';
 import { useAppConfig } from '@/contexts/ConfigContext';
 import { toast } from 'sonner';
 import { authService } from '@/services/auth.service';
+import { exportToCSV } from '@/utils/export';
 
 const STATUT_CONFIG: Record<string, { label: string; className: string }> = {
   EN_ATTENTE: { label: 'En attente', className: 'badge-draft' },
@@ -362,6 +363,42 @@ export default function AchatsPage() {
     return matchSearch && matchStatut && matchDateDebut && matchDateFin && matchPaiement;
   });
 
+  const handleExportAchats = () => {
+    if (filtered.length === 0) {
+      toast.info('Aucun achat à exporter');
+      return;
+    }
+    const headers = [
+      'Référence Bon/Facture',
+      'Fournisseur',
+      'Date Commande',
+      'Date Prévue Réception',
+      'Montant HT',
+      'Montant TTC',
+      'Montant Payé',
+      'Reste à Payer (Dette)',
+      'Statut',
+    ];
+    const data = filtered.map((a) => {
+      const totalTtc = a.montantTotalTtc || a.montantTotalHt || 0;
+      const paye = a.montantPaye || 0;
+      const reste = a.statutAchat === 'ANNULE' ? 0 : Math.max(0, totalTtc - paye);
+      return [
+        a.numeroFactureFournisseur,
+        a.fournisseurNom,
+        new Date(a.dateAchat).toLocaleDateString('fr-FR'),
+        a.datePrevueReception ? new Date(a.datePrevueReception).toLocaleDateString('fr-FR') : '—',
+        (a.montantTotalHt || 0).toFixed(2),
+        totalTtc.toFixed(2),
+        paye.toFixed(2),
+        reste.toFixed(2),
+        STATUT_CONFIG[a.statutAchat]?.label || a.statutAchat,
+      ];
+    });
+    exportToCSV({ filename: 'bons_achats', headers, data });
+    toast.success('Bons d\'achats exportés avec succès');
+  };
+
   const totalEngageTtc = achats.reduce((s, a) => s + (a.montantTotalTtc || a.montantTotalHt || 0), 0);
   const totalPaye = achats.reduce((s, a) => s + (a.montantPaye || 0), 0);
   const totalImpayes = achats.reduce((s, a) => {
@@ -493,6 +530,12 @@ export default function AchatsPage() {
                 <option value="impayes">⚠️ Avec impayés ({nbImpayes})</option>
                 <option value="soldes">✅ Soldés uniquement</option>
               </select>
+              <button
+                onClick={handleExportAchats}
+                className="btn-secondary flex items-center gap-1.5 text-sm py-2 px-3 hover:bg-muted/80 transition-colors"
+              >
+                <Download size={14} /> Exporter
+              </button>
               <Link
                 href="/achats/liste"
                 className="btn-secondary flex items-center gap-1.5 text-sm py-2 px-3 hover:bg-muted/80 transition-colors"

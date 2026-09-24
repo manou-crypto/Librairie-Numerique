@@ -25,6 +25,7 @@ import { useSocket } from '@/contexts/SocketContext';
 import { useAppConfig } from '@/contexts/ConfigContext';
 import VenteDetailsModal from '@/components/ventes/VenteDetailsModal';
 import RetourModal from '@/components/ventes/RetourModal';
+import { exportToCSV } from '@/utils/export';
 
 const STATUT_CONFIG: Record<string, { label: string; className: string }> = {
   VALIDEE: { label: 'Validée', className: 'badge-active' },
@@ -120,6 +121,64 @@ export default function VentesPage() {
     const matchDate = !filterDate || r.dateRetour.startsWith(filterDate);
     return matchSearch && matchDate;
   });
+
+  const handleExportVentes = () => {
+    if (filteredVentes.length === 0) {
+      toast.info('Aucune vente à exporter');
+      return;
+    }
+    const headers = [
+      'Référence Ticket',
+      'Date & Heure',
+      'Mode Paiement',
+      'Montant HT',
+      'Montant TVA',
+      'Montant TTC',
+      'Montant Payé',
+      'Monnaie Rendue',
+      'Statut',
+    ];
+    const data = filteredVentes.map((v) => [
+      v.referenceTicket,
+      new Date(v.dateVente).toLocaleString('fr-FR'),
+      MODE_PAIEMENT_LABELS[v.modePaiement] || v.modePaiement,
+      v.montantTotalHt.toFixed(2),
+      v.montantTva.toFixed(2),
+      v.montantTotalTtc.toFixed(2),
+      (v.montantPaye || 0).toFixed(2),
+      (v.monnaieRendue || 0).toFixed(2),
+      STATUT_CONFIG[v.statutVente]?.label || v.statutVente,
+    ]);
+    exportToCSV({ filename: 'journal_ventes', headers, data });
+    toast.success('Export des ventes téléchargé avec succès');
+  };
+
+  const handleExportRetours = () => {
+    if (filteredRetours.length === 0) {
+      toast.info('Aucun retour à exporter');
+      return;
+    }
+    const headers = [
+      'Réf. Retour',
+      'Réf. Ticket Original',
+      'Date & Heure',
+      'Opérateur',
+      'Montant Remboursé',
+      'Mode Remboursement',
+      'Motif',
+    ];
+    const data = filteredRetours.map((r) => [
+      r.referenceRetour,
+      r.referenceTicketVente,
+      new Date(r.dateRetour).toLocaleString('fr-FR'),
+      r.utilisateurNom,
+      r.montantRembourse.toFixed(2),
+      r.modeRemboursement || 'Espèces',
+      r.motif || '',
+    ]);
+    exportToCSV({ filename: 'journal_retours', headers, data });
+    toast.success('Export des retours téléchargé avec succès');
+  };
 
   const handleViewDetails = async (id: string) => {
     try {
@@ -279,7 +338,10 @@ export default function VentesPage() {
                   <option value="REMBOURSEE">Remboursée (Totale)</option>
                   <option value="ANNULEE">Annulée</option>
                 </select>
-                <button className="btn-secondary flex items-center gap-1.5 text-sm py-2">
+                <button
+                  onClick={handleExportVentes}
+                  className="btn-secondary flex items-center gap-1.5 text-sm py-2"
+                >
                   <Download size={14} /> Exporter
                 </button>
               </div>
@@ -436,6 +498,12 @@ export default function VentesPage() {
                   onChange={(e) => setFilterDate(e.target.value)}
                   className="input-field text-sm w-auto"
                 />
+                <button
+                  onClick={handleExportRetours}
+                  className="btn-secondary flex items-center gap-1.5 text-sm py-2"
+                >
+                  <Download size={14} /> Exporter
+                </button>
               </div>
             </div>
 

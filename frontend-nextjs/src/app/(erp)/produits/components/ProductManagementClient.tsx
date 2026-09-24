@@ -22,6 +22,7 @@ import { produitsService, CategorieItem, MarqueItem } from '@/services/produits.
 import useSWR from 'swr';
 import { fetcher, SWR_DEFAULT_CONFIG } from '@/lib/swr-fetcher';
 import { useAuth } from '@/hooks/useAuth';
+import { exportToCSV } from '@/utils/export';
 
 export interface Product {
   id: string;
@@ -178,6 +179,45 @@ export default function ProductManagementClient() {
     sortDir,
     categoryDescendantsMap,
   ]);
+
+  const handleExportProducts = () => {
+    if (filteredProducts.length === 0) {
+      toast.info('Aucun produit à exporter');
+      return;
+    }
+    const headers = [
+      'Référence',
+      'Nom / Libellé',
+      'Catégorie',
+      'Marque',
+      'Prix Achat (HT)',
+      'Prix Vente (TTC)',
+      'Marge (%)',
+      'Stock Total',
+      'Seuil Alerte',
+      'Statut',
+      'Description',
+    ];
+    const data = filteredProducts.map((p) => {
+      const marge =
+        p.prixVente > 0 ? (((p.prixVente - p.prixAchat) / p.prixVente) * 100).toFixed(1) : '0.0';
+      return [
+        p.reference,
+        p.name,
+        p.categoryName || '—',
+        p.marque || '—',
+        p.prixAchat.toFixed(2),
+        p.prixVente.toFixed(2),
+        `${marge}%`,
+        p.stock,
+        p.seuilAlerte,
+        p.status === 'actif' ? 'Actif' : p.status === 'masque' ? 'Masqué' : 'Brouillon',
+        p.description || '',
+      ];
+    });
+    exportToCSV({ filename: 'catalogue_produits', headers, data });
+    toast.success('Catalogue des produits exporté avec succès');
+  };
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
   
@@ -422,6 +462,7 @@ export default function ProductManagementClient() {
                 totalFiltered={filteredProducts.length}
                 totalAll={products.length}
                 onAddProduct={() => setIsAddModalOpen(true)}
+                onExport={handleExportProducts}
                 selectedCount={selectedIds.size}
                 onBulkDelete={handleBulkDelete}
                 onBulkHide={handleBulkHide}

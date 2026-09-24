@@ -20,9 +20,11 @@ import {
   FileText,
   History,
   Search,
+  Download,
 } from 'lucide-react';
 import { caissesService, CaisseItem, UserItem, HistoriqueSessionItem } from '@/services/caisses.service';
 import { toast } from 'sonner';
+import { exportToCSV } from '@/utils/export';
 
 const STATUT_CONFIG: Record<string, { label: string; className: string; icon: React.ElementType }> =
   {
@@ -258,6 +260,79 @@ export default function CaissesPage() {
     }
   };
 
+  const handleExportCaisses = () => {
+    if (caisses.length === 0) {
+      toast.info('Aucune caisse à exporter');
+      return;
+    }
+    const headers = [
+      'Code Caisse',
+      'Nom Caisse',
+      'Statut',
+      'Caissier Assigné',
+      'Fond Initial (FCFA)',
+      'Total Encaissé (FCFA)',
+      'Total Ventes',
+    ];
+    const data = caisses.map((c) => [
+      c.codeCaisse,
+      c.nomCaisse,
+      STATUT_CONFIG[c.statut]?.label || c.statut,
+      c.utilisateurActuelNom || 'Non assigné',
+      c.fondDeCaisseInitial || 0,
+      c.totalEncaisse || 0,
+      c.nombreVentes || 0,
+    ]);
+    exportToCSV({ filename: 'etat_des_caisses', headers, data });
+    toast.success('État des caisses exporté avec succès');
+  };
+
+  const handleExportSessions = () => {
+    const q = searchSession.toLowerCase();
+    const filteredSessions = sessions.filter((s) => {
+      return (
+        !q ||
+        s.codeCaisse.toLowerCase().includes(q) ||
+        s.caissierNom.toLowerCase().includes(q) ||
+        (s.caissierEmail && s.caissierEmail.toLowerCase().includes(q))
+      );
+    });
+
+    if (filteredSessions.length === 0) {
+      toast.info('Aucune session à exporter');
+      return;
+    }
+
+    const headers = [
+      'Code Caisse',
+      'Emplacement',
+      'Caissier Nom',
+      'Caissier Email',
+      'Date & Heure Ouverture',
+      'Date & Heure Clôture',
+      'Fond Initial (FCFA)',
+      'Total Ventes (FCFA)',
+      'Écart Caisse (FCFA)',
+      'Statut Session',
+    ];
+
+    const data = filteredSessions.map((s) => [
+      s.codeCaisse,
+      s.emplacement || '',
+      s.caissierNom,
+      s.caissierEmail || '',
+      new Date(s.dateOuverture).toLocaleString('fr-FR'),
+      s.dateFermeture ? new Date(s.dateFermeture).toLocaleString('fr-FR') : 'En cours',
+      s.montantOuverture,
+      s.totalVentesSession ?? 0,
+      s.ecart ?? 0,
+      s.statutSession === 'OUVERTE' ? 'Ouverte' : 'Clôturée',
+    ]);
+
+    exportToCSV({ filename: 'sessions_caisses', headers, data });
+    toast.success('Historique des sessions exporté avec succès');
+  };
+
   return (
     <AppLayout currentPath="/caisses">
       <Topbar
@@ -328,14 +403,24 @@ export default function CaissesPage() {
             </button>
           </div>
 
-          {activeTab === 'terminaux' && (
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="btn-primary flex items-center gap-1.5 text-sm py-2 px-3.5"
-            >
-              <Plus size={14} /> Nouvelle caisse
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {activeTab === 'terminaux' ? (
+              <>
+                <button
+                  onClick={handleExportCaisses}
+                  className="btn-secondary flex items-center gap-1.5 text-sm py-2 px-3.5"
+                >
+                  <Download size={14} /> Exporter
+                </button>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="btn-primary flex items-center gap-1.5 text-sm py-2 px-3.5"
+                >
+                  <Plus size={14} /> Nouvelle caisse
+                </button>
+              </>
+            ) : null}
+          </div>
         </div>
 
         {activeTab === 'terminaux' ? (
@@ -543,13 +628,22 @@ export default function CaissesPage() {
               className="w-full pl-9 pr-4 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
-          <button
-            onClick={loadSessions}
-            className="btn-secondary text-sm py-2 px-3 flex items-center gap-1.5"
-          >
-            {sessionsLoading ? <Loader2 size={14} className="animate-spin" /> : <Clock size={14} />}
-            <span>Actualiser</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportSessions}
+              className="btn-secondary text-sm py-2 px-3 flex items-center gap-1.5"
+            >
+              <Download size={14} />
+              <span>Exporter</span>
+            </button>
+            <button
+              onClick={loadSessions}
+              className="btn-secondary text-sm py-2 px-3 flex items-center gap-1.5"
+            >
+              {sessionsLoading ? <Loader2 size={14} className="animate-spin" /> : <Clock size={14} />}
+              <span>Actualiser</span>
+            </button>
+          </div>
         </div>
 
         <div className="card-base overflow-hidden">

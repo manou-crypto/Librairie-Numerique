@@ -32,6 +32,7 @@ import {
 import { toast } from 'sonner';
 import { useAppConfig } from '@/contexts/ConfigContext';
 import { useSocket } from '@/contexts/SocketContext';
+import { exportToCSV } from '@/utils/export';
 
 const COLORS = ['#1D4ED8', '#F97316', '#16A34A', '#9333EA', '#EF4444', '#EAB308'];
 
@@ -84,6 +85,35 @@ export default function FinancesPage() {
   const caJour = liveKpis?.caJour ?? kpis?.caJour ?? 0;
   const dettes = kpis?.dettesFournisseurs ?? 0;
 
+  const handleExportClotures = () => {
+    if (clotures.length === 0) {
+      toast.info('Aucune clôture à exporter');
+      return;
+    }
+    const headers = [
+      'Date Clôture',
+      'Validé par',
+      'Type Clôture',
+      `CA HT (${devise})`,
+      `TVA (${devise})`,
+      `CA TTC (${devise})`,
+      `Bénéfice Brut (${devise})`,
+      'Statut',
+    ];
+    const data = clotures.map((c) => [
+      new Date(c.dateCloture).toLocaleDateString('fr-FR'),
+      c.utilisateurValidationNom || 'Système',
+      c.typeCloture === 'AUTOMATIQUE' ? 'Automatique' : 'Manuelle',
+      c.chiffreAffairesHt,
+      c.tvaCollectee,
+      c.chiffreAffairesTtc,
+      c.beneficeBrutTotal,
+      c.typeCloture === 'AUTOMATIQUE' ? 'Auto' : 'Validé',
+    ]);
+    exportToCSV({ filename: `rapport_financier_${period}`, headers, data });
+    toast.success('Rapport financier exporté avec succès');
+  };
+
   return (
     <AppLayout currentPath="/finances">
       <Topbar
@@ -108,6 +138,14 @@ export default function FinancesPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportClotures}
+              className="btn-secondary flex items-center gap-1.5 text-sm py-2 px-3.5 shadow-sm"
+              title="Exporter les clôtures financières en CSV"
+            >
+              <Download size={15} />
+              <span>Exporter</span>
+            </button>
             <a
               href="/finances/clotures"
               className="btn-primary flex items-center gap-1.5 text-sm py-2 px-3.5 shadow-sm"

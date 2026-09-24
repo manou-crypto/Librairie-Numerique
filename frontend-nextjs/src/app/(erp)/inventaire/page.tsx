@@ -19,6 +19,7 @@ import {
   X,
   FileSpreadsheet,
   Check,
+  Download,
 } from 'lucide-react';
 import {
   inventaireService,
@@ -28,6 +29,7 @@ import {
 import { produitsService } from '@/services/produits.service';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { exportToCSV } from '@/utils/export';
 
 const STATUT_SESSION: Record<string, { label: string; className: string; icon: any }> = {
   EN_COURS: { label: 'En cours de saisie', className: 'badge-draft', icon: Clock },
@@ -360,6 +362,71 @@ export default function InventairePage() {
 
   const progress = lignes.length > 0 ? Math.round((compteCount / lignes.length) * 100) : 0;
 
+  const handleExportInventaires = () => {
+    if (inventaires.length === 0) {
+      toast.info('Aucun inventaire à exporter');
+      return;
+    }
+    const headers = [
+      'Référence Inventaire',
+      'Type Inventaire',
+      'Date & Heure Réalisation',
+      'Responsable',
+      'Statut',
+      'Date Validation',
+      'Validé par',
+      'Observations',
+    ];
+    const data = inventaires.map((inv) => {
+      const typeLabel = inv.referenceInventaire.includes('INV-RES')
+        ? 'Réserve'
+        : inv.referenceInventaire.includes('INV-VTE')
+        ? 'En Vente'
+        : 'Global';
+      return [
+        inv.referenceInventaire,
+        typeLabel,
+        formatDateTime(inv.dateInventaire),
+        inv.utilisateurNom || 'Système',
+        STATUT_SESSION[inv.statutInventaire]?.label || inv.statutInventaire,
+        inv.dateValidation ? formatDateTime(inv.dateValidation) : '—',
+        inv.validateurNom || '—',
+        inv.observations || '',
+      ];
+    });
+    exportToCSV({ filename: 'historique_inventaires', headers, data });
+    toast.success('Historique des inventaires exporté avec succès');
+  };
+
+  const handleExportLignesInventaire = () => {
+    if (lignes.length === 0) {
+      toast.info('Aucune ligne d\'inventaire à exporter');
+      return;
+    }
+    const headers = [
+      'ID Produit',
+      'Désignation Produit',
+      'Stock Théorique',
+      'Stock Réel Compté',
+      'Écart Constaté',
+      'Motif Ajustement',
+    ];
+    const data = lignes.map((l) => [
+      l.produitId,
+      l.produitLibelle,
+      isBlindMode ? '—' : l.quantiteTheorique,
+      l.quantiteReelle,
+      isBlindMode ? '—' : (l.quantiteReelle - l.quantiteTheorique),
+      l.motifAjustement || '',
+    ]);
+    exportToCSV({
+      filename: `feuille_inventaire_${currentRef || 'en_cours'}`,
+      headers,
+      data,
+    });
+    toast.success('Feuille d\'inventaire exportée avec succès');
+  };
+
   return (
     <AppLayout currentPath="/inventaire">
       <Topbar title="Inventaire physique" subtitle="Saisie, contrôle à l'aveugle et gestion des inventaires" />
@@ -406,6 +473,15 @@ export default function InventairePage() {
                 >
                   {loading ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
                   En Vente
+                </button>
+                <button
+                  onClick={handleExportInventaires}
+                  disabled={loading}
+                  className="btn-secondary flex items-center gap-1.5 text-xs py-2 px-3 disabled:opacity-50"
+                  title="Exporter l'historique des inventaires"
+                >
+                  <Download size={13} />
+                  Exporter
                 </button>
               </div>
             </div>
@@ -641,6 +717,13 @@ export default function InventairePage() {
                       )}
                     </>
                   )}
+                  <button
+                    onClick={handleExportLignesInventaire}
+                    className="btn-secondary flex items-center gap-1.5 text-xs py-2 px-3"
+                    title="Exporter la feuille d'inventaire en CSV"
+                  >
+                    <Download size={13} /> Exporter
+                  </button>
                 </div>
               </div>
 

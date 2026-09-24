@@ -43,6 +43,7 @@ import {
 } from '@/services/rapports.service';
 import { useAppConfig } from '@/contexts/ConfigContext';
 import { toast } from 'sonner';
+import { exportToCSV } from '@/utils/export';
 
 type Period = 'semaine' | 'mois' | 'trimestre' | 'annee';
 
@@ -159,17 +160,7 @@ export default function RapportsPage() {
       return;
     }
 
-    const csvContent =
-      'data:text/csv;charset=utf-8,\uFEFF' +
-      [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToCSV({ filename, headers, data: rows });
     toast.success('Rapport exporté avec succès !');
   };
 

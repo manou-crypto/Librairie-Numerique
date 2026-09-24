@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { Search, Plus, Trash2, EyeOff, X } from 'lucide-react';
+import { Search, Plus, Trash2, EyeOff, X, Download } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface ProductFiltersBarProps {
@@ -13,6 +13,7 @@ interface ProductFiltersBarProps {
   totalFiltered: number;
   totalAll: number;
   onAddProduct: () => void;
+  onExport?: () => void;
   selectedCount: number;
   onBulkDelete: () => void;
   onBulkHide: () => void;
@@ -28,6 +29,7 @@ export default function ProductFiltersBar({
   totalFiltered,
   totalAll,
   onAddProduct,
+  onExport,
   selectedCount,
   onBulkDelete,
   onBulkHide,
@@ -103,6 +105,16 @@ export default function ProductFiltersBar({
               Supprimer
             </button>
           </div>
+        )}
+        {onExport && (
+          <button
+            onClick={onExport}
+            className="btn-secondary flex items-center gap-1.5 text-sm py-2 px-3 whitespace-nowrap"
+            title="Exporter la liste des produits en CSV"
+          >
+            <Download size={14} />
+            Exporter
+          </button>
         )}
         {(!user || user.role === 'ADMIN' || (user.permissions && user.permissions.includes('CREER_PRODUIT'))) && (
           <button

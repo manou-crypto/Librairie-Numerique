@@ -6,6 +6,7 @@ import { Search, AlertTriangle, TrendingDown, Package, Download, Loader2, X, Arr
 import { stockService, StockItem } from '@/services/stock.service';
 import AddStockModal from './components/AddStockModal';
 import { toast } from 'sonner';
+import { exportToCSV } from '@/utils/export';
 
 const STATUT_CONFIG: Record<string, { label: string; className: string }> = {
   normal: { label: 'Normal', className: 'badge-active' },
@@ -97,6 +98,42 @@ export default function StockPage() {
     return matchSearch && matchStatut;
   });
 
+  const handleExportStock = () => {
+    if (filtered.length === 0) {
+      toast.info('Aucun stock à exporter');
+      return;
+    }
+    const headers = [
+      'Référence',
+      'Produit / Désignation',
+      'Catégorie',
+      'Réserve',
+      'En Vente (Étal)',
+      'Total en Stock',
+      'Seuil Alerte',
+      'Statut',
+      'Dernier Mouvement',
+    ];
+    const data = filtered.map((item) => {
+      const st = getComputedStatut(item);
+      return [
+        item.produitReference,
+        item.produitLibelle,
+        item.categoryName || '—',
+        item.quantiteEnStock,
+        item.quantiteEtal || 0,
+        item.quantiteEnStock + (item.quantiteEtal || 0),
+        item.seuilAlerte,
+        STATUT_CONFIG[st]?.label || st,
+        item.dateDerniereEntree
+          ? new Date(item.dateDerniereEntree).toLocaleDateString('fr-FR')
+          : '—',
+      ];
+    });
+    exportToCSV({ filename: 'etat_des_stocks', headers, data });
+    toast.success('État des stocks exporté avec succès');
+  };
+
   const totalValeur = 0; // Not available directly in API yet
   const ruptures = stocks.filter((i) => i.estEnRupture).length;
   const alertes = stocks.filter((i) => i.estEnAlerte).length;
@@ -166,7 +203,10 @@ export default function StockPage() {
                 <option value="rupture">Rupture</option>
                 <option value="surstock">Surstock</option>
               </select>
-              <button className="btn-secondary flex items-center gap-1.5 text-sm py-2">
+              <button
+                onClick={handleExportStock}
+                className="btn-secondary flex items-center gap-1.5 text-sm py-2"
+              >
                 <Download size={14} /> Exporter
               </button>
               <button 

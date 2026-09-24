@@ -5,10 +5,11 @@ import AppLayout from '@/components/AppLayout';
 import Topbar from '@/components/Topbar';
 import Link from 'next/link';
 import { produitsService, Produit, CategorieItem } from '@/services/produits.service';
-import { Loader2, ImageIcon, RefreshCcw, BookOpen, ArrowLeft, Search, Eye, Filter } from 'lucide-react';
+import { Loader2, ImageIcon, RefreshCcw, BookOpen, ArrowLeft, Search, Eye, Filter, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import CloudinaryUploadWidget from '@/components/cloudinary/CloudinaryUploadWidget';
 import { useAppConfig } from '@/contexts/ConfigContext';
+import { exportToCSV } from '@/utils/export';
 
 export default function GestionCataloguePage() {
   const { config } = useAppConfig();
@@ -74,6 +75,34 @@ export default function GestionCataloguePage() {
     return matchSearch;
   });
 
+  const handleExportCatalogue = () => {
+    if (filteredProduits.length === 0) {
+      toast.info('Aucun produit à exporter');
+      return;
+    }
+    const headers = [
+      'Référence',
+      'Désignation',
+      'Catégorie',
+      `Prix Vente (${devise})`,
+      'Statut Catalogue',
+      'Image Présente',
+    ];
+    const data = filteredProduits.map((p) => {
+      const cat = categories.find((c) => c.id === p.categorieId);
+      return [
+        p.reference || '—',
+        p.libelle,
+        cat?.nom || '—',
+        p.prixVente,
+        p.status === 'VISIBLE' ? 'En vitrine' : 'Masqué',
+        p.imageUrl ? 'Oui' : 'Non',
+      ];
+    });
+    exportToCSV({ filename: 'catalogue_vitrine', headers, data });
+    toast.success('Catalogue vitrine exporté avec succès');
+  };
+
   return (
     <AppLayout currentPath="/gestion-catalogue">
       <Topbar
@@ -101,6 +130,15 @@ export default function GestionCataloguePage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportCatalogue}
+              disabled={loading}
+              className="px-3 py-2 border border-border rounded-lg hover:bg-muted text-sm font-medium flex items-center gap-2 text-foreground transition-all"
+              title="Exporter le catalogue vitrine en CSV"
+            >
+              <Download className="w-4 h-4" />
+              <span>Exporter</span>
+            </button>
             <button
               onClick={fetchData}
               disabled={loading}

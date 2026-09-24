@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Lock,
+  Download,
 } from 'lucide-react';
 import {
   utilisateursService,
@@ -28,6 +29,7 @@ import {
 import { toast } from 'sonner';
 import useSWR from 'swr';
 import { fetcher, SWR_DEFAULT_CONFIG } from '@/lib/swr-fetcher';
+import { exportToCSV } from '@/utils/export';
 import RoleModal from './components/RoleModal';
 import AdminConfirmModal from './components/AdminConfirmModal';
 
@@ -293,6 +295,29 @@ export default function UtilisateursPage() {
     return matchSearch && matchRole;
   });
 
+  const handleExportUsers = () => {
+    if (filteredUsers.length === 0) {
+      toast.info('Aucun utilisateur à exporter');
+      return;
+    }
+    const headers = [
+      'Nom',
+      'Prénom',
+      'Email',
+      'Rôle',
+      'Statut',
+    ];
+    const data = filteredUsers.map((u) => [
+      u.nom,
+      u.prenom,
+      u.email,
+      roles.find((r) => r.codeRole === u.codeRole)?.libelle || u.codeRole,
+      u.actif !== false ? 'Actif' : 'Inactif',
+    ]);
+    exportToCSV({ filename: 'liste_utilisateurs', headers, data });
+    toast.success('Liste des utilisateurs exportée avec succès');
+  };
+
   const getRoleBadgeStyle = (code: string) => {
     if (code === 'ADMIN') return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
     if (code === 'GESTIONNAIRE_CATALOGUE') return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
@@ -412,6 +437,13 @@ export default function UtilisateursPage() {
                       </option>
                     ))}
                   </select>
+                  <button
+                    onClick={handleExportUsers}
+                    className="btn-secondary flex items-center gap-1.5 text-sm py-2 px-3 whitespace-nowrap"
+                    title="Exporter la liste des utilisateurs"
+                  >
+                    <Download size={14} /> Exporter
+                  </button>
                 </div>
               </div>
 

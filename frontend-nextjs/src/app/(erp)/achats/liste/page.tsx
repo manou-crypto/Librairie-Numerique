@@ -6,6 +6,7 @@ import { Search, Loader2, Download, History, Truck } from 'lucide-react';
 import { achatsService, AchatItem } from '@/services/achats.service';
 import { useAppConfig } from '@/contexts/ConfigContext';
 import { toast } from 'sonner';
+import { exportToCSV } from '@/utils/export';
 
 const STATUT_CONFIG: Record<string, { label: string; className: string }> = {
   EN_ATTENTE: { label: 'En attente', className: 'badge-draft' },
@@ -66,14 +67,11 @@ export default function AchatsListePage() {
       a.modePaiement || '-',
       STATUT_CONFIG[a.statutAchat]?.label || a.statutAchat,
     ]);
-    const csvContent = [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `tracabilite_achats_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    exportToCSV({
+      filename: `tracabilite_achats_${new Date().toISOString().split('T')[0]}`,
+      headers,
+      data: rows,
+    });
     toast.success('Export CSV téléchargé !');
   };
 
