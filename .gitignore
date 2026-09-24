@@ -43,8 +43,6 @@ test-results/
 
 # Docker
 docker-compose.override.yml
-.dockerignore
-Dockerfile
 
 # Git
 .git/
