@@ -5,17 +5,14 @@ import { v2 as cloudinary } from 'cloudinary';
 export class CloudinaryService {
   constructor() {
     cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET,
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'gbb7huxa',
+      api_key: process.env.CLOUDINARY_API_KEY || '959631882842267',
+      api_secret: process.env.CLOUDINARY_API_SECRET || 'fpn9r0P2DIHxZWWz9k1E5wYSOX8',
     });
   }
 
   getSignature(paramsToSign?: Record<string, any>) {
-    const apiSecret = process.env.CLOUDINARY_API_SECRET;
-    if (!apiSecret) {
-      throw new Error('CLOUDINARY_API_SECRET non configuré dans les variables d\'environnement');
-    }
+    const apiSecret = process.env.CLOUDINARY_API_SECRET || 'fpn9r0P2DIHxZWWz9k1E5wYSOX8';
 
     const params = paramsToSign && Object.keys(paramsToSign).length > 0
       ? paramsToSign
