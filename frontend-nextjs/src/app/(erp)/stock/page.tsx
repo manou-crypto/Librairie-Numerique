@@ -234,7 +234,7 @@ export default function StockPage() {
                     Réserve
                   </th>
                   <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground">
-                    Étal
+                    En vente (Étagère)
                   </th>
                   <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground">
                     Total
@@ -304,7 +304,7 @@ export default function StockPage() {
                               }}
                               className="text-primary hover:underline text-xs flex items-center gap-1"
                             >
-                              <ArrowRightLeft size={12} /> + Étal
+                              <ArrowRightLeft size={12} /> + Étagère
                             </button>
                             <button
                               title="Retourner en réserve"

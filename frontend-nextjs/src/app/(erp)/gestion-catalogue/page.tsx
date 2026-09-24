@@ -89,11 +89,11 @@ export default function GestionCataloguePage() {
       'Image Présente',
     ];
     const data = filteredProduits.map((p) => {
-      const cat = categories.find((c) => c.id === p.categorieId);
+      const cat = categories.find((c) => c.id === p.categoryId);
       return [
         p.reference || '—',
         p.libelle,
-        cat?.nom || '—',
+        cat?.nom || p.categoryName || '—',
         p.prixVente,
         p.status === 'VISIBLE' ? 'En vitrine' : 'Masqué',
         p.imageUrl ? 'Oui' : 'Non',
