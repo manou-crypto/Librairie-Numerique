@@ -18,6 +18,8 @@ export interface Produit {
   prixVente: number;
   tauxTva: number;
   stock: number;
+  quantiteEnStock?: number;
+  quantiteEtal?: number;
   seuilAlerte: number;
   status: 'VISIBLE' | 'MASQUE';
   categoryId: string;

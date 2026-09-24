@@ -156,10 +156,22 @@ export class InventaireService {
       });
 
       for (const l of inv.lignes) {
-        await tx.stock.update({
-          where: { id_produit: l.id_produit },
-          data: { quantite_en_stock: l.quantite_reelle },
-        });
+        if (inv.reference_inventaire.includes('-VTE-')) {
+          await tx.stock.update({
+            where: { id_produit: l.id_produit },
+            data: { quantite_etal: l.quantite_reelle },
+          });
+        } else if (inv.reference_inventaire.includes('-RES-')) {
+          await tx.stock.update({
+            where: { id_produit: l.id_produit },
+            data: { quantite_en_stock: l.quantite_reelle },
+          });
+        } else {
+          await tx.stock.update({
+            where: { id_produit: l.id_produit },
+            data: { quantite_en_stock: l.quantite_reelle, quantite_etal: 0 },
+          });
+        }
 
         if (l.ecart !== 0) {
           await tx.mouvementStock.create({
@@ -235,12 +247,22 @@ export class InventaireService {
       // Rétablissement des stocks : inversion des ajustements précédents
       for (const l of inv.lignes) {
         if (l.ecart !== 0) {
-          await tx.stock.update({
-            where: { id_produit: l.id_produit },
-            data: {
-              quantite_en_stock: { decrement: l.ecart },
-            },
-          });
+          if (inv.reference_inventaire.includes('-VTE-')) {
+            await tx.stock.update({
+              where: { id_produit: l.id_produit },
+              data: { quantite_etal: { decrement: l.ecart } },
+            });
+          } else if (inv.reference_inventaire.includes('-RES-')) {
+            await tx.stock.update({
+              where: { id_produit: l.id_produit },
+              data: { quantite_en_stock: { decrement: l.ecart } },
+            });
+          } else {
+            await tx.stock.update({
+              where: { id_produit: l.id_produit },
+              data: { quantite_en_stock: { decrement: l.ecart } },
+            });
+          }
 
           await tx.mouvementStock.create({
             data: {

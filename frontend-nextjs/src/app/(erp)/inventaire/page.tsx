@@ -103,23 +103,32 @@ export default function InventairePage() {
     loadInventaires();
   }, []);
 
-  const handleNouvelInventaire = async () => {
+  const handleNouvelInventaire = async (type: 'GLOBAL' | 'RESERVE' | 'VENTE') => {
     setLoading(true);
     try {
       const res = await produitsService.getAll({ pageSize: 10000 });
       const produits = res.data;
-      const initialLignes = produits.map((p) => ({
-        id: `temp-${p.id}`,
-        produitId: p.id,
-        produitLibelle: p.libelle,
-        quantiteTheorique: p.stock || 0,
-        quantiteReelle: 0,
-        ecart: 0 - (p.stock || 0),
-      }));
+      const initialLignes = produits.map((p) => {
+        let theQte = 0;
+        if (type === 'GLOBAL') theQte = p.stock || 0;
+        else if (type === 'RESERVE') theQte = p.quantiteEnStock || 0;
+        else if (type === 'VENTE') theQte = p.quantiteEtal || 0;
+
+        return {
+          id: `temp-${p.id}`,
+          produitId: p.id,
+          produitLibelle: p.libelle,
+          quantiteTheorique: theQte,
+          quantiteReelle: 0,
+          ecart: 0 - theQte,
+        };
+      });
       setLignes(initialLignes);
       setCurrentId(null);
+
+      const prefix = type === 'GLOBAL' ? 'GLO' : type === 'RESERVE' ? 'RES' : 'VTE';
       setCurrentRef(
-        `INV-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-NOUVEAU`
+        `INV-${prefix}-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-NOUVEAU`
       );
       setCurrentStatut('EN_COURS');
       setCurrentResponsableNom(user?.name || 'Moi-même');
@@ -191,7 +200,12 @@ export default function InventairePage() {
         await inventaireService.update(currentId, { lignes: payloadLignes });
         toast.success('Brouillon mis à jour !');
       } else {
-        const ref = `INV-${new Date()
+        let prefix = 'INV';
+        if (currentRef.includes('GLO')) prefix = 'INV-GLO';
+        else if (currentRef.includes('RES')) prefix = 'INV-RES';
+        else if (currentRef.includes('VTE')) prefix = 'INV-VTE';
+        
+        const ref = `${prefix}-${new Date()
           .toISOString()
           .replace(/[-:T.]/g, '')
           .slice(0, 14)}`;
@@ -229,7 +243,12 @@ export default function InventairePage() {
       }));
 
       if (!invId) {
-        const ref = `INV-${new Date()
+        let prefix = 'INV';
+        if (currentRef.includes('GLO')) prefix = 'INV-GLO';
+        else if (currentRef.includes('RES')) prefix = 'INV-RES';
+        else if (currentRef.includes('VTE')) prefix = 'INV-VTE';
+
+        const ref = `${prefix}-${new Date()
           .toISOString()
           .replace(/[-:T.]/g, '')
           .slice(0, 14)}`;
@@ -363,14 +382,32 @@ export default function InventairePage() {
                   Consultez la traçabilité des inventaires réalisés et leur statut de validation.
                 </p>
               </div>
-              <button
-                onClick={handleNouvelInventaire}
-                disabled={loading}
-                className="btn-primary flex items-center gap-1.5 text-sm py-2 disabled:opacity-50"
-              >
-                {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                Nouvel inventaire
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleNouvelInventaire('GLOBAL')}
+                  disabled={loading}
+                  className="btn-primary bg-indigo-600 hover:bg-indigo-700 flex items-center gap-1.5 text-xs py-2 disabled:opacity-50"
+                >
+                  {loading ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                  Global
+                </button>
+                <button
+                  onClick={() => handleNouvelInventaire('RESERVE')}
+                  disabled={loading}
+                  className="btn-primary bg-blue-600 hover:bg-blue-700 flex items-center gap-1.5 text-xs py-2 disabled:opacity-50"
+                >
+                  {loading ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                  Réserve
+                </button>
+                <button
+                  onClick={() => handleNouvelInventaire('VENTE')}
+                  disabled={loading}
+                  className="btn-primary bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1.5 text-xs py-2 disabled:opacity-50"
+                >
+                  {loading ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                  En Vente
+                </button>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
