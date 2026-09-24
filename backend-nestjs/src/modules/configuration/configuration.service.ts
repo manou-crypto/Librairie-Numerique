@@ -38,10 +38,11 @@ export class ConfigurationService {
     devise?: string;
     tva?: number;
   }) {
-    const updateData: any = { ...data };
-    if (data.tva !== undefined) {
-      updateData.tva = new Prisma.Decimal(data.tva);
-    }
+    const updateData: any = {};
+    if (data.nom_librairie !== undefined) updateData.nom_librairie = data.nom_librairie;
+    if (data.logo_url !== undefined) updateData.logo_url = data.logo_url;
+    if (data.devise !== undefined) updateData.devise = data.devise;
+    if (data.tva !== undefined) updateData.tva = new Prisma.Decimal(data.tva);
     
     const config = await this.prisma.configuration.upsert({
       where: { id_configuration: 1 },
