@@ -3,30 +3,51 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export const SYSTEM_PERMISSIONS = [
-  // PAGES
+  // PAGES PRINCIPALES
   { code_permission: 'VIEW_DASHBOARD', module: 'Principal', libelle: 'Tableau de bord', type: 'PAGE' },
   { code_permission: 'VIEW_POS', module: 'Ventes', libelle: 'Point de vente (Caisse)', type: 'PAGE' },
   { code_permission: 'VIEW_VENTES', module: 'Ventes', libelle: 'Historique des ventes', type: 'PAGE' },
   { code_permission: 'VIEW_CATALOGUE', module: 'Catalogue', libelle: 'Produits & Catalogue', type: 'PAGE' },
-  { code_permission: 'VIEW_STOCK', module: 'Catalogue', libelle: 'Gestion des stocks', type: 'PAGE' },
-  { code_permission: 'VIEW_INVENTAIRE', module: 'Catalogue', libelle: 'Inventaires', type: 'PAGE' },
-  { code_permission: 'VIEW_ACHATS', module: 'Catalogue', libelle: 'Commandes d\'achats', type: 'PAGE' },
-  { code_permission: 'VIEW_FOURNISSEURS', module: 'Catalogue', libelle: 'Fournisseurs', type: 'PAGE' },
-  { code_permission: 'VIEW_GESTION_CATALOGUE', module: 'Catalogue', libelle: 'Gestion Catalogue', type: 'PAGE' },
+  { code_permission: 'VIEW_STOCK', module: 'Stock', libelle: 'Gestion des stocks', type: 'PAGE' },
+  { code_permission: 'VIEW_INVENTAIRE', module: 'Inventaire', libelle: 'Inventaires physiques', type: 'PAGE' },
+  { code_permission: 'VIEW_ACHATS', module: 'Achats', libelle: 'Commandes d\'achats', type: 'PAGE' },
+  { code_permission: 'VIEW_FOURNISSEURS', module: 'Achats', libelle: 'Fournisseurs', type: 'PAGE' },
+  { code_permission: 'VIEW_GESTION_CATALOGUE', module: 'Catalogue', libelle: 'Gestion Vitrine & Médias', type: 'PAGE' },
   { code_permission: 'VIEW_FINANCES', module: 'Gestion', libelle: 'Finances & Clôtures', type: 'PAGE' },
   { code_permission: 'VIEW_UTILISATEURS', module: 'Gestion', libelle: 'Utilisateurs & Rôles', type: 'PAGE' },
   { code_permission: 'VIEW_RAPPORTS', module: 'Gestion', libelle: 'Rapports & Statistiques', type: 'PAGE' },
   { code_permission: 'VIEW_CAISSES', module: 'Gestion', libelle: 'Gestion des caisses', type: 'PAGE' },
   { code_permission: 'VIEW_PARAMETRES', module: 'Système', libelle: 'Paramètres généraux', type: 'PAGE' },
   { code_permission: 'VIEW_NOTIFICATIONS', module: 'Système', libelle: 'Notifications', type: 'PAGE' },
-  
-  // ACTIONS / FONCTIONNALITES
+
+  // SOUS-PAGES & ONGLETS CATALOGUE
+  { code_permission: 'VIEW_CATEGORIES', module: 'Catalogue', libelle: 'Accès aux Catégories', type: 'PAGE' },
+  { code_permission: 'VIEW_MARQUES', module: 'Catalogue', libelle: 'Accès aux Marques', type: 'PAGE' },
+  { code_permission: 'VIEW_UNITES', module: 'Catalogue', libelle: 'Accès aux Unités', type: 'PAGE' },
+  { code_permission: 'VIEW_TARIFICATION', module: 'Catalogue', libelle: 'Accès à la Tarification', type: 'PAGE' },
+  { code_permission: 'VIEW_CONDITIONNEMENTS', module: 'Catalogue', libelle: 'Accès aux Conditionnements', type: 'PAGE' },
+
+  // ACTIONS CATALOGUE & PRODUITS
+  { code_permission: 'CREATE_PRODUCT', module: 'Catalogue', libelle: 'Ajouter un produit', type: 'ACTION' },
+  { code_permission: 'EDIT_PRODUCT', module: 'Catalogue', libelle: 'Modifier un produit', type: 'ACTION' },
+  { code_permission: 'ACTION_TARIFIER_PRODUIT', module: 'Catalogue', libelle: 'Tarifier un produit', type: 'ACTION' },
+  { code_permission: 'ACTION_RECHARGER_STOCK', module: 'Catalogue', libelle: 'Recharger stock produit', type: 'ACTION' },
+  { code_permission: 'DELETE_PRODUCT', module: 'Catalogue', libelle: 'Supprimer un produit', type: 'ACTION' },
+
+  // ACTIONS STOCK
+  { code_permission: 'ACTION_AJOUTER_STOCK', module: 'Stock', libelle: 'Ajouter un stock', type: 'ACTION' },
+  { code_permission: 'ACTION_TRANSFERT_ETAGERE', module: 'Stock', libelle: 'Transférer vers étagère', type: 'ACTION' },
+  { code_permission: 'ACTION_RETOUR_RESERVE', module: 'Stock', libelle: 'Retourner en réserve', type: 'ACTION' },
+
+  // ACTIONS INVENTAIRE
+  { code_permission: 'ACTION_INVENTAIRE_GLOBAL', module: 'Inventaire', libelle: 'Nouveau Global (Réserve + Vente)', type: 'ACTION' },
+  { code_permission: 'ACTION_INVENTAIRE_VENTE', module: 'Inventaire', libelle: 'Nouveau En Vente (Étal)', type: 'ACTION' },
+  { code_permission: 'ACTION_INVENTAIRE_RESERVE', module: 'Inventaire', libelle: 'Nouveau Réserve (Entrepôt)', type: 'ACTION' },
+
+  // AUTRES ACTIONS
   { code_permission: 'CLOTURER_CAISSE', module: 'Ventes', libelle: 'Clôturer une session de caisse', type: 'ACTION' },
   { code_permission: 'VIEW_CAISSE_DETAILS', module: 'Ventes', libelle: 'Voir détails de la caisse', type: 'ACTION' },
   { code_permission: 'GERER_TARIFS', module: 'Catalogue', libelle: 'Gérer les tarifs & types de vente', type: 'ACTION' },
-  { code_permission: 'CREATE_PRODUCT', module: 'Catalogue', libelle: 'Ajouter un produit', type: 'ACTION' },
-  { code_permission: 'EDIT_PRODUCT', module: 'Catalogue', libelle: 'Modifier un produit', type: 'ACTION' },
-  { code_permission: 'DELETE_PRODUCT', module: 'Catalogue', libelle: 'Supprimer un produit', type: 'ACTION' },
 ];
 
 @Injectable()
@@ -46,20 +67,23 @@ export class UsersService {
         });
       }
 
-      // Initialiser les permissions du rôle ADMIN par défaut si vide
+      // Initialiser et synchroniser toutes les permissions pour le rôle ADMIN
       const adminRole = await this.prisma.role.findUnique({
         where: { code_role: 'ADMIN' },
         include: { permissions: true },
       });
-      if (adminRole && adminRole.permissions.length === 0) {
+      if (adminRole) {
         const allPerms = await this.prisma.permission.findMany();
+        const existingPermIds = new Set(adminRole.permissions.map((rp) => rp.id_permission));
         for (const perm of allPerms) {
-          await this.prisma.rolePermission.create({
-            data: {
-              id_role: adminRole.id_role,
-              id_permission: perm.id_permission,
-            },
-          }).catch(() => {});
+          if (!existingPermIds.has(perm.id_permission)) {
+            await this.prisma.rolePermission.create({
+              data: {
+                id_role: adminRole.id_role,
+                id_permission: perm.id_permission,
+              },
+            }).catch(() => {});
+          }
         }
       }
     } catch (e) {

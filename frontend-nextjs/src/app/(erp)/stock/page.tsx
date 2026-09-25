@@ -7,6 +7,8 @@ import { stockService, StockItem } from '@/services/stock.service';
 import AddStockModal from './components/AddStockModal';
 import { toast } from 'sonner';
 import { exportToCSV } from '@/utils/export';
+import { useAuth } from '@/hooks/useAuth';
+import { hasPermission, PERMISSIONS } from '@/utils/permissions';
 
 const STATUT_CONFIG: Record<string, { label: string; className: string }> = {
   normal: { label: 'Normal', className: 'badge-active' },
@@ -16,6 +18,7 @@ const STATUT_CONFIG: Record<string, { label: string; className: string }> = {
 };
 
 export default function StockPage() {
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [filterStatut, setFilterStatut] = useState('all');
   const [stocks, setStocks] = useState<StockItem[]>([]);
@@ -209,12 +212,14 @@ export default function StockPage() {
               >
                 <Download size={14} /> Exporter
               </button>
-              <button
-                onClick={() => setAddStockModalOpen(true)}
-                className="btn-primary flex items-center gap-1.5 text-sm py-2"
-              >
-                <PackagePlus size={14} /> Ajouter un stock
-              </button>
+              {hasPermission(user, PERMISSIONS.ACTION_AJOUTER_STOCK) && (
+                <button
+                  onClick={() => setAddStockModalOpen(true)}
+                  className="btn-primary flex items-center gap-1.5 text-sm py-2"
+                >
+                  <PackagePlus size={14} /> Ajouter un stock
+                </button>
+              )}
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -296,26 +301,30 @@ export default function StockPage() {
                         </td>
                         <td className="px-5 py-3 text-center">
                           <div className="flex items-center justify-center gap-3">
-                            <button
-                              title="Transférer vers étagère"
-                              onClick={() => {
-                                setTransferModal({ type: 'TRANSFERT_ETAL', item });
-                                setTransferQty('');
-                              }}
-                              className="text-primary hover:underline text-xs flex items-center gap-1"
-                            >
-                              <ArrowRightLeft size={12} /> + Étagère
-                            </button>
-                            <button
-                              title="Retourner en réserve"
-                              onClick={() => {
-                                setTransferModal({ type: 'RETOUR_RESERVE', item });
-                                setTransferQty('');
-                              }}
-                              className="text-muted-foreground hover:text-foreground text-xs flex items-center gap-1"
-                            >
-                              <ArrowRightLeft size={12} /> + Réserve
-                            </button>
+                            {hasPermission(user, PERMISSIONS.ACTION_TRANSFERT_ETAGERE) && (
+                              <button
+                                title="Transférer vers étagère"
+                                onClick={() => {
+                                  setTransferModal({ type: 'TRANSFERT_ETAL', item });
+                                  setTransferQty('');
+                                }}
+                                className="text-primary hover:underline text-xs flex items-center gap-1"
+                              >
+                                <ArrowRightLeft size={12} /> + Étagère
+                              </button>
+                            )}
+                            {hasPermission(user, PERMISSIONS.ACTION_RETOUR_RESERVE) && (
+                              <button
+                                title="Retourner en réserve"
+                                onClick={() => {
+                                  setTransferModal({ type: 'RETOUR_RESERVE', item });
+                                  setTransferQty('');
+                                }}
+                                className="text-muted-foreground hover:text-foreground text-xs flex items-center gap-1"
+                              >
+                                <ArrowRightLeft size={12} /> + Réserve
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

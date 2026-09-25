@@ -23,6 +23,7 @@ import useSWR from 'swr';
 import { fetcher, SWR_DEFAULT_CONFIG } from '@/lib/swr-fetcher';
 import { useAuth } from '@/hooks/useAuth';
 import { exportToCSV } from '@/utils/export';
+import { hasPermission, PERMISSIONS } from '@/utils/permissions';
 
 export interface Product {
   id: string;
@@ -76,7 +77,9 @@ export default function ProductManagementClient() {
     await Promise.all([mutateProducts(), mutateCategories()]);
   };
 
-  const [activeTab, setActiveTab] = useState<'produits' | 'categories' | 'marques' | 'unites' | 'tarifs'>('produits');
+  const [activeTab, setActiveTab] = useState<
+    'produits' | 'categories' | 'marques' | 'unites' | 'tarifs' | 'conditionnements'
+  >('produits');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -346,10 +349,11 @@ export default function ProductManagementClient() {
     }
   };
 
-  const canVoirCategories = !user || user.role === 'ADMIN' || (user.permissions && user.permissions.includes('VOIR_CATEGORIES'));
-  const canVoirMarques = !user || user.role === 'ADMIN' || (user.permissions && user.permissions.includes('VOIR_MARQUES'));
-  const canVoirUnites = !user || user.role === 'ADMIN' || (user.permissions && user.permissions.includes('VOIR_UNITES'));
-  const canVoirTarification = !user || user.role === 'ADMIN' || (user.permissions && user.permissions.includes('VOIR_TARIFICATION'));
+  const canVoirCategories = hasPermission(user, PERMISSIONS.VIEW_CATEGORIES);
+  const canVoirMarques = hasPermission(user, PERMISSIONS.VIEW_MARQUES);
+  const canVoirUnites = hasPermission(user, PERMISSIONS.VIEW_UNITES);
+  const canVoirTarification = hasPermission(user, PERMISSIONS.VIEW_TARIFICATION);
+  const canVoirConditionnements = hasPermission(user, PERMISSIONS.VIEW_CONDITIONNEMENTS);
 
   return (
     <div className="flex flex-col w-full h-full bg-background relative">
@@ -400,7 +404,7 @@ export default function ProductManagementClient() {
             Unités
           </button>
         )}
-        {canVoirTarification && (
+        {canVoirConditionnements && (
           <button
             onClick={() => setActiveTab('conditionnements')}
             className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
@@ -498,11 +502,11 @@ export default function ProductManagementClient() {
           </div>
         )}
 
-        {activeTab === 'categories' && <CategoriesTab categories={categories} onRefresh={loadData} />}
-        {activeTab === 'marques' && <MarquesTab />}
-        {activeTab === 'unites' && <UnitesTab />}
-        {activeTab === 'conditionnements' && <ConditionnementsTab products={products} onUpdate={loadData} />}
-        {activeTab === 'tarifs' && <TarificationTab products={products} onUpdate={loadData} />}
+        {activeTab === 'categories' && canVoirCategories && <CategoriesTab categories={categories} onRefresh={loadData} />}
+        {activeTab === 'marques' && canVoirMarques && <MarquesTab />}
+        {activeTab === 'unites' && canVoirUnites && <UnitesTab />}
+        {activeTab === 'conditionnements' && canVoirConditionnements && <ConditionnementsTab products={products} onUpdate={loadData} />}
+        {activeTab === 'tarifs' && canVoirTarification && <TarificationTab products={products} onUpdate={loadData} />}
       </div>
 
       <AddEditProductModal

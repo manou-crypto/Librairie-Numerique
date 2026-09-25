@@ -2,6 +2,7 @@
 import React from 'react';
 import { Search, Plus, Trash2, EyeOff, X, Download } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { hasPermission, PERMISSIONS } from '@/utils/permissions';
 
 interface ProductFiltersBarProps {
   searchQuery: string;
@@ -96,14 +97,16 @@ export default function ProductFiltersBar({
               <EyeOff size={13} />
               Masquer
             </button>
-            <button
-              onClick={onBulkDelete}
-              className="flex items-center gap-1 text-xs text-negative hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 transition-colors"
-              title="Supprimer les produits sélectionnés"
-            >
-              <Trash2 size={13} />
-              Supprimer
-            </button>
+            {hasPermission(user, PERMISSIONS.DELETE_PRODUCT) && (
+              <button
+                onClick={onBulkDelete}
+                className="flex items-center gap-1 text-xs text-negative hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                title="Supprimer les produits sélectionnés"
+              >
+                <Trash2 size={13} />
+                Supprimer
+              </button>
+            )}
           </div>
         )}
         {onExport && (
@@ -116,7 +119,7 @@ export default function ProductFiltersBar({
             Exporter
           </button>
         )}
-        {(!user || user.role === 'ADMIN' || (user.permissions && user.permissions.includes('CREER_PRODUIT'))) && (
+        {hasPermission(user, PERMISSIONS.CREATE_PRODUCT) && (
           <button
             onClick={onAddProduct}
             className="btn-primary flex items-center gap-2 text-sm whitespace-nowrap"

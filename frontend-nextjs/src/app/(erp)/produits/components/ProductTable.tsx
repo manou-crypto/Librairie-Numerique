@@ -15,6 +15,7 @@ import {
 import Badge from '@/components/ui/Badge';
 import { useAppConfig } from '@/contexts/ConfigContext';
 import { useAuth } from '@/hooks/useAuth';
+import { hasPermission, PERMISSIONS } from '@/utils/permissions';
 import type { Product, SortField, SortDir } from './ProductManagementClient';
 
 interface ProductTableProps {
@@ -338,15 +339,17 @@ export default function ProductTable({
                   <td className="px-4 py-3 text-center">{getStatusBadge(product.status)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-1">
-                      <button
-                        onClick={() => onEdit(product)}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                        title={`Modifier ${product.name}`}
-                        aria-label={`Modifier ${product.name}`}
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                      {(!user || user.role === 'ADMIN' || (user.permissions && user.permissions.includes('VOIR_TARIFICATION'))) && (
+                      {hasPermission(user, PERMISSIONS.EDIT_PRODUCT) && (
+                        <button
+                          onClick={() => onEdit(product)}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                          title={`Modifier ${product.name}`}
+                          aria-label={`Modifier ${product.name}`}
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                      )}
+                      {hasPermission(user, PERMISSIONS.ACTION_TARIFIER_PRODUIT) && (
                         <button
                           onClick={() => onTarification(product)}
                           className="p-1.5 rounded-lg text-muted-foreground hover:text-purple-600 hover:bg-purple-50 transition-colors"
@@ -356,7 +359,7 @@ export default function ProductTable({
                           <Tag size={14} />
                         </button>
                       )}
-                      {onRechargeStock && (
+                      {onRechargeStock && hasPermission(user, PERMISSIONS.ACTION_RECHARGER_STOCK) && (
                         <button
                           onClick={() => onRechargeStock(product)}
                           className="p-1.5 rounded-lg text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
@@ -366,14 +369,16 @@ export default function ProductTable({
                           <PackagePlus size={14} />
                         </button>
                       )}
-                      <button
-                        onClick={() => onDelete(product)}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-negative hover:bg-red-50 transition-colors"
-                        title={`Supprimer ${product.name}`}
-                        aria-label={`Supprimer ${product.name}`}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      {hasPermission(user, PERMISSIONS.DELETE_PRODUCT) && (
+                        <button
+                          onClick={() => onDelete(product)}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-negative hover:bg-red-50 transition-colors"
+                          title={`Supprimer ${product.name}`}
+                          aria-label={`Supprimer ${product.name}`}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

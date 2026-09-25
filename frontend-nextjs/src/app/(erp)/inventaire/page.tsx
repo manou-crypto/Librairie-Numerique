@@ -35,6 +35,7 @@ import { produitsService } from '@/services/produits.service';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { exportToCSV } from '@/utils/export';
+import { hasPermission, PERMISSIONS } from '@/utils/permissions';
 
 const STATUT_SESSION: Record<string, { label: string; className: string; icon: any }> = {
   EN_COURS: { label: 'En cours de saisie', className: 'badge-draft', icon: Clock },
@@ -42,7 +43,7 @@ const STATUT_SESSION: Record<string, { label: string; className: string; icon: a
   ANNULE: { label: 'Invalidé', className: 'badge-rupture', icon: Ban },
 };
 
-export interface InventaireTypeInfo {
+interface InventaireTypeInfo {
   type: 'GLOBAL' | 'RESERVE' | 'VENTE';
   label: string;
   shortLabel: string;
@@ -56,7 +57,7 @@ export interface InventaireTypeInfo {
   fieldImpact: string;
 }
 
-export function getInventaireTypeInfo(ref: string = '', observations: string = ''): InventaireTypeInfo {
+function getInventaireTypeInfo(ref: string = '', observations: string = ''): InventaireTypeInfo {
   const upper = (ref + ' ' + observations).toUpperCase();
   if (upper.includes('-RES') || upper.includes('INV-RES') || upper.includes('RÉSERVE') || upper.includes('RESERVE')) {
     return {
@@ -629,33 +630,39 @@ export default function InventairePage() {
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => handleNouvelInventaire('GLOBAL')}
-                    disabled={loading}
-                    className="btn-primary bg-indigo-600 hover:bg-indigo-700 flex items-center gap-1.5 text-xs py-2 disabled:opacity-50"
-                    title="Démarrer un inventaire complet (Réserve + Vente)"
-                  >
-                    {loading ? <Loader2 size={13} className="animate-spin" /> : <Layers size={13} />}
-                    Nouveau Global
-                  </button>
-                  <button
-                    onClick={() => handleNouvelInventaire('RESERVE')}
-                    disabled={loading}
-                    className="btn-primary bg-blue-600 hover:bg-blue-700 flex items-center gap-1.5 text-xs py-2 disabled:opacity-50"
-                    title="Démarrer un inventaire de la Réserve uniquement"
-                  >
-                    {loading ? <Loader2 size={13} className="animate-spin" /> : <Archive size={13} />}
-                    Nouveau Réserve
-                  </button>
-                  <button
-                    onClick={() => handleNouvelInventaire('VENTE')}
-                    disabled={loading}
-                    className="btn-primary bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1.5 text-xs py-2 disabled:opacity-50"
-                    title="Démarrer un inventaire de l'Étal (En Vente) uniquement"
-                  >
-                    {loading ? <Loader2 size={13} className="animate-spin" /> : <Store size={13} />}
-                    Nouveau En Vente
-                  </button>
+                  {hasPermission(user, PERMISSIONS.ACTION_INVENTAIRE_GLOBAL) && (
+                    <button
+                      onClick={() => handleNouvelInventaire('GLOBAL')}
+                      disabled={loading}
+                      className="btn-primary bg-indigo-600 hover:bg-indigo-700 flex items-center gap-1.5 text-xs py-2 disabled:opacity-50"
+                      title="Démarrer un inventaire complet (Réserve + Vente)"
+                    >
+                      {loading ? <Loader2 size={13} className="animate-spin" /> : <Layers size={13} />}
+                      Nouveau Global
+                    </button>
+                  )}
+                  {hasPermission(user, PERMISSIONS.ACTION_INVENTAIRE_RESERVE) && (
+                    <button
+                      onClick={() => handleNouvelInventaire('RESERVE')}
+                      disabled={loading}
+                      className="btn-primary bg-blue-600 hover:bg-blue-700 flex items-center gap-1.5 text-xs py-2 disabled:opacity-50"
+                      title="Démarrer un inventaire de la Réserve uniquement"
+                    >
+                      {loading ? <Loader2 size={13} className="animate-spin" /> : <Archive size={13} />}
+                      Nouveau Réserve
+                    </button>
+                  )}
+                  {hasPermission(user, PERMISSIONS.ACTION_INVENTAIRE_VENTE) && (
+                    <button
+                      onClick={() => handleNouvelInventaire('VENTE')}
+                      disabled={loading}
+                      className="btn-primary bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1.5 text-xs py-2 disabled:opacity-50"
+                      title="Démarrer un inventaire de l'Étal (En Vente) uniquement"
+                    >
+                      {loading ? <Loader2 size={13} className="animate-spin" /> : <Store size={13} />}
+                      Nouveau En Vente
+                    </button>
+                  )}
                   <button
                     onClick={handleExportInventaires}
                     disabled={loading}
