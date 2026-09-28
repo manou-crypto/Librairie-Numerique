@@ -11,8 +11,12 @@ export class AppController {
   }
 
   @Get('health')
-  @Get('api/v1/health')
   health() {
+    return { status: 'ok', timestamp: new Date().toISOString() };
+  }
+
+  @Get('api/v1/health')
+  healthApi() {
     return { status: 'ok', timestamp: new Date().toISOString() };
   }
 }
