@@ -1,0 +1,38 @@
+# Refonte de la Page Paramètres et Configuration Globale
+
+Ce plan détaille les étapes pour rendre les paramètres de la librairie **globaux**, corriger les bugs d'interface, et répondre à toutes vos demandes.
+
+## 1. Création d'une Configuration Globale (Backend)
+Actuellement, les paramètres sont juste "visuels" sur la page et ne sont sauvegardés nulle part.
+**Solution proposée :**
+- **Base de données :** Ajouter une table `Configuration` dans Prisma pour stocker de manière permanente : `nom_librairie`, `logo_url`, `devise` et `taux_tva`.
+- **API (NestJS) :** Créer une route pour lire et mettre à jour cette configuration globale.
+- **Frontend (Next.js) :** Créer un *Contexte global* (`AppConfigProvider`) qui chargera ces données au lancement. Ainsi, le nom de la librairie, le logo, et la devise seront automatiquement injectés partout (Sidebar, reçus de vente, affichage des prix).
+
+## 2. Devise et TVA (Globales)
+- **Devise :** Nous ajouterons un sélecteur avec plusieurs monnaies (DZD, EUR, XOF, USD, etc.). Une fonction globale `formatCurrency(montant)` sera créée et utilisée sur toutes les pages pour afficher la bonne devise.
+- **TVA :** Elle sera initialisée à **0%** par défaut. Le bug de réinitialisation sera résolu puisque la donnée proviendra de la base de données.
+
+## 3. Nettoyage de la Langue
+- **Suppression totale :** Nous allons retirer la notion de "Langue" de la page Paramètres et de la page Profil, comme demandé.
+
+## 4. Correction Visuelle des Boutons "Toggle"
+Le bug d'affichage des boutons (le rond blanc qui dépasse) sera corrigé en ajustant les dimensions CSS (ex: remplacer `translate-x-6` par des mesures proportionnelles exactes) sur les pages Paramètres et Profil.
+
+## 5. Fonctionnalité des Notifications
+Les alertes ("Stock bas", "Nouvelle vente", etc.) seront branchées pour s'enregistrer correctement dans les préférences locales de l'utilisateur (ou en base de données si vous préférez que ce soit lié au compte).
+
+## 6. Explication : Sécurité & Sauvegarde
+*Vous avez demandé à quoi servent ces rubriques :*
+- **Sécurité :** Elle sert à configurer des règles strictes pour protéger l'ERP (ex: déconnecter un utilisateur après X minutes d'inactivité, limiter les tentatives de mot de passe, obliger la Double Authentification).
+- **Sauvegarde :** Elle permet de générer une copie de sécurité de la base de données (fichier SQL) pour ne pas perdre vos ventes/produits en cas de panne, ou d'automatiser cette tâche chaque nuit.
+*(Note: Actuellement ce sont des maquettes visuelles. Si vous souhaitez qu'elles fonctionnent réellement, cela nécessitera des développements complexes côté serveur, notamment pour les sauvegardes automatiques).*
+
+## 7. Correction du Badge Notifications
+- Le petit "3" affiché à côté du menu "Notifications" dans la barre latérale sera supprimé.
+
+> [!IMPORTANT]
+> **Questions nécessitant votre validation :**
+> 1. Êtes-vous d'accord avec la création d'une table `Configuration` dans la base de données pour stocker le nom, le logo, la devise et la TVA de manière globale ? (Cela nécessitera un petit redémarrage du backend).
+> 2. Pour les notifications, est-ce que les réglages (ex: recevoir un email) doivent être propres à chaque utilisateur, ou globaux pour la librairie ?
+> 3. Confirmez-vous ce plan pour que je puisse lancer l'implémentation ?

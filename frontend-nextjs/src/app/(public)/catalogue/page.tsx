@@ -145,8 +145,12 @@ function CatalogueContent() {
           <div className="h-16 flex items-center justify-between gap-4">
             {/* Brand / Logo */}
             <Link href="/catalogue" className="flex items-center gap-3 group focus:outline-none">
-              <div className="w-9 h-9 rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 flex items-center justify-center shadow-xs transition-transform group-hover:scale-105">
-                <BookOpen size={18} strokeWidth={2.2} />
+              <div className="w-9 h-9 rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 flex items-center justify-center shadow-xs transition-transform group-hover:scale-105 overflow-hidden">
+                {config?.logo_url ? (
+                  <img src={config.logo_url} alt="Logo" className="w-full h-full object-cover" />
+                ) : (
+                  <BookOpen size={18} strokeWidth={2.2} />
+                )}
               </div>
               <div className="flex flex-col">
                 <span className="font-semibold text-slate-900 dark:text-white text-base tracking-tight leading-none group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors">

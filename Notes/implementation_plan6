@@ -1,0 +1,48 @@
+# Plan d'implémentation : Système de Notifications
+
+Le système actuel possède une interface pour les notifications, mais elle est complètement déconnectée (aucune base de données, aucune API). Ce plan vise à créer un vrai système de gestion des alertes.
+
+## 🛑 User Review Required
+
+> [!WARNING]
+> Ce changement implique une modification de la structure de votre base de données et un redémarrage complet des conteneurs pour appliquer la migration. Assurez-vous qu'aucune transaction critique n'est en cours.
+
+## 📝 Open Questions
+
+> [!IMPORTANT]
+> - Souhaitez-vous que l'icône de la cloche (dans la barre en haut) redirige simplement vers la page `/notifications` au clic, ou préférez-vous l'ouverture d'un petit menu déroulant avec les 5 dernières alertes ? (Par défaut, je vais la relier à la page entière pour plus de simplicité).
+
+## 🛠️ Proposed Changes
+
+---
+
+### 1. Base de données (Prisma)
+- Ajouter un nouveau modèle `Notification` dans `schema.prisma`.
+  - Champs : `id`, `type`, `titre`, `message`, `lue`, `date_creation`.
+- Lancer une migration Prisma pour mettre à jour la base MySQL.
+
+### 2. Backend (NestJS)
+- **Nouveau Module :** `NotificationsModule`
+- **NotificationsService :** Créer les méthodes pour récupérer (`findMany`), marquer comme lu (`marquerLu`, `marquerToutLu`), et supprimer (`supprimer`, `supprimerTout`).
+- **NotificationsController :** Exposer l'API REST `GET /api/v1/notifications`, `PUT /api/v1/notifications/:id/lu`, etc.
+
+### 3. Frontend (Next.js)
+#### [MODIFY] [notifications.service.ts](file:///c:/dev/librairienumerique/frontend-nextjs/src/services/notifications.service.ts)
+- Créer ce nouveau service pour communiquer avec l'API (avec jeton JWT).
+
+#### [MODIFY] [page.tsx (Notifications)](file:///c:/dev/librairienumerique/frontend-nextjs/src/app/(erp)/notifications/page.tsx)
+- Connecter l'interface existante au service `notifications.service.ts`.
+- Gérer dynamiquement les états : lues/non lues, filtres, suppressions avec répercussion sur le serveur.
+
+#### [MODIFY] [Topbar.tsx](file:///c:/dev/librairienumerique/frontend-nextjs/src/components/Topbar.tsx)
+- "Connecter l'icône en haut" : Rendre le bouton de la cloche cliquable pour aller vers la page des notifications (`<Link href="/notifications">`).
+- Rendre dynamique la pastille rouge : elle ne s'affichera (avec le nombre) que s'il y a des notifications *non lues* renvoyées par le serveur.
+
+---
+
+## ✅ Verification Plan
+
+### Test
+1. Recompiler le projet avec `docker compose up --build`.
+2. Créer une fausse notification via un script pour tester l'API.
+3. Vérifier que la cloche de la barre supérieure affiche "1" et redirige bien vers la page quand on clique dessus.

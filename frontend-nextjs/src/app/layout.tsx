@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import { Toaster } from 'sonner';
 import { ConfigProvider } from '@/contexts/ConfigContext';
 import { SocketProvider } from '@/contexts/SocketContext';
+import DynamicHead from '@/components/DynamicHead';
 import '../styles/tailwind.css';
 
 export const viewport: Viewport = {
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         {/* ConfigProvider charge les paramètres globaux (nom, devise, TVA) */}
         <ConfigProvider>
+          <DynamicHead />
           {/* SocketProvider établit la connexion WebSocket pour le temps réel */}
           <SocketProvider>{children}</SocketProvider>
         </ConfigProvider>
