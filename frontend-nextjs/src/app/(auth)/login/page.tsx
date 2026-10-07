@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { BookOpen, Eye, EyeOff, Lock, Mail, AlertCircle, Shield } from 'lucide-react';
+import { BookOpen, Eye, EyeOff, Lock, Mail, AlertCircle } from 'lucide-react';
 import { authService } from '@/services/auth.service';
 import { useAppConfig } from '@/contexts/ConfigContext';
 
@@ -46,119 +46,130 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-5xl bg-white shadow-2xl rounded-2xl overflow-hidden flex flex-col md:flex-row min-h-[500px]">
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 sm:p-8">
+      
+      <div className="w-full max-w-[1200px] bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col lg:flex-row min-h-[700px]">
         
-        {/* Left Side - Login Form */}
-        <div className="w-full md:w-1/2 p-10 flex flex-col justify-center relative">
+        {/* Left Content - Login Form */}
+        <div className="w-full lg:w-[45%] p-8 sm:p-12 lg:p-16 flex flex-col justify-center bg-white relative z-10">
           
-          <div className="flex items-center gap-3 mb-10 text-primary">
+          <div className="mb-12">
              {config?.logo_url ? (
-                <img src={config.logo_url} alt="Logo" className="w-10 h-10 object-contain" />
+                <img src={config.logo_url} alt="Logo" className="h-16 w-auto object-contain mb-6 drop-shadow-sm" />
               ) : (
-                <BookOpen size={28} />
+                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
+                  <BookOpen size={32} className="text-primary" />
+                </div>
               )}
-             <span className="font-bold text-xl text-slate-800">{config?.nom_librairie || 'LibrairieNumérique'}</span>
+            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+              Bienvenue, 👋
+            </h1>
+            <h2 className="text-xl font-bold text-slate-800 mt-2">Bon retour parmi nous !</h2>
+            <p className="text-slate-500 mt-2 text-sm">Connectez-vous pour commencer votre journée.</p>
           </div>
 
-          <h2 className="text-2xl font-bold text-slate-800 mb-8 text-center">Log in</h2>
-
           {error && (
-            <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-lg p-3 mb-5 fade-in">
-              <AlertCircle size={16} className="text-negative shrink-0 mt-0.5" />
-              <p className="text-xs text-negative font-medium">{error}</p>
+            <div className="flex items-start gap-2.5 bg-red-50 border border-red-100 rounded-xl p-4 mb-6">
+              <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-red-600 font-medium">{error}</p>
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-5 max-w-sm mx-auto w-full">
-            <div className="relative">
-              <Mail
-                size={16}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-              />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="user name"
-                required
-                className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1a237e]/20 focus:border-[#1a237e] transition-all"
-                autoComplete="email"
-              />
+          <form onSubmit={handleLogin} className="space-y-6">
+            
+            <div>
+              <div className="relative">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Votre adresse email"
+                  required
+                  className="w-full px-5 py-4 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400"
+                  autoComplete="email"
+                />
+              </div>
             </div>
 
-            <div className="relative">
-              <Lock
-                size={16}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-              />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="password"
-                required
-                className="w-full pl-11 pr-12 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1a237e]/20 focus:border-[#1a237e] transition-all"
-                autoComplete="current-password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
+            <div>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Mot de passe"
+                  required
+                  className="w-full pl-5 pr-12 py-4 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400"
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
-            <div className="flex justify-end">
-              <a href="#" className="text-xs text-gray-400 hover:text-[#1a237e] transition-colors">
-                forgot your password?
-              </a>
+            <div className="flex justify-between items-center mt-2">
+               <a href="#" className="text-sm font-semibold text-slate-500 hover:text-primary transition-colors">
+                 Mot de passe oublié ? 😕
+               </a>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-[#1a237e] hover:bg-[#121858] text-white rounded-xl text-sm font-semibold shadow-lg shadow-[#1a237e]/30 transition-all flex items-center justify-center gap-2"
+              className="w-full py-4 mt-8 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-bold shadow-lg shadow-primary/30 transition-all flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
                   Connexion...
                 </>
               ) : (
-                'Log in'
+                'Se connecter'
               )}
             </button>
           </form>
-
-          <p className="text-center text-xs text-gray-400 mt-8">
-            don't have any account? <a href="#" className="text-[#1a237e] font-semibold hover:underline">Sign Up</a>
-          </p>
-        </div>
-
-        {/* Right Side - Branding Banner */}
-        <div className="hidden md:flex w-1/2 bg-gradient-to-br from-[#1a237e] via-[#283593] to-[#000051] p-12 flex-col items-center justify-center relative overflow-hidden text-center text-white">
-          {/* Abstract background shapes */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
-          <div className="absolute bottom-0 left-0 w-80 h-80 bg-white/5 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4"></div>
-          <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-white/5 rotate-45 skew-x-12 transform origin-center"></div>
-          <div className="absolute bottom-1/4 right-1/4 w-40 h-40 bg-white/5 rotate-12 rounded-3xl transform origin-center"></div>
           
-          <div className="relative z-10 flex flex-col items-center gap-4">
-             {config?.logo_url ? (
-                <img src={config.logo_url} alt="Logo" className="w-24 h-24 object-contain drop-shadow-xl mb-4" />
-              ) : (
-                 <BookOpen size={64} className="opacity-90 mb-4" />
-              )}
-            <h1 className="text-5xl font-black tracking-wider drop-shadow-md">WELCOME !</h1>
-            <p className="text-blue-100 font-medium tracking-wide">Log in to continue</p>
-          </div>
         </div>
 
+        {/* Right Content - Full Image with Glassmorphism Overlay */}
+        <div className="w-full lg:w-[55%] relative hidden lg:block">
+           <img 
+              src="/assets/images/login_bg.jpg" 
+              alt="Library Background" 
+              className="absolute inset-0 w-full h-full object-cover" 
+           />
+           
+           {/* Dark Gradient to ensure text readability */}
+           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent flex flex-col justify-end p-12">
+              
+              {/* Glassmorphism Blur Box */}
+              <div className="backdrop-blur-xl bg-slate-900/40 border border-white/10 p-10 rounded-3xl shadow-2xl max-w-lg mx-auto w-full transform translate-y-4">
+                 <h2 className="text-2xl font-bold text-white mb-3 leading-snug">
+                   Espace de connexion réservé au personnel de <span className="text-blue-300">{config?.nom_librairie}</span>
+                 </h2>
+                 <p className="text-slate-300 text-sm font-medium">
+                   Gérez efficacement votre librairie, communiquez avec votre équipe et suivez vos ventes en un clin d'œil.
+                 </p>
+                 
+                 {/* Decorative Dots */}
+                 <div className="flex gap-2 mt-8 justify-center">
+                    <div className="w-2.5 h-2.5 rounded-full bg-cyan-400"></div>
+                    <div className="w-2.5 h-2.5 rounded-full bg-white/30"></div>
+                    <div className="w-2.5 h-2.5 rounded-full bg-white/30"></div>
+                 </div>
+              </div>
+
+           </div>
+        </div>
+        
       </div>
     </div>
   );
