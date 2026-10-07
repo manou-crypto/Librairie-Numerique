@@ -5,7 +5,7 @@ import AppLayout from '@/components/AppLayout';
 import Topbar from '@/components/Topbar';
 import Link from 'next/link';
 import { produitsService, Produit, CategorieItem } from '@/services/produits.service';
-import { Loader2, ImageIcon, RefreshCcw, BookOpen, ArrowLeft, Search, Eye, Filter, Download } from 'lucide-react';
+import { Loader2, ImageIcon, RefreshCcw, BookOpen, ArrowLeft, Search, Eye, Filter, Download, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import CloudinaryUploadWidget from '@/components/cloudinary/CloudinaryUploadWidget';
 import { useAppConfig } from '@/contexts/ConfigContext';
@@ -65,6 +65,18 @@ export default function GestionCataloguePage() {
       fetchData();
     } catch {
       toast.error("Erreur lors de l'association de l'image");
+    }
+  };
+
+  const handleImageDelete = async (produit: Produit) => {
+    if (!produit.imageId) return;
+    if (!window.confirm(`Supprimer l'image du produit "${produit.libelle}" ?`)) return;
+    try {
+      await produitsService.removeImage(produit.imageId);
+      toast.success('Image supprimée');
+      fetchData();
+    } catch {
+      toast.error("Erreur lors de la suppression de l'image");
     }
   };
 
@@ -269,13 +281,25 @@ export default function GestionCataloguePage() {
                             </button>
                           </div>
                         ) : (
-                          <button
-                            onClick={() => setSelectedProductId(produit.id)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-muted transition-all"
-                          >
-                            <ImageIcon size={13} />
-                            <span>{produit.imageUrl ? 'Changer Image' : 'Ajouter Image'}</span>
-                          </button>
+                          <div className="inline-flex items-center gap-2">
+                            <button
+                              onClick={() => setSelectedProductId(produit.id)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-muted transition-all"
+                            >
+                              <ImageIcon size={13} />
+                              <span>{produit.imageUrl ? 'Changer Image' : 'Ajouter Image'}</span>
+                            </button>
+                            {produit.imageUrl && produit.imageId && (
+                              <button
+                                type="button"
+                                onClick={() => handleImageDelete(produit)}
+                                title="Supprimer l'image"
+                                className="inline-flex items-center justify-center p-1.5 rounded-lg border border-border text-negative hover:bg-negative/10 transition-all"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
                         )}
                       </td>
                     </tr>

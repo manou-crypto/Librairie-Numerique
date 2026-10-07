@@ -139,6 +139,41 @@ export default function ParametresPage() {
   const [typesVente, setTypesVente] = useState<TypeVenteItem[]>([]);
   const [newType, setNewType] = useState('');
 
+  // Moyens de paiement Mobile Money (par défaut : Moov, MTN, Orange, Wave)
+  const [moyensMobile, setMoyensMobile] = useState<string[]>([]);
+  const [newMoyen, setNewMoyen] = useState('');
+  const [savingMoyens, setSavingMoyens] = useState(false);
+  const canManageMoyens = user?.role === 'ADMIN' || user?.permissions?.includes('GERER_TARIFS');
+
+  useEffect(() => {
+    if (config?.moyens_paiement_mobile) setMoyensMobile(config.moyens_paiement_mobile);
+  }, [config]);
+
+  const saveMoyens = async (list: string[]) => {
+    setSavingMoyens(true);
+    try {
+      await configService.updateConfiguration({ moyens_paiement_mobile: list });
+      setMoyensMobile(list);
+      await refreshConfig();
+      toast.success('Moyens de paiement mis à jour');
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur lors de la sauvegarde');
+    } finally {
+      setSavingMoyens(false);
+    }
+  };
+
+  const addMoyen = () => {
+    const name = newMoyen.trim();
+    if (!name) return;
+    if (moyensMobile.some((m) => m.toLowerCase() === name.toLowerCase())) {
+      toast.error('Ce moyen de paiement existe déjà');
+      return;
+    }
+    setNewMoyen('');
+    saveMoyens([...moyensMobile, name]);
+  };
+
   useEffect(() => {
     produitsService.getTypesVente().then(setTypesVente).catch(() => {});
   }, []);
@@ -487,6 +522,63 @@ export default function ParametresPage() {
         {/* 2. ONGLET CAISSE & POINT DE VENTE (POS) */}
         {activeTab === 'caisse' && (
           <div className="space-y-6">
+            <div className="card-base p-6 space-y-4">
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2 pb-2 border-b border-border">
+                <Receipt size={18} className="text-primary" /> Moyens de paiement Mobile Money
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Ces moyens sont proposés à la caisse lorsque le client paie par Mobile Money.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {moyensMobile.map((m) => (
+                  <span
+                    key={`moyen-${m}`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-semibold"
+                  >
+                    {m}
+                    {canManageMoyens && (
+                      <button
+                        type="button"
+                        disabled={savingMoyens}
+                        onClick={() => saveMoyens(moyensMobile.filter((x) => x !== m))}
+                        className="hover:text-negative"
+                        title="Supprimer"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </span>
+                ))}
+                {moyensMobile.length === 0 && (
+                  <span className="text-xs text-muted-foreground">Aucun moyen défini.</span>
+                )}
+              </div>
+              {canManageMoyens ? (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newMoyen}
+                    onChange={(e) => setNewMoyen(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addMoyen()}
+                    placeholder="Ex: Djamo, Flooz..."
+                    className="input-field text-sm flex-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={addMoyen}
+                    disabled={savingMoyens || !newMoyen.trim()}
+                    className="btn-primary text-sm py-2 px-3.5 flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <Plus size={14} /> Ajouter
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Vous n'avez pas l'autorisation de modifier les moyens de paiement.
+                </p>
+              )}
+            </div>
+
             <div className="card-base p-6 space-y-5">
               <h3 className="text-sm font-bold text-foreground flex items-center gap-2 pb-2 border-b border-border">
                 <Receipt size={18} className="text-primary" /> Configuration du Point de Vente & Caisses

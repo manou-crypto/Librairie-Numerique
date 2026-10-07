@@ -157,6 +157,7 @@ model Configuration {
   logo_url         String?  @db.VarChar(500)
   devise           String   @default("DZD") @db.VarChar(10)
   tva              Decimal  @default(0.00) @db.Decimal(4, 2)
+  moyens_paiement_mobile String? @db.Text
   updated_at       DateTime @updatedAt
 
   @@map("configuration")

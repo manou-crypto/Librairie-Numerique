@@ -10,6 +10,22 @@ export class ConfigurationService {
     private readonly gateway: AppGateway,
   ) {}
 
+  private static readonly DEFAULT_MOBILE = [
+    'Moov Money',
+    'MTN Money',
+    'Orange Money',
+    'Wave',
+  ];
+
+  private parseMobile(raw?: string | null): string[] {
+    if (!raw) return ConfigurationService.DEFAULT_MOBILE;
+    try {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return arr.map((s) => String(s));
+    } catch {}
+    return ConfigurationService.DEFAULT_MOBILE;
+  }
+
   async getConfiguration() {
     let config = await this.prisma.configuration.findUnique({
       where: { id_configuration: 1 },
@@ -29,6 +45,7 @@ export class ConfigurationService {
     return {
       ...config,
       tva: Number(config.tva),
+      moyens_paiement_mobile: this.parseMobile(config.moyens_paiement_mobile),
     };
   }
 
@@ -37,12 +54,15 @@ export class ConfigurationService {
     logo_url?: string;
     devise?: string;
     tva?: number;
+    moyens_paiement_mobile?: string[];
   }) {
     const updateData: any = {};
     if (data.nom_librairie !== undefined) updateData.nom_librairie = data.nom_librairie;
     if (data.logo_url !== undefined) updateData.logo_url = data.logo_url;
     if (data.devise !== undefined) updateData.devise = data.devise;
     if (data.tva !== undefined) updateData.tva = new Prisma.Decimal(data.tva);
+    if (data.moyens_paiement_mobile !== undefined)
+      updateData.moyens_paiement_mobile = JSON.stringify(data.moyens_paiement_mobile);
     
     const config = await this.prisma.configuration.upsert({
       where: { id_configuration: 1 },
@@ -59,6 +79,7 @@ export class ConfigurationService {
     const result = {
       ...config,
       tva: Number(config.tva),
+      moyens_paiement_mobile: this.parseMobile(config.moyens_paiement_mobile),
     };
 
     // 📡 Émettre la mise à jour en temps réel à tous les clients connectés.

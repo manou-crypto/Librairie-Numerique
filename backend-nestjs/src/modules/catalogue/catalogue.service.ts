@@ -71,6 +71,10 @@ export class CatalogueService {
       categoryName: p.categories[0]?.categorie?.nom || 'Général',
       categoryIds: p.categories.map((c) => String(c.id_categorie)),
       imageUrl: p.images.find((i) => i.est_principale)?.url_image || p.images[0]?.url_image || undefined,
+      imageId: (() => {
+        const img = p.images.find((i) => i.est_principale) || p.images[0];
+        return img ? String(img.id_image) : undefined;
+      })(),
       tarifs: p.tarifs.map((t) => ({
         typeVenteId: String(t.id_type_vente),
         libelle: t.type_vente.libelle,

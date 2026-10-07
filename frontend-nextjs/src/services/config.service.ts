@@ -5,6 +5,7 @@ export interface AppConfiguration {
   logo_url: string | null;
   devise: string;
   tva: number;
+  moyens_paiement_mobile?: string[];
 }
 
 export const configService = {

@@ -189,6 +189,7 @@ export class CaissesService {
   async getMyCaisse(userId: number) {
     const caisse = await this.prisma.caisse.findFirst({
       where: { id_utilisateur: userId, est_active: true },
+      include: { utilisateur: true },
     });
 
     if (!caisse) return null;
@@ -199,6 +200,9 @@ export class CaissesService {
       emplacement: caisse.emplacement || undefined,
       statutCaisse: caisse.statut_caisse,
       utilisateurId: caisse.id_utilisateur ? String(caisse.id_utilisateur) : undefined,
+      caissier: caisse.utilisateur
+        ? `${caisse.utilisateur.prenom} ${caisse.utilisateur.nom}`
+        : undefined,
     };
   }
 
@@ -206,15 +210,17 @@ export class CaissesService {
   async getActiveSession(userId: number) {
     const session = await this.prisma.sessionCaisse.findFirst({
       where: { id_utilisateur: userId, statut_session: 'OUVERTE' },
-      include: { caisse: true, utilisateur: true },
+      include: { caisse: { include: { utilisateur: true } }, utilisateur: true },
     });
 
     if (!session) return null;
 
+    const proprio = session.caisse.utilisateur;
     return {
       id: String(session.id_session),
       caisseId: String(session.id_caisse),
       codeCaisse: session.caisse.code_caisse,
+      proprietaireCaisse: proprio ? `${proprio.prenom} ${proprio.nom}` : undefined,
       utilisateurId: session.id_utilisateur,
       utilisateurNom: `${session.utilisateur.prenom} ${session.utilisateur.nom}`,
       dateOuverture: session.date_ouverture.toISOString(),

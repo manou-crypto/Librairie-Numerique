@@ -26,6 +26,7 @@ export interface Produit {
   categoryName: string;
   categoryIds?: string[];
   imageUrl?: string;
+  imageId?: string;
   tarifs?: { typeVenteId: string; libelle: string; prix: number }[];
   conditionnements?: ConditionnementItem[];
 }

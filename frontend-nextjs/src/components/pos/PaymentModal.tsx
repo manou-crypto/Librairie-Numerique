@@ -2,6 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard, Banknote, Smartphone, CheckCircle, Loader2 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
+import { useAppConfig } from '@/contexts/ConfigContext';
+
+const DEFAULT_MOBILE = ['Moov Money', 'MTN Money', 'Orange Money', 'Wave'];
 
 interface PaymentModalProps {
   open: boolean;
@@ -13,7 +16,7 @@ interface PaymentModalProps {
   onSuccess: (paiements: Array<{ mode: string; montant: number }>) => void;
 }
 
-type PaymentMode = 'especes' | 'wave';
+type PaymentMode = 'especes' | 'mobile_money';
 
 export default function PaymentModal({
   open,
@@ -23,7 +26,13 @@ export default function PaymentModal({
   isLoading = false,
   onSuccess,
 }: PaymentModalProps) {
+  const { config } = useAppConfig();
+  const moyensMobile: string[] =
+    config?.moyens_paiement_mobile && config.moyens_paiement_mobile.length > 0
+      ? config.moyens_paiement_mobile
+      : DEFAULT_MOBILE;
   const [mode, setMode] = useState<PaymentMode>('especes');
+  const [operateur, setOperateur] = useState<string>('');
   const [montantRecu, setMontantRecu] = useState('');
   const [montantWaveEspeces, setMontantWaveEspeces] = useState(''); // Montant payé en espèces si mode mixte
 
@@ -32,6 +41,7 @@ export default function PaymentModal({
       setMontantRecu('');
       setMontantWaveEspeces('');
       setMode('especes');
+      setOperateur('');
     }
   }, [open]);
 
@@ -42,21 +52,21 @@ export default function PaymentModal({
   
   const canPay = mode === 'especes' 
     ? montantRecuNum >= total 
-    : (montantWaveEspecesNum <= total); // Wave + Espèces (montant espèces ne doit pas dépasser le total)
+    : (!!operateur && montantWaveEspecesNum <= total); // Mobile money + Espèces optionnel
 
   const handlePay = () => {
     if (!canPay || isLoading) return;
 
     if (mode === 'especes') {
       onSuccess([{ mode: 'especes', montant: total }]);
-    } else if (mode === 'wave') {
+    } else if (mode === 'mobile_money') {
       const paiements = [];
       if (montantWaveEspecesNum > 0) {
         paiements.push({ mode: 'especes', montant: montantWaveEspecesNum });
       }
-      const resteWave = total - montantWaveEspecesNum;
-      if (resteWave > 0) {
-        paiements.push({ mode: 'wave', montant: resteWave });
+      const resteMobile = total - montantWaveEspecesNum;
+      if (resteMobile > 0) {
+        paiements.push({ mode: operateur, montant: resteMobile });
       }
       onSuccess(paiements);
     }
@@ -74,7 +84,7 @@ export default function PaymentModal({
 
   const modes: Array<{ id: PaymentMode; label: string; icon: React.ElementType }> = [
     { id: 'especes', label: 'Espèces', icon: Banknote },
-    { id: 'wave', label: 'Wave', icon: Smartphone },
+    { id: 'mobile_money', label: 'Mobile Money', icon: Smartphone },
   ];
 
   return (
@@ -167,14 +177,33 @@ export default function PaymentModal({
         )}
 
         {/* Instructions Wave + Mixte */}
-        {mode === 'wave' && (
+        {mode === 'mobile_money' && (
           <div className="space-y-3 fade-in">
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
-              <Smartphone size={24} className="text-blue-600 mx-auto mb-2" />
-              <p className="text-sm font-semibold text-blue-800">
-                Paiement via Wave
-              </p>
-              <p className="text-xs text-blue-600 mt-1">Veuillez valider la transaction sur le téléphone du client</p>
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <div className="text-center mb-3">
+                <Smartphone size={24} className="text-blue-600 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-blue-800">Paiement Mobile Money</p>
+                <p className="text-xs text-blue-600 mt-1">Choisissez le moyen de paiement du client</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {moyensMobile.map((m) => (
+                  <button
+                    key={`op-${m}`}
+                    type="button"
+                    onClick={() => setOperateur(m)}
+                    className={`py-2 px-2 rounded-lg border-2 text-xs font-semibold transition-all ${
+                      operateur === m
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border bg-card text-foreground hover:border-primary/30'
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+              {!operateur && (
+                <p className="text-[11px] text-center text-blue-700 mt-2">Sélectionnez un moyen de paiement pour continuer.</p>
+              )}
             </div>
             
             <div className="border border-border rounded-xl p-3">
@@ -191,7 +220,7 @@ export default function PaymentModal({
               {montantWaveEspecesNum > 0 && montantWaveEspecesNum <= total && (
                 <div className="mt-2 text-xs text-center text-muted-foreground font-medium">
                   Espèces: {montantWaveEspecesNum.toLocaleString('fr-FR')} {devise} <br/>
-                  Wave: {(total - montantWaveEspecesNum).toLocaleString('fr-FR')} {devise}
+                  {operateur || 'Mobile Money'}: {(total - montantWaveEspecesNum).toLocaleString('fr-FR')} {devise}
                 </div>
               )}
               {montantWaveEspecesNum > total && (

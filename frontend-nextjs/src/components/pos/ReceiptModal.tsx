@@ -28,7 +28,8 @@ const modeLabels: Record<string, string> = {
   especes: 'Espèces',
   ESPECES: 'Espèces',
   wave: 'Wave',
-  MOBILE_MONEY: 'Wave',
+  mobile_money: 'Mobile Money',
+  MOBILE_MONEY: 'Mobile Money',
 };
 
 export default function ReceiptModal({

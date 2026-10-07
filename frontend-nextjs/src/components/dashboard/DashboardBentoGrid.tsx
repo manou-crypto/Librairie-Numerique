@@ -242,7 +242,7 @@ export default function DashboardBentoGrid() {
       </div>
 
       <div
-        className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-4 transition-all ${
+        className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-3 transition-all ${
           flashSale ? 'ring-2 ring-green-400/30 rounded-xl' : ''
         }`}
       >
@@ -266,19 +266,19 @@ export default function DashboardBentoGrid() {
                 kpi.span === 'col-span-2' ? 'md:col-span-2 xl:col-span-2 2xl:col-span-2' : ''
               } fade-in transition-all`}
             >
-              <div className="flex items-start justify-between mb-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground leading-tight">
+              <div className="flex items-start justify-between mb-1.5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground leading-tight">
                   {kpi.label}
                 </p>
                 <div
-                  className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${iconBgStyles[kpi.variant]}`}
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${iconBgStyles[kpi.variant]}`}
                 >
-                  <Icon size={18} />
+                  <Icon size={15} />
                 </div>
               </div>
-              <p className="text-2xl lg:text-3xl font-bold tabular-nums text-foreground mb-1">{kpi.value}</p>
-              {kpi.subValue && <p className="text-xs text-muted-foreground mb-2 line-clamp-1">{kpi.subValue}</p>}
-              <div className={`flex items-center gap-1 text-xs font-semibold ${trendColor}`}>
+              <p className="text-xl lg:text-2xl font-bold tabular-nums text-foreground leading-tight">{kpi.value}</p>
+              {kpi.subValue && <p className="text-[11px] text-muted-foreground line-clamp-1">{kpi.subValue}</p>}
+              <div className={`flex items-center gap-1 text-[11px] mt-1 font-semibold ${trendColor}`}>
                 <TrendIcon size={13} />
                 <span>{kpi.trendLabel}</span>
               </div>

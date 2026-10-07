@@ -22,6 +22,7 @@ export interface SessionCaisseItem {
   codeCaisse: string;
   utilisateurId: number;
   utilisateurNom: string;
+  proprietaireCaisse?: string;
   dateOuverture: string;
   dateCloture?: string;
   fondDeCaisseInitial: number;

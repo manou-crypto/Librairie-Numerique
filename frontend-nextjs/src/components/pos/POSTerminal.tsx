@@ -28,7 +28,7 @@ import PaymentModal from './PaymentModal';
 import ReceiptModal from './ReceiptModal';
 import KitComposerModal, { KitProductItem, KitCompositionItem } from './KitComposerModal';
 import RapportCaisseModal from './RapportCaisseModal';
-import { produitsService, ConditionnementItem } from '@/services/produits.service';
+import { produitsService, ConditionnementItem, CategorieItem } from '@/services/produits.service';
 import { ventesService, ModeleKit } from '@/services/ventes.service';
 import { caissesService } from '@/services/caisses.service';
 import { unitesService, UniteItem } from '@/services/unites.service';
@@ -49,6 +49,7 @@ interface Product {
   tarifs?: { typeVenteId: string; libelle: string; prix: number }[];
   conditionnements?: ConditionnementItem[];
   imageUrl?: string;
+  categoryIds?: string[];
 }
 
 interface CartItem extends Product {
@@ -61,7 +62,7 @@ interface CartItem extends Product {
   selectedUnitMultiple?: number;
 }
 
-const categories = ['Tous', 'Kits & Bundles', 'Livres', 'Fournitures', 'Informatique', 'Bureautique'];
+const KITS_TAB = 'Kits & Bundles';
 
 export default function POSTerminal() {
   const { config } = useAppConfig();
@@ -76,6 +77,9 @@ export default function POSTerminal() {
   const [allUnites, setAllUnites] = useState<UniteItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Tous');
+  const [apiCategories, setApiCategories] = useState<CategorieItem[]>([]);
+  const [proprietaireCaisse, setProprietaireCaisse] = useState<string>('');
+  const [codeCaisseActive, setCodeCaisseActive] = useState<string>('');
   const [typesVente, setTypesVente] = useState<{ id: string; libelle: string }[]>([]);
   const [selectedTypeVente, setSelectedTypeVente] = useState<string>('');
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -118,7 +122,8 @@ export default function POSTerminal() {
   // Charger les produits depuis l'API
   const loadProducts = useCallback(async () => {
     try {
-      const res = await produitsService.getAll();
+      // pageSize élevé : le backend limite à 50 produits par défaut, ce qui masquait une partie du catalogue
+      const res = await produitsService.getAll({ pageSize: 10000 });
       const mappedProducts: Product[] = res.data.map((p: any) => ({
         id: p.id,
         name: p.libelle,
@@ -131,6 +136,7 @@ export default function POSTerminal() {
         tarifs: p.tarifs || [],
         conditionnements: p.conditionnements || [],
         imageUrl: p.imageUrl,
+        categoryIds: p.categoryIds || [],
       }));
       setAllProducts(mappedProducts);
     } catch (err) {
@@ -148,11 +154,15 @@ export default function POSTerminal() {
         return;
       }
       setAssignedCaisse(caisse);
+      setCodeCaisseActive(caisse.codeCaisse || '');
+      setProprietaireCaisse(caisse.caissier || '');
 
       // 2. Récupérer la session active
       const session = await caissesService.getActiveSession();
       if (session) {
         setActiveSessionId(String(session.id));
+        if (session.codeCaisse) setCodeCaisseActive(session.codeCaisse);
+        if (session.proprietaireCaisse) setProprietaireCaisse(session.proprietaireCaisse);
         setSessionStatus('open');
       } else {
         setSessionStatus('closed');
@@ -226,6 +236,7 @@ export default function POSTerminal() {
     loadSavedKits();
     loadTypesVente();
     loadUnites();
+    produitsService.getCategories().then(setApiCategories).catch(() => {});
   }, [loadProducts, loadSession, loadSavedKits, loadTypesVente, loadUnites]);
 
   // Mise à jour du stock en temps réel via WebSocket
@@ -253,12 +264,41 @@ export default function POSTerminal() {
     );
   }, [lastStockUpdate]);
 
+  // Catégories racines réelles du projet (+ onglets Tous / Kits)
+  const categories = [
+    'Tous',
+    KITS_TAB,
+    ...apiCategories.filter((c) => !c.parentId).map((c) => c.nom),
+  ];
+
+  const descendantIds = (rootId: string): Set<string> => {
+    const ids = new Set<string>([rootId]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const c of apiCategories) {
+        if (c.parentId && ids.has(c.parentId) && !ids.has(c.id)) {
+          ids.add(c.id);
+          changed = true;
+        }
+      }
+    }
+    return ids;
+  };
+
+  const productInCategory = (p: Product, catName: string): boolean => {
+    const root = apiCategories.find((c) => !c.parentId && c.nom === catName);
+    if (!root) return p.category === catName;
+    const ids = descendantIds(root.id);
+    return (p.categoryIds || []).some((id) => ids.has(id));
+  };
+
   const filteredProducts = allProducts.filter((p) => {
     const matchSearch =
       !searchQuery ||
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.reference.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchCat = selectedCategory === 'Tous' || p.category === selectedCategory;
+    const matchCat = selectedCategory === 'Tous' || productInCategory(p, selectedCategory);
     return matchSearch && matchCat;
   });
 
@@ -546,7 +586,7 @@ export default function POSTerminal() {
     setIsSaving(true);
 
     // Déterminer le mode principal (celui qui a le plus grand montant ou wave en priorité s'il existe)
-    const mainMode = paiementsModal.some(p => p.mode === 'wave') ? 'wave' : 'especes';
+    const mainMode = paiementsModal.some(p => p.mode !== 'especes') ? 'mobile_money' : 'especes';
 
     try {
       const payload = {
@@ -572,7 +612,7 @@ export default function POSTerminal() {
         paiements: paiementsModal.map(p => ({
           modePaiement: p.mode === 'especes' ? 'ESPECES' : 'MOBILE_MONEY',
           montant: p.montant,
-          referenceTransaction: undefined,
+          referenceTransaction: p.mode === 'especes' ? undefined : p.mode,
         })),
       };
 
@@ -660,6 +700,9 @@ export default function POSTerminal() {
               Caisse assignée : <strong className="text-white">{assignedCaisse?.codeCaisse}</strong>
               {assignedCaisse?.emplacement && (
                 <span className="block text-xs mt-0.5">({assignedCaisse.emplacement})</span>
+              )}
+              {proprietaireCaisse && (
+                <span className="block text-xs mt-0.5">Propriétaire : {proprietaireCaisse}</span>
               )}
             </p>
           </div>
@@ -775,7 +818,10 @@ export default function POSTerminal() {
                 )}
                 <div className="flex items-center gap-1.5 text-xs text-green-600 bg-green-50 px-2.5 py-1.5 rounded-lg border border-green-200">
                   <CheckCircle size={12} />
-                  <span className="font-semibold">Session ouverte</span>
+                  <span className="font-semibold">
+                    Session ouverte{codeCaisseActive ? ` · ${codeCaisseActive}` : ''}
+                    {proprietaireCaisse ? ` · Propriétaire : ${proprietaireCaisse}` : ''}
+                  </span>
                 </div>
                 <button
                   onClick={() => {
@@ -817,13 +863,13 @@ export default function POSTerminal() {
               }`}
             >
               {cat}
-              {cat === 'Kits & Bundles' ? (
+              {cat === KITS_TAB ? (
                 <span className="ml-1.5 opacity-70">
                   ({savedKits.length})
                 </span>
               ) : cat !== 'Tous' ? (
                 <span className="ml-1.5 opacity-70">
-                  ({allProducts.filter((p) => p.category === cat).length})
+                  ({allProducts.filter((p) => productInCategory(p, cat)).length})
                 </span>
               ) : null}
             </button>
@@ -832,7 +878,7 @@ export default function POSTerminal() {
 
         {/* Grille produits / Kits */}
         <div className="flex-1 overflow-y-auto scrollbar-thin p-4">
-          {selectedCategory === 'Kits & Bundles' ? (
+          {selectedCategory === KITS_TAB ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3 gap-4">
               {/* Carte Création de Kit personnalisé */}
               <button
@@ -1207,7 +1253,7 @@ export default function POSTerminal() {
           <div className="grid grid-cols-2 gap-2 mb-3">
             {[
               { id: 'pay-especes', label: 'Espèces', icon: Banknote },
-              { id: 'pay-wave', label: 'Wave', icon: Smartphone },
+              { id: 'pay-mobile', label: 'Mobile Money', icon: Smartphone },
             ].map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
