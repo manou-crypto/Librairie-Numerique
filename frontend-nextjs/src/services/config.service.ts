@@ -6,6 +6,10 @@ export interface AppConfiguration {
   devise: string;
   tva: number;
   moyens_paiement_mobile?: string[];
+  adresse?: string | null;
+  telephone?: string | null;
+  email?: string | null;
+  slogan?: string | null;
 }
 
 export const configService = {

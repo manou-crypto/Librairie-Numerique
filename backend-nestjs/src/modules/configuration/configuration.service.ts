@@ -55,6 +55,10 @@ export class ConfigurationService {
     devise?: string;
     tva?: number;
     moyens_paiement_mobile?: string[];
+    adresse?: string;
+    telephone?: string;
+    email?: string;
+    slogan?: string;
   }) {
     const updateData: any = {};
     if (data.nom_librairie !== undefined) updateData.nom_librairie = data.nom_librairie;
@@ -63,16 +67,24 @@ export class ConfigurationService {
     if (data.tva !== undefined) updateData.tva = new Prisma.Decimal(data.tva);
     if (data.moyens_paiement_mobile !== undefined)
       updateData.moyens_paiement_mobile = JSON.stringify(data.moyens_paiement_mobile);
+    if (data.adresse !== undefined) updateData.adresse = data.adresse;
+    if (data.telephone !== undefined) updateData.telephone = data.telephone;
+    if (data.email !== undefined) updateData.email = data.email;
+    if (data.slogan !== undefined) updateData.slogan = data.slogan;
     
     const config = await this.prisma.configuration.upsert({
       where: { id_configuration: 1 },
       update: updateData,
       create: {
         id_configuration: 1,
-        nom_librairie: updateData.nom_librairie || 'LibrairieNumerique',
-        devise: updateData.devise || 'DZD',
+        nom_librairie: updateData.nom_librairie || 'OK? SERVICE',
+        devise: updateData.devise || 'FCFA',
         tva: updateData.tva || new Prisma.Decimal(0),
         logo_url: updateData.logo_url,
+        adresse: updateData.adresse || 'Bouaké - Belleville 2',
+        telephone: updateData.telephone || '0709511425',
+        email: updateData.email || 'dahiri.ok@gmail.com',
+        slogan: updateData.slogan || 'Fournitures scolaires & bureautique',
       },
     });
 

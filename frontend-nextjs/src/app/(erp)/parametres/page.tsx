@@ -121,9 +121,18 @@ export default function ParametresPage() {
       setGeneral({
         nom_librairie: config.nom_librairie || '',
         logo_url: config.logo_url || '',
-        devise: config.devise || 'DZD',
+        devise: config.devise || 'FCFA',
         tva: config.tva || 0,
       });
+      if (config.adresse || config.telephone || config.email || config.slogan) {
+        setExtended((prev) => ({
+          ...prev,
+          adresse: config.adresse || prev.adresse,
+          telephone: config.telephone || prev.telephone,
+          email: config.email || prev.email,
+          slogan: config.slogan || prev.slogan,
+        }));
+      }
     }
   }, [config]);
 
@@ -206,7 +215,13 @@ export default function ParametresPage() {
     try {
       if (activeTab === 'general' || activeTab === 'caisse') {
         // Enregistrer la configuration de base en base de données
-        await configService.updateConfiguration(general);
+        await configService.updateConfiguration({
+          ...general,
+          adresse: extended.adresse,
+          telephone: extended.telephone,
+          email: extended.email,
+          slogan: extended.slogan,
+        });
         // Sauvegarder les paramètres étendus dans le stockage local
         if (typeof window !== 'undefined') {
           localStorage.setItem('app_extended_store_config', JSON.stringify(extended));

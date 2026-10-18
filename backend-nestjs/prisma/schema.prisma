@@ -153,11 +153,15 @@ model LogAudit {
 
 model Configuration {
   id_configuration Int      @id @default(1)
-  nom_librairie    String   @default("LibrairieNumerique") @db.VarChar(150)
+  nom_librairie    String   @default("OK? SERVICE") @db.VarChar(150)
   logo_url         String?  @db.VarChar(500)
-  devise           String   @default("DZD") @db.VarChar(10)
+  devise           String   @default("FCFA") @db.VarChar(10)
   tva              Decimal  @default(0.00) @db.Decimal(4, 2)
   moyens_paiement_mobile String? @db.Text
+  adresse          String?  @default("Bouaké - Belleville 2") @db.VarChar(255)
+  telephone        String?  @default("0709511425") @db.VarChar(50)
+  email            String?  @default("dahiri.ok@gmail.com") @db.VarChar(150)
+  slogan           String?  @db.VarChar(255)
   updated_at       DateTime @updatedAt
 
   @@map("configuration")
@@ -463,18 +467,41 @@ model SessionCaisse {
   @@map("session_caisse")
 }
 
+model Client {
+  id_client      Int       @id @default(autoincrement())
+  code_client    String    @unique @db.VarChar(50)
+  nom            String    @db.VarChar(100)
+  prenom         String?   @db.VarChar(100)
+  telephone      String?   @db.VarChar(30)
+  email          String?   @db.VarChar(150)
+  adresse        String?   @db.VarChar(255)
+  type_client    String    @default("PARTICULIER") // PARTICULIER, ENTREPRISE, ECOLE, REVENDEUR
+  notes          String?   @db.Text
+  date_creation  DateTime  @default(now())
+
+  ventes         Vente[]
+
+  @@map("client")
+}
+
 model Vente {
   id_vente         Int         @id @default(autoincrement())
   reference_ticket String      @unique @db.VarChar(60)
+  numero_facture   String?     @db.VarChar(50)
   id_session       Int
+  id_client        Int?
+  nom_client_snapshot       String?     @db.VarChar(150)
+  telephone_client_snapshot String?     @db.VarChar(50)
   date_vente       DateTime    @default(now())
   total_ht         Decimal     @db.Decimal(10, 2)
   total_tva        Decimal     @db.Decimal(10, 2)
   total_ttc        Decimal     @db.Decimal(10, 2)
+  total_remise     Decimal     @default(0.00) @db.Decimal(10, 2)
   marge_totale     Decimal     @db.Decimal(10, 2)
   statut_vente     StatutVente @default(VALIDEE)
 
   session   SessionCaisse @relation(fields: [id_session], references: [id_session])
+  client    Client?       @relation(fields: [id_client], references: [id_client], onDelete: SetNull)
   lignes    LigneVente[]
   paiements Paiement[]
   retours   RetourVente[]
@@ -483,18 +510,22 @@ model Vente {
 }
 
 model LigneVente {
-  id_ligne_vente                 Int     @id @default(autoincrement())
+  id_ligne_vente                 Int      @id @default(autoincrement())
   id_vente                       Int
   id_produit                     Int
   quantite                       Int
-  quantite_retournee             Int     @default(0)
-  nom_kit                        String? @db.VarChar(100)
-  id_kit_groupe                  String? @db.VarChar(50)
-  prix_achat_unitaire_snapshot   Decimal @db.Decimal(10, 2)
+  quantite_retournee             Int      @default(0)
+  nom_kit                        String?  @db.VarChar(100)
+  id_kit_groupe                  String?  @db.VarChar(50)
+  prix_achat_unitaire_snapshot   Decimal  @db.Decimal(10, 2)
   prix_vente_unitaire_ht_snapshot Decimal @db.Decimal(10, 2)
-  taux_tva_snapshot              Decimal @db.Decimal(4, 2)
-  marge_unitaire                 Decimal @db.Decimal(10, 2)
-  total_ligne_ht                 Decimal @db.Decimal(10, 2)
+  prix_unitaire_reduit           Decimal? @db.Decimal(10, 2)
+  remise_valeur                  Decimal? @default(0.00) @db.Decimal(10, 2)
+  remise_type                    String?  @default("FIXE") @db.VarChar(20)
+  unite_libelle                  String?  @default("Pce(s)") @db.VarChar(50)
+  taux_tva_snapshot              Decimal  @db.Decimal(4, 2)
+  marge_unitaire                 Decimal  @db.Decimal(10, 2)
+  total_ligne_ht                 Decimal  @db.Decimal(10, 2)
 
   vente   Vente         @relation(fields: [id_vente], references: [id_vente], onDelete: Cascade)
   produit Produit       @relation(fields: [id_produit], references: [id_produit])

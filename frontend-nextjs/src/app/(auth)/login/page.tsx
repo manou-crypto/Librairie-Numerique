@@ -112,11 +112,11 @@ function LoginForm() {
               </div>
             </div>
 
-            <div className="flex justify-between items-center mt-2">
+            {/* <div className="flex justify-between items-center mt-2">
                <a href="#" className="text-sm font-semibold text-slate-500 hover:text-primary transition-colors">
                  Mot de passe oublié ? 😕
                </a>
-            </div>
+            </div> */}
 
             <button
               type="submit"

@@ -22,6 +22,7 @@ import {
   User,
   ShoppingBag,
   ClipboardCheck,
+  UserCheck,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Icon from '@/components/ui/AppIcon';
@@ -62,6 +63,14 @@ const navItems: NavItem[] = [
     icon: ShoppingBag,
     group: 'Ventes',
     roles: ['super_admin', 'cashier'],
+  },
+  {
+    id: 'nav-clients',
+    label: 'Clients',
+    href: '/clients',
+    icon: UserCheck,
+    group: 'Ventes',
+    roles: ['super_admin', 'manager', 'cashier'],
   },
   {
     id: 'nav-catalogue',

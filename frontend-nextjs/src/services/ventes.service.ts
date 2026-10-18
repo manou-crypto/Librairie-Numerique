@@ -37,6 +37,10 @@ export interface VenteLigneResponse {
   nomKit?: string;
   idKitGroupe?: string;
   prixVenteUnitaireHt: number;
+  prixUnitaireReduit?: number;
+  remiseValeur?: number;
+  remiseType?: string;
+  unite?: string;
   tauxTva: number;
   totalLigneHt: number;
 }
@@ -92,12 +96,30 @@ export interface ModeleKit {
 export interface VenteResponse {
   id: string;
   referenceTicket: string;
+  numeroFacture?: string;
   dateVente: string;
   totalHt: number;
   totalTva: number;
   totalTtc: number;
+  totalRemise?: number;
   margeTotale: number;
   statutVente: 'VALIDEE' | 'ANNULEE' | 'REMBOURSEE' | 'PARTIELLEMENT_REMBOURSEE';
+  modePaiement?: string;
+  montantTotalHt?: number;
+  montantTva?: number;
+  montantTotalTtc?: number;
+  montantPaye?: number;
+  monnaieRendue?: number;
+  client?: {
+    id?: string;
+    nom: string;
+    telephone?: string;
+    adresse?: string;
+  };
+  vendeur?: {
+    nom: string;
+  };
+  caisse?: string;
   lignes?: VenteLigneResponse[];
   paiements?: VentePaiementResponse[];
   retours?: RetourVenteItem[];

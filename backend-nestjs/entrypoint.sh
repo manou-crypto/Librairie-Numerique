@@ -19,8 +19,12 @@ fi
 # Run migrations
 echo "Running Prisma migrations..."
 if ! npx prisma migrate deploy; then
-  echo "Prisma migrate deploy warning, continuing..."
+  echo "Prisma migrate deploy warning, attempting schema sync..."
 fi
+
+# Ensure schema tables & columns are fully synchronized
+echo "Ensuring Prisma schema is synchronized with database..."
+npx prisma db push --skip-generate --accept-data-loss || true
 
 # Start the application
 echo "Starting NestJS application..."

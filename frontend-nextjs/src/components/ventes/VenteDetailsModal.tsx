@@ -2,8 +2,9 @@
 import React, { useState } from 'react';
 import Modal from '@/components/ui/Modal';
 import { VenteResponse } from '@/services/ventes.service';
-import { RotateCcw, Package, AlertCircle, CheckCircle2, History, ArrowDownRight } from 'lucide-react';
+import { RotateCcw, Package, AlertCircle, CheckCircle2, History, ArrowDownRight, Printer, User } from 'lucide-react';
 import RetourModal from './RetourModal';
+import ReceiptModal from '@/components/pos/ReceiptModal';
 
 interface VenteDetailsModalProps {
   open: boolean;
@@ -35,6 +36,7 @@ export default function VenteDetailsModal({
   onRetourSuccess,
 }: VenteDetailsModalProps) {
   const [retourModalOpen, setRetourModalOpen] = useState(false);
+  const [printModalOpen, setPrintModalOpen] = useState(false);
 
   if (!vente) return null;
 
@@ -54,7 +56,7 @@ export default function VenteDetailsModal({
       <Modal
         open={open}
         onClose={onClose}
-        title={`Détails de la vente ${vente.referenceTicket}`}
+        title={`Détails de la vente ${vente.numeroFacture ? `Facture #${vente.numeroFacture}` : vente.referenceTicket}`}
         size="lg"
       >
         <div className="space-y-6">
@@ -65,6 +67,16 @@ export default function VenteDetailsModal({
               <p className="font-semibold text-foreground text-sm">
                 {dateStr} à {timeStr}
               </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Client</p>
+              <p className="font-semibold text-foreground text-sm flex items-center gap-1">
+                <User size={13} className="text-primary" />
+                {vente.client?.nom || 'Walk-In Customer'}
+              </p>
+              {vente.client?.telephone && (
+                <p className="text-[10px] text-muted-foreground">{vente.client.telephone}</p>
+              )}
             </div>
             <div className="text-center">
               <p className="text-xs text-muted-foreground mb-1">Statut</p>
@@ -77,6 +89,11 @@ export default function VenteDetailsModal({
               <p className="text-xl font-bold text-foreground tabular-nums">
                 {vente.totalTtc.toLocaleString('fr-FR')} {devise}
               </p>
+              {vente.totalRemise !== undefined && vente.totalRemise > 0 && (
+                <p className="text-xs text-emerald-600 font-semibold">
+                  Remise: -{vente.totalRemise.toLocaleString('fr-FR')} {devise}
+                </p>
+              )}
             </div>
           </div>
 
@@ -309,12 +326,57 @@ export default function VenteDetailsModal({
               <div />
             )}
 
-            <button onClick={onClose} className="btn-secondary text-xs py-2 px-4">
-              Fermer
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPrintModalOpen(true)}
+                className="btn-primary flex items-center gap-1.5 text-xs py-2 px-3 shadow-sm font-semibold"
+              >
+                <Printer size={14} />
+                Imprimer la Facture
+              </button>
+              <button onClick={onClose} className="btn-secondary text-xs py-2 px-4">
+                Fermer
+              </button>
+            </div>
           </div>
         </div>
       </Modal>
+
+      {/* Modale d'impression de la Facture authentique */}
+      {printModalOpen && vente && (
+        <ReceiptModal
+          open={printModalOpen}
+          onClose={() => setPrintModalOpen(false)}
+          saleId={vente.id}
+          referenceTicket={vente.referenceTicket}
+          numeroFacture={vente.numeroFacture}
+          dateVente={vente.dateVente}
+          total={vente.totalTtc}
+          totalHt={vente.totalHt}
+          totalTva={vente.totalTva}
+          totalRemise={vente.totalRemise}
+          mode={vente.paiements?.[0]?.modePaiement || 'ESPECES'}
+          paiements={vente.paiements?.map((p) => ({
+            modePaiement: p.modePaiement,
+            montant: p.montant,
+          }))}
+          items={vente.lignes?.map((l) => ({
+            name: l.produitLibelle,
+            qty: l.quantite,
+            price: l.prixVenteUnitaireHt,
+            prixUnitaireReduit: l.prixUnitaireReduit ?? l.prixVenteUnitaireHt,
+            remise: l.remiseValeur ?? 0,
+            total: l.totalLigneHt,
+            unite: l.unite || 'Pce(s)',
+            nomKit: l.nomKit,
+          }))}
+          caisse={vente.caisse || 'Caisse 1'}
+          devise={devise}
+          client={vente.client}
+          vendeur={vente.vendeur?.nom}
+        />
+      )}
 
       {/* Modal interactif de retour */}
       {vente && (

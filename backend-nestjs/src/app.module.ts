@@ -19,6 +19,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { RapportsModule } from './modules/rapports/rapports.module';
 import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
 import { UnitesModule } from './modules/unites/unites.module';
+import { ClientsModule } from './modules/clients/clients.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { UnitesModule } from './modules/unites/unites.module';
     AchatsModule,
     CaissesModule,
     VentesModule,
+    ClientsModule,
     InventaireModule,
     FinancesModule,
     ConfigurationModule,

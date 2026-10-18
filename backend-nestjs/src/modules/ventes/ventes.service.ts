@@ -23,9 +23,16 @@ export class VentesService {
     return `RET-${today}-${rand}`;
   }
 
+  private async generateNumeroFacture(tx?: any): Promise<string> {
+    const client = tx || this.prisma;
+    const count = await client.vente.count();
+    return String(count + 1).padStart(4, '0');
+  }
+
   async createVente(userId: number, payload: any) {
     const activeSession = await this.prisma.sessionCaisse.findFirst({
       where: { id_utilisateur: userId, statut_session: 'OUVERTE' },
+      include: { utilisateur: true },
     });
 
     if (!activeSession) {
@@ -34,57 +41,104 @@ export class VentesService {
 
     const sessionIdNum = activeSession.id_session;
 
+    // Résolution du client
+    let clientIdNum: number | null = payload.clientId ? Number(payload.clientId) : (payload.idClient ? Number(payload.idClient) : null);
+    let nomClient = payload.nomClient || 'Walk-In Customer';
+    let telephoneClient = payload.telephoneClient || '';
+
+    if (clientIdNum) {
+      const dbClient = await this.prisma.client.findUnique({ where: { id_client: clientIdNum } });
+      if (dbClient) {
+        nomClient = dbClient.prenom ? `${dbClient.nom} ${dbClient.prenom}` : dbClient.nom;
+        telephoneClient = dbClient.telephone || telephoneClient;
+      }
+    } else {
+      const walkIn = await this.prisma.client.findFirst({ where: { code_client: 'CLI-0000' } });
+      if (walkIn) {
+        clientIdNum = walkIn.id_client;
+        if (!payload.nomClient) nomClient = walkIn.nom;
+      }
+    }
+
     let totalHt = 0;
     let totalTva = 0;
     let margeTotale = 0;
+    let totalRemise = 0;
 
-    payload.lignes.forEach((l: any) => {
-      const prixVenteHt = l.prixVenteUnitaireHtSnapshot || l.prixVente;
-      const tauxTva = l.tauxTvaSnapshot !== undefined ? l.tauxTvaSnapshot : 20;
-      const prixAchat = l.prixAchatUnitaireSnapshot || 0;
-      const qte = l.quantite || l.qty;
+    const computedLignes = payload.lignes.map((l: any) => {
+      const prixVenteHt = Number(l.prixVenteUnitaireHtSnapshot || l.prixVente || 0);
+      const tauxTva = l.tauxTvaSnapshot !== undefined ? Number(l.tauxTvaSnapshot) : (l.tva !== undefined ? Number(l.tva) : 0);
+      const prixAchat = Number(l.prixAchatUnitaireSnapshot || l.prixAchat || 0);
+      const qte = Number(l.quantite || l.qty || 1);
+      const unite = l.uniteLibelle || l.unite || 'Pce(s)';
 
-      const lineHt = qte * prixVenteHt;
+      const remiseType = l.remiseType === 'POURCENTAGE' ? 'POURCENTAGE' : 'FIXE';
+      let remiseVal = Number(l.remiseValeur || 0);
+      let prixReduit = prixVenteHt;
+
+      if (remiseVal > 0) {
+        if (remiseType === 'POURCENTAGE') {
+          const discountAmt = Math.round((prixVenteHt * remiseVal) / 100);
+          prixReduit = Math.max(0, prixVenteHt - discountAmt);
+          totalRemise += discountAmt * qte;
+        } else {
+          prixReduit = Math.max(0, prixVenteHt - remiseVal);
+          totalRemise += remiseVal * qte;
+        }
+      } else if (l.prixUnitaireReduit !== undefined && Number(l.prixUnitaireReduit) < prixVenteHt) {
+        prixReduit = Number(l.prixUnitaireReduit);
+        remiseVal = prixVenteHt - prixReduit;
+        totalRemise += remiseVal * qte;
+      }
+
+      const lineHt = qte * prixReduit;
       const lineTva = lineHt * (tauxTva / 100);
-      const lineMarge = (prixVenteHt - prixAchat) * qte;
+      const lineMarge = (prixReduit - prixAchat) * qte;
 
       totalHt += lineHt;
       totalTva += lineTva;
       margeTotale += lineMarge;
+
+      return {
+        id_produit: Number(l.produitId || l.id),
+        quantite: qte,
+        quantite_retournee: 0,
+        nom_kit: l.nomKit || null,
+        id_kit_groupe: l.idKitGroupe || null,
+        prix_achat_unitaire_snapshot: prixAchat,
+        prix_vente_unitaire_ht_snapshot: prixVenteHt,
+        prix_unitaire_reduit: prixReduit,
+        remise_valeur: remiseVal,
+        remise_type: remiseType,
+        unite_libelle: unite,
+        taux_tva_snapshot: tauxTva,
+        marge_unitaire: prixReduit - prixAchat,
+        total_ligne_ht: lineHt,
+      };
     });
 
     const totalTtc = totalHt + totalTva;
     const refTicket = this.generateTicketReference();
 
     const vente = await this.prisma.$transaction(async (tx) => {
+      const numeroFacture = await this.generateNumeroFacture(tx);
+
       const v = await tx.vente.create({
         data: {
           reference_ticket: refTicket,
+          numero_facture: numeroFacture,
           id_session: sessionIdNum,
+          id_client: clientIdNum,
+          nom_client_snapshot: nomClient,
+          telephone_client_snapshot: telephoneClient,
           total_ht: totalHt,
           total_tva: totalTva,
           total_ttc: totalTtc,
+          total_remise: totalRemise,
           marge_totale: margeTotale,
           statut_vente: 'VALIDEE',
           lignes: {
-            create: payload.lignes.map((l: any) => {
-              const prixVenteHt = l.prixVenteUnitaireHtSnapshot || l.prixVente;
-              const tauxTva = l.tauxTvaSnapshot !== undefined ? l.tauxTvaSnapshot : 20;
-              const prixAchat = l.prixAchatUnitaireSnapshot || 0;
-              const qte = l.quantite || l.qty;
-              return {
-                id_produit: Number(l.produitId || l.id),
-                quantite: qte,
-                quantite_retournee: 0,
-                nom_kit: l.nomKit || null,
-                id_kit_groupe: l.idKitGroupe || null,
-                prix_achat_unitaire_snapshot: prixAchat,
-                prix_vente_unitaire_ht_snapshot: prixVenteHt,
-                taux_tva_snapshot: tauxTva,
-                marge_unitaire: prixVenteHt - prixAchat,
-                total_ligne_ht: qte * prixVenteHt,
-              };
-            }),
+            create: computedLignes,
           },
           ...(payload.paiements
             ? {
@@ -97,6 +151,12 @@ export class VentesService {
                 },
               }
             : {}),
+        },
+        include: {
+          session: {
+            include: { utilisateur: true },
+          },
+          client: true,
         },
       });
 
@@ -174,12 +234,22 @@ export class VentesService {
     const result = {
       id: String(vente.v.id_vente),
       referenceTicket: vente.v.reference_ticket,
+      numeroFacture: vente.v.numero_facture || '0001',
       dateVente: vente.v.date_vente.toISOString(),
       totalHt: Number(vente.v.total_ht),
       totalTva: Number(vente.v.total_tva),
       totalTtc: Number(vente.v.total_ttc),
+      totalRemise: Number(vente.v.total_remise || 0),
       margeTotale: Number(vente.v.marge_totale),
       statutVente: vente.v.statut_vente,
+      client: {
+        id: vente.v.id_client ? String(vente.v.id_client) : undefined,
+        nom: vente.v.nom_client_snapshot || 'Walk-In Customer',
+        telephone: vente.v.telephone_client_snapshot || '',
+      },
+      vendeur: {
+        nom: vente.v.session?.utilisateur ? `${vente.v.session.utilisateur.prenom} ${vente.v.session.utilisateur.nom}` : '',
+      },
       lignesCount: payload.lignes.length,
     };
 
@@ -279,6 +349,10 @@ export class VentesService {
       this.prisma.vente.findMany({
         where,
         include: {
+          client: true,
+          session: {
+            include: { utilisateur: true, caisse: true },
+          },
           lignes: { include: { produit: true } },
           paiements: true,
           retours: true,
@@ -294,12 +368,23 @@ export class VentesService {
       data: ventes.map((v) => ({
         id: String(v.id_vente),
         referenceTicket: v.reference_ticket,
+        numeroFacture: v.numero_facture || '0001',
         dateVente: v.date_vente.toISOString(),
         totalHt: Number(v.total_ht),
         totalTva: Number(v.total_tva),
         totalTtc: Number(v.total_ttc),
+        totalRemise: Number(v.total_remise || 0),
         margeTotale: Number(v.marge_totale),
         statutVente: v.statut_vente,
+        client: {
+          id: v.id_client ? String(v.id_client) : undefined,
+          nom: v.nom_client_snapshot || (v.client ? (v.client.prenom ? `${v.client.nom} ${v.client.prenom}` : v.client.nom) : 'Walk-In Customer'),
+          telephone: v.telephone_client_snapshot || (v.client?.telephone || ''),
+        },
+        vendeur: {
+          nom: v.session?.utilisateur ? `${v.session.utilisateur.prenom} ${v.session.utilisateur.nom}` : '',
+        },
+        caisse: v.session?.caisse?.code_caisse || 'Caisse 1',
         lignesCount: v.lignes.length,
         retoursCount: v.retours.length,
       })),
@@ -313,6 +398,10 @@ export class VentesService {
     const v = await this.prisma.vente.findUnique({
       where: { id_vente: id },
       include: {
+        client: true,
+        session: {
+          include: { utilisateur: true, caisse: true },
+        },
         lignes: { include: { produit: true } },
         paiements: true,
         retours: {
@@ -328,12 +417,24 @@ export class VentesService {
     return {
       id: String(v.id_vente),
       referenceTicket: v.reference_ticket,
+      numeroFacture: v.numero_facture || '0001',
       dateVente: v.date_vente.toISOString(),
       totalHt: Number(v.total_ht),
       totalTva: Number(v.total_tva),
       totalTtc: Number(v.total_ttc),
+      totalRemise: Number(v.total_remise || 0),
       margeTotale: Number(v.marge_totale),
       statutVente: v.statut_vente,
+      client: {
+        id: v.id_client ? String(v.id_client) : undefined,
+        nom: v.nom_client_snapshot || (v.client ? (v.client.prenom ? `${v.client.nom} ${v.client.prenom}` : v.client.nom) : 'Walk-In Customer'),
+        telephone: v.telephone_client_snapshot || (v.client?.telephone || ''),
+        adresse: v.client?.adresse || '',
+      },
+      vendeur: {
+        nom: v.session?.utilisateur ? `${v.session.utilisateur.prenom} ${v.session.utilisateur.nom}` : '',
+      },
+      caisse: v.session?.caisse?.code_caisse || 'Caisse 1',
       lignes: v.lignes.map((l) => ({
         id: String(l.id_ligne_vente),
         produitId: String(l.id_produit),
@@ -344,6 +445,10 @@ export class VentesService {
         nomKit: l.nom_kit || undefined,
         idKitGroupe: l.id_kit_groupe || undefined,
         prixVenteUnitaireHt: Number(l.prix_vente_unitaire_ht_snapshot),
+        prixUnitaireReduit: l.prix_unitaire_reduit ? Number(l.prix_unitaire_reduit) : Number(l.prix_vente_unitaire_ht_snapshot),
+        remiseValeur: Number(l.remise_valeur || 0),
+        remiseType: l.remise_type || 'FIXE',
+        unite: l.unite_libelle || 'Pce(s)',
         tauxTva: Number(l.taux_tva_snapshot),
         totalLigneHt: Number(l.total_ligne_ht),
       })),

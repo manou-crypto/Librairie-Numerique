@@ -21,10 +21,16 @@ import {
   Save,
   Clock,
   Archive,
+  UserCheck,
+  UserPlus,
+  ChevronDown,
+  Tag,
+  Percent,
+  Check,
 } from 'lucide-react';
 
 import Badge from '@/components/ui/Badge';
-import PaymentModal from './PaymentModal';
+import PaymentModal, { PaymentSuccessData } from './PaymentModal';
 import ReceiptModal from './ReceiptModal';
 import KitComposerModal, { KitProductItem, KitCompositionItem } from './KitComposerModal';
 import RapportCaisseModal from './RapportCaisseModal';
@@ -32,6 +38,7 @@ import { produitsService, ConditionnementItem, CategorieItem } from '@/services/
 import { ventesService, ModeleKit } from '@/services/ventes.service';
 import { caissesService } from '@/services/caisses.service';
 import { unitesService, UniteItem } from '@/services/unites.service';
+import { clientsService, Client } from '@/services/clients.service';
 import { useAppConfig } from '@/contexts/ConfigContext';
 import { useSocket } from '@/contexts/SocketContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -60,6 +67,10 @@ interface CartItem extends Product {
   prixForfaitaireKit?: number;
   selectedUnitId?: number | null;
   selectedUnitMultiple?: number;
+  selectedUnitNom?: string;
+  remiseValeur?: number;
+  remiseType?: 'FIXE' | 'POURCENTAGE';
+  prixUnitaireReduit?: number;
 }
 
 const KITS_TAB = 'Kits & Bundles';
@@ -93,11 +104,46 @@ export default function POSTerminal() {
   const [lastSaleData, setLastSaleData] = useState<{
     id: string;
     referenceTicket: string;
+    numeroFacture?: string;
     total: number;
+    totalHt?: number;
+    totalTva?: number;
+    totalRemise?: number;
     mode: string;
     paiements?: Array<{modePaiement: string, montant: number}>;
-    items: { name: string; qty: number; price: number; total: number; nomKit?: string }[];
+    items: {
+      name: string;
+      qty: number;
+      price: number;
+      total: number;
+      nomKit?: string;
+      prixUnitaireReduit?: number;
+      remise?: number;
+      unite?: string;
+    }[];
+    client?: {
+      nom: string;
+      telephone?: string;
+      adresse?: string;
+    };
+    vendeur?: string;
   } | null>(null);
+
+  // Clients en Caisse
+  const [allClients, setAllClients] = useState<Client[]>([]);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [clientSearchOpen, setClientSearchOpen] = useState(false);
+  const [clientSearchTerm, setClientSearchTerm] = useState('');
+  const [quickClientModalOpen, setQuickClientModalOpen] = useState(false);
+  const [quickClientNom, setQuickClientNom] = useState('');
+  const [quickClientTel, setQuickClientTel] = useState('');
+  const [savingQuickClient, setSavingQuickClient] = useState(false);
+
+  // Modale Remise (Fixe ou Pourcentage)
+  const [discountModalOpen, setDiscountModalOpen] = useState(false);
+  const [discountTargetItemId, setDiscountTargetItemId] = useState<string | null>(null);
+  const [discountType, setDiscountType] = useState<'FIXE' | 'POURCENTAGE'>('FIXE');
+  const [discountValue, setDiscountValue] = useState('');
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [sessionStatus, setSessionStatus] = useState<
     'loading' | 'open' | 'closed' | 'no-caisse' | 'error'
@@ -568,48 +614,170 @@ export default function POSTerminal() {
     localStorage.setItem('pos_cart_drafts', JSON.stringify(newDrafts));
   };
 
-  // Calculs du panier avec TVA globale
-  const sousTotalHt = cart.reduce((s, i) => s + i.prixVente * i.qty, 0);
+  // Chargement des clients
+  const loadClients = useCallback(async () => {
+    try {
+      const list = await clientsService.getAll();
+      setAllClients(list);
+      // Sélectionner le client Walk-In par défaut
+      const defaultClient = list.find((c) => c.codeClient === 'CLI-0000') || list[0] || null;
+      setSelectedClient((prev) => prev || defaultClient);
+    } catch {
+      // Ignorer
+    }
+  }, []);
+
+  useEffect(() => {
+    loadClients();
+  }, [loadClients]);
+
+  // Création rapide d'un client depuis le POS
+  const handleQuickClientSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickClientNom.trim()) {
+      toast.error('Le nom du client est requis');
+      return;
+    }
+    setSavingQuickClient(true);
+    try {
+      const created = await clientsService.create({
+        nom: quickClientNom.trim(),
+        telephone: quickClientTel.trim() || undefined,
+        typeClient: 'PARTICULIER',
+      });
+      toast.success(`Client "${created.nomComplet}" ajouté et sélectionné !`);
+      setAllClients((prev) => [created, ...prev]);
+      setSelectedClient(created);
+      setQuickClientModalOpen(false);
+      setQuickClientNom('');
+      setQuickClientTel('');
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur lors de la création du client');
+    } finally {
+      setSavingQuickClient(false);
+    }
+  };
+
+  // Gestion des remises (Fixe & Pourcentage)
+  const openDiscountModal = (cartItemId: string) => {
+    const item = cart.find((i) => i.cartItemId === cartItemId);
+    if (!item) return;
+    setDiscountTargetItemId(cartItemId);
+    setDiscountType(item.remiseType || 'FIXE');
+    setDiscountValue(item.remiseValeur ? String(item.remiseValeur) : '');
+    setDiscountModalOpen(true);
+  };
+
+  const applyDiscount = () => {
+    if (!discountTargetItemId) return;
+    const val = parseFloat(discountValue) || 0;
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.cartItemId !== discountTargetItemId) return item;
+        if (val <= 0) {
+          return {
+            ...item,
+            remiseValeur: 0,
+            remiseType: 'FIXE',
+            prixUnitaireReduit: item.prixVente,
+          };
+        }
+        let reduit = item.prixVente;
+        if (discountType === 'POURCENTAGE') {
+          const pct = Math.min(100, Math.max(0, val));
+          reduit = Math.max(0, Math.round(item.prixVente * (1 - pct / 100)));
+        } else {
+          reduit = Math.max(0, Math.round(item.prixVente - val));
+        }
+        return {
+          ...item,
+          remiseValeur: val,
+          remiseType: discountType,
+          prixUnitaireReduit: reduit,
+        };
+      })
+    );
+    setDiscountModalOpen(false);
+    toast.success('Remise appliquée');
+  };
+
+  const removeDiscount = (cartItemId: string) => {
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.cartItemId !== cartItemId) return item;
+        return {
+          ...item,
+          remiseValeur: 0,
+          remiseType: 'FIXE',
+          prixUnitaireReduit: item.prixVente,
+        };
+      })
+    );
+    toast.info('Remise retirée');
+  };
+
+  // Calculs du panier avec remises et TVA
+  const sousTotalBrut = cart.reduce((s, i) => s + i.prixVente * i.qty, 0);
+  const totalRemise = cart.reduce((s, i) => {
+    const reduit = i.prixUnitaireReduit !== undefined ? i.prixUnitaireReduit : i.prixVente;
+    return s + (i.prixVente - reduit) * i.qty;
+  }, 0);
+  const sousTotalHt = sousTotalBrut - totalRemise;
   const totalTva = cart.reduce((s, i) => {
     const tva = i.tva ?? tauxTva;
-    return s + (i.prixVente * i.qty * tva) / 100;
+    const reduit = i.prixUnitaireReduit !== undefined ? i.prixUnitaireReduit : i.prixVente;
+    return s + (reduit * i.qty * tva) / 100;
   }, 0);
   const totalTtc = sousTotalHt + totalTva;
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
 
   /**
-   * Traitement du paiement — Appel réel à l'API backend.
-   * Cette fonction est appelée depuis PaymentModal après confirmation.
+   * Traitement du paiement — Appel réel à l'API backend avec remise globale.
    */
-  const handlePaymentSuccess = async (paiementsModal: Array<{mode: string, montant: number}>) => {
+  const handlePaymentSuccess = async (paymentData: PaymentSuccessData) => {
     if (cart.length === 0) return;
     setIsSaving(true);
 
-    // Déterminer le mode principal (celui qui a le plus grand montant ou wave en priorité s'il existe)
-    const mainMode = paiementsModal.some(p => p.mode !== 'especes') ? 'mobile_money' : 'especes';
+    const { paiements, totalRemise: globalRemise, remiseType, remiseValeur, totalNet } = paymentData;
+    const mainMode = paiements.some(p => p.mode !== 'especes') ? 'mobile_money' : 'especes';
+
+    // Répartition proportionnelle de la remise globale sur les articles
+    const totalBrutCart = cart.reduce((s, i) => s + i.prixVente * i.qty, 0);
+    const discountRatio = totalBrutCart > 0 && globalRemise > 0 ? (totalBrutCart - globalRemise) / totalBrutCart : 1;
 
     try {
       const payload = {
         sessionId: activeSessionId,
+        clientId: selectedClient?.id,
+        nomClient: selectedClient?.nomComplet || selectedClient?.nom || 'Walk-In Customer',
+        telephoneClient: selectedClient?.telephone || '',
         lignes: cart.map((item) => {
           const tva = item.tva ?? tauxTva;
           const multiple = item.selectedUnitMultiple || 1;
           const trueQty = item.qty * multiple;
           const trueUnitPrice = item.prixVente / multiple;
+          const reducedUnitPrice = Math.max(0, Math.round(item.prixVente * discountRatio));
+          const truePrixReduit = reducedUnitPrice / multiple;
+          const lineRemise = Math.max(0, item.prixVente - reducedUnitPrice);
+          const unitNom = allUnites.find((u) => u.id_unite === item.selectedUnitId)?.nom || 'Pce(s)';
 
           return {
             produitId: item.id,
             quantite: trueQty,
             prixAchatUnitaireSnapshot: item.prixAchat,
             prixVenteUnitaireHtSnapshot: trueUnitPrice,
+            prixUnitaireReduit: truePrixReduit,
+            remiseValeur: lineRemise,
+            remiseType: remiseType || 'FIXE',
+            uniteLibelle: unitNom,
             tauxTvaSnapshot: tva,
-            margeUnitaire: trueUnitPrice - item.prixAchat,
-            totalLigneHt: item.prixVente * item.qty,
+            margeUnitaire: truePrixReduit - item.prixAchat,
+            totalLigneHt: reducedUnitPrice * item.qty,
             nomKit: item.nomKit,
             idKitGroupe: item.idKitGroupe,
           };
         }),
-        paiements: paiementsModal.map(p => ({
+        paiements: paiements.map(p => ({
           modePaiement: p.mode === 'especes' ? 'ESPECES' : 'MOBILE_MONEY',
           montant: p.montant,
           referenceTransaction: p.mode === 'especes' ? undefined : p.mode,
@@ -621,16 +789,34 @@ export default function POSTerminal() {
       setLastSaleData({
         id: result.id,
         referenceTicket: result.referenceTicket,
+        numeroFacture: result.numeroFacture || '0006',
         total: result.totalTtc,
+        totalHt: result.totalHt,
+        totalTva: result.totalTva,
+        totalRemise: result.totalRemise || globalRemise,
         mode: mainMode,
-        paiements: paiementsModal.map(p => ({ modePaiement: p.mode, montant: p.montant })),
-        items: cart.map((i) => ({
-          name: i.name,
-          qty: i.qty,
-          price: i.prixVente,
-          total: i.prixVente * i.qty,
-          nomKit: i.nomKit,
-        })),
+        paiements: paiements.map(p => ({ modePaiement: p.mode, montant: p.montant })),
+        client: {
+          nom: selectedClient?.nomComplet || selectedClient?.nom || 'Walk-In Customer',
+          telephone: selectedClient?.telephone || '',
+          adresse: selectedClient?.adresse || '',
+        },
+        vendeur: user?.name || 'M. Dahiri Hervé KONÉ',
+        items: cart.map((i) => {
+          const unitNom = allUnites.find((u) => u.id_unite === i.selectedUnitId)?.nom || 'Pce(s)';
+          const reducedUnitPrice = Math.max(0, Math.round(i.prixVente * discountRatio));
+          const lineRemise = Math.max(0, i.prixVente - reducedUnitPrice);
+          return {
+            name: i.name,
+            qty: i.qty,
+            price: i.prixVente,
+            prixUnitaireReduit: reducedUnitPrice,
+            remise: lineRemise,
+            total: reducedUnitPrice * i.qty,
+            unite: unitNom,
+            nomKit: i.nomKit,
+          };
+        }),
       });
       setCart([]);
       setPaymentOpen(false);
@@ -1102,6 +1288,80 @@ export default function POSTerminal() {
           </div>
         </div>
 
+        {/* ─── Barre de Sélection du Client ─── */}
+        <div className="px-5 py-2.5 bg-muted/30 border-b border-border flex items-center justify-between gap-2 shrink-0">
+          <div className="flex-1 relative">
+            <button
+              type="button"
+              onClick={() => setClientSearchOpen(!clientSearchOpen)}
+              className="flex items-center justify-between w-full text-left px-2.5 py-1.5 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors text-xs"
+            >
+              <div className="flex items-center gap-2 truncate">
+                <UserCheck size={14} className="text-primary shrink-0" />
+                <span className="font-semibold text-foreground truncate">
+                  {selectedClient ? selectedClient.nomComplet : 'Walk-In Customer'}
+                </span>
+                {selectedClient?.telephone && (
+                  <span className="text-[10px] text-muted-foreground truncate">
+                    ({selectedClient.telephone})
+                  </span>
+                )}
+              </div>
+              <ChevronDown size={14} className="text-muted-foreground shrink-0" />
+            </button>
+
+            {/* Dropdown recherche client */}
+            {clientSearchOpen && (
+              <div className="absolute left-0 top-full mt-1 w-full z-30 bg-card border border-border rounded-xl shadow-xl overflow-hidden fade-in">
+                <div className="p-2 border-b border-border">
+                  <input
+                    type="text"
+                    placeholder="Chercher par nom ou tél..."
+                    value={clientSearchTerm}
+                    onChange={(e) => setClientSearchTerm(e.target.value)}
+                    className="input-base text-xs py-1.5 w-full"
+                    autoFocus
+                  />
+                </div>
+                <div className="max-h-48 overflow-y-auto divide-y divide-border text-xs">
+                  {allClients
+                    .filter((c) => {
+                      if (!clientSearchTerm.trim()) return true;
+                      const term = clientSearchTerm.toLowerCase();
+                      return (
+                        c.nomComplet.toLowerCase().includes(term) ||
+                        (c.telephone && c.telephone.includes(term)) ||
+                        c.codeClient.toLowerCase().includes(term)
+                      );
+                    })
+                    .map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedClient(c);
+                          setClientSearchOpen(false);
+                          setClientSearchTerm('');
+                        }}
+                        className={`w-full px-3 py-2 text-left hover:bg-muted/50 flex items-center justify-between ${
+                          selectedClient?.id === c.id ? 'bg-primary/10 text-primary font-bold' : ''
+                        }`}
+                      >
+                        <div className="truncate">
+                          <p className="font-semibold truncate">{c.nomComplet}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {c.telephone ? c.telephone : c.codeClient}
+                          </p>
+                        </div>
+                        {selectedClient?.id === c.id && <Check size={14} className="shrink-0" />}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Lignes du panier */}
         <div className="flex-1 overflow-y-auto scrollbar-thin">
           {cart.length === 0 ? (
@@ -1197,20 +1457,24 @@ export default function POSTerminal() {
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-3">
+
+                        {/* Prix de la ligne et suppression */}
+                        <div className="flex items-center gap-2">
                           <span className="text-xs font-bold tabular-nums text-foreground">
                             {(item.prixVente * item.qty).toLocaleString('fr-FR', {
-                              minimumFractionDigits: 2,
+                              minimumFractionDigits: 0,
                             })}{' '}
                             {devise}
                           </span>
+
                           {!item.nomKit && (
                             <button
                               onClick={() => removeItem(item.cartItemId)}
-                              className="text-muted-foreground hover:text-negative transition-colors"
+                              className="text-muted-foreground hover:text-negative transition-colors ml-1 p-1 hover:bg-negative/10 rounded"
                               aria-label={`Supprimer ${item.name}`}
+                              title="Retirer du panier"
                             >
-                              <X size={14} />
+                              <X size={15} />
                             </button>
                           )}
                         </div>
@@ -1228,50 +1492,36 @@ export default function POSTerminal() {
           <div className="space-y-2 mb-4">
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>
-                Sous-total HT ({totalItems} article{totalItems > 1 ? 's' : ''})
+                Sous-total Brut ({totalItems} article{totalItems > 1 ? 's' : ''})
               </span>
               <span className="tabular-nums font-medium text-foreground">
-                {sousTotalHt.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {devise}
+                {sousTotalBrut.toLocaleString('fr-FR', { minimumFractionDigits: 0 })} {devise}
               </span>
             </div>
+
+            {totalRemise > 0 && (
+              <div className="flex justify-between text-xs text-emerald-600 font-semibold bg-emerald-50/50 dark:bg-emerald-950/20 px-2 py-1 rounded">
+                <span>Remise accordée</span>
+                <span className="tabular-nums">-{totalRemise.toLocaleString('fr-FR', { minimumFractionDigits: 0 })} {devise}</span>
+              </div>
+            )}
+
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>TVA ({tauxTva}%)</span>
               <span className="tabular-nums font-medium text-foreground">
-                {totalTva.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {devise}
+                {totalTva.toLocaleString('fr-FR', { minimumFractionDigits: 0 })} {devise}
               </span>
             </div>
             <div className="h-px bg-border" />
             <div className="flex justify-between text-base font-bold text-foreground">
               <span>Total TTC</span>
               <span className="tabular-nums text-primary text-xl">
-                {totalTtc.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {devise}
+                {totalTtc.toLocaleString('fr-FR', { minimumFractionDigits: 0 })} {devise}
               </span>
             </div>
           </div>
 
-          {/* Modes de paiement rapides */}
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            {[
-              { id: 'pay-especes', label: 'Espèces', icon: Banknote },
-              { id: 'pay-mobile', label: 'Mobile Money', icon: Smartphone },
-            ].map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => {
-                  if (cart.length === 0) {
-                    toast.error('Ajoutez des produits avant de payer.');
-                    return;
-                  }
-                  setPaymentOpen(true);
-                }}
-                disabled={cart.length === 0}
-                className="flex flex-col items-center gap-1.5 py-3 rounded-xl border border-border hover:border-primary/40 hover:bg-primary/5 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
-              >
-                <Icon size={18} className="text-primary" />
-                <span className="text-[10px] font-semibold text-foreground">{label}</span>
-              </button>
-            ))}
-          </div>
+
 
           <button
             onClick={() => {
@@ -1313,12 +1563,18 @@ export default function POSTerminal() {
           onClose={() => setReceiptOpen(false)}
           saleId={lastSaleData.id}
           referenceTicket={lastSaleData.referenceTicket}
+          numeroFacture={lastSaleData.numeroFacture}
           total={lastSaleData.total}
+          totalHt={lastSaleData.totalHt}
+          totalTva={lastSaleData.totalTva}
+          totalRemise={lastSaleData.totalRemise}
           mode={lastSaleData.mode}
           paiements={lastSaleData.paiements}
           items={lastSaleData.items}
-          caisse={assignedCaisse?.codeCaisse || 'Caisse'}
+          caisse={assignedCaisse?.codeCaisse || 'Caisse 1'}
           devise={devise}
+          client={lastSaleData.client}
+          vendeur={lastSaleData.vendeur}
         />
       )}
       <KitComposerModal
@@ -1390,6 +1646,72 @@ export default function POSTerminal() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+
+
+      {/* MODALE CRÉATION RAPIDE CLIENT */}
+      {quickClientModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-2xl shadow-xl max-w-sm w-full p-5 space-y-4 fade-in">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+                <UserPlus size={16} className="text-primary" /> Nouveau Client Rapide
+              </h3>
+              <button onClick={() => setQuickClientModalOpen(false)} className="text-muted-foreground hover:text-foreground">
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleQuickClientSubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                  Nom ou Raison Sociale *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={quickClientNom}
+                  onChange={(e) => setQuickClientNom(e.target.value)}
+                  placeholder="ex: M. KOUASSI ou École Saint-Jean"
+                  className="input-base w-full text-xs"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                  Numéro de Téléphone
+                </label>
+                <input
+                  type="text"
+                  value={quickClientTel}
+                  onChange={(e) => setQuickClientTel(e.target.value)}
+                  placeholder="ex: 0709511425"
+                  className="input-base w-full text-xs"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setQuickClientModalOpen(false)}
+                  className="btn-secondary text-xs"
+                  disabled={savingQuickClient}
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary text-xs flex items-center gap-1.5 font-semibold"
+                  disabled={savingQuickClient}
+                >
+                  {savingQuickClient && <Loader2 size={13} className="animate-spin" />}
+                  Créer et Sélectionner
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
